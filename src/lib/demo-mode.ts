@@ -32,7 +32,7 @@ export const DEMO_WHATSAPP_INSTANCES = [
     instance_id: 'demo-123',
     phone_number: '+5511999999999',
     status: 'disconnected' as const,
-    qr_code: null,
+    qr_code: undefined,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }

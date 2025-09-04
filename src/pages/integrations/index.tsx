@@ -4,14 +4,12 @@ import { QRCodeDisplay } from '@/components/QRCodeDisplay';
 import { useWhatsAppConnection } from '@/hooks/useWhatsAppConnection';
 import { supabase } from '@/lib/supabase';
 import { DEMO_MODE } from '@/lib/demo-mode';
-import Head from 'next/head';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
+import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { MessageSquare, Facebook, BarChart3, Settings } from 'lucide-react';
 
 export default function Integrations() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrAttempts, setQrAttempts] = useState(0);
@@ -41,13 +39,13 @@ export default function Integrations() {
 
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
-          router.push('/auth/signin');
+          navigate('/auth/signin');
           return;
         }
       } catch (error) {
         console.error('Error checking auth:', error);
         if (!DEMO_MODE) {
-          router.push('/auth/signin');
+          navigate('/auth/signin');
         }
       } finally {
         setLoading(false);
@@ -55,7 +53,7 @@ export default function Integrations() {
     };
 
     checkAuth();
-  }, [router]);
+  }, [navigate]);
 
   // QR Code countdown timer
   useEffect(() => {
@@ -144,10 +142,7 @@ export default function Integrations() {
 
   return (
     <>
-      <Head>
-        <title>Integrações - Live Shop Analytics</title>
-        <meta name="description" content="Configure suas integrações WhatsApp e Meta Ads" />
-      </Head>
+      <title>Integrações - Live Shop Analytics</title>
 
       <main className="min-h-screen bg-gray-50">
         <DemoBanner />
@@ -156,12 +151,12 @@ export default function Integrations() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16">
               <div className="flex items-center">
-                <Link href="/" className="text-xl font-bold text-gray-900">
+                <Link to="/" className="text-xl font-bold text-gray-900">
                   Live Shop Analytics
                 </Link>
               </div>
               <div className="flex items-center space-x-4">
-                <Link href="/dashboard">
+                <Link to="/dashboard">
                   <Button variant="outline">Dashboard</Button>
                 </Link>
               </div>
@@ -286,7 +281,7 @@ export default function Integrations() {
                 Configurações avançadas para rastreamento e análise de dados
               </p>
 
-              <Link href="/analytics/settings">
+              <Link to="/analytics/settings">
                 <Button variant="outline" className="w-full">
                   Configurar Analytics
                 </Button>
@@ -308,7 +303,7 @@ export default function Integrations() {
                 Configure preferências gerais do sistema e notificações
               </p>
 
-              <Link href="/settings">
+              <Link to="/settings">
                 <Button variant="outline" className="w-full">
                   Acessar Configurações
                 </Button>

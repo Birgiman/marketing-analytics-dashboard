@@ -2,9 +2,7 @@ import { Button } from '@/components/ui/button';
 import { DemoBanner } from '@/components/DemoBanner';
 import { supabase } from '@/lib/supabase';
 import { DEMO_MODE, DEMO_STATS } from '@/lib/demo-mode';
-import Head from 'next/head';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
+import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { BarChart3, MessageSquare, Users, TrendingUp, Eye, DollarSign } from 'lucide-react';
 
@@ -16,7 +14,7 @@ interface DashboardStats {
 }
 
 export default function Dashboard() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
     totalViews: 0,
@@ -37,7 +35,7 @@ export default function Dashboard() {
 
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
-          router.push('/auth/signin');
+          navigate('/auth/signin');
           return;
         }
 
@@ -46,7 +44,7 @@ export default function Dashboard() {
       } catch (error) {
         console.error('Error checking auth:', error);
         if (!DEMO_MODE) {
-          router.push('/auth/signin');
+          navigate('/auth/signin');
         }
       } finally {
         setLoading(false);
@@ -54,7 +52,7 @@ export default function Dashboard() {
     };
 
     checkAuth();
-  }, [router]);
+  }, [navigate]);
 
   const loadStats = async (userId: string) => {
     try {
@@ -94,10 +92,7 @@ export default function Dashboard() {
 
   return (
     <>
-      <Head>
-        <title>Dashboard - Live Shop Analytics</title>
-        <meta name="description" content="Dashboard principal do Live Shop Analytics" />
-      </Head>
+      <title>Dashboard - Live Shop Analytics</title>
 
       <main className="min-h-screen bg-gray-50">
         <DemoBanner />
@@ -106,15 +101,15 @@ export default function Dashboard() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16">
               <div className="flex items-center">
-                <Link href="/" className="text-xl font-bold text-gray-900">
+                <Link to="/" className="text-xl font-bold text-gray-900">
                   Live Shop Analytics
                 </Link>
               </div>
               <div className="flex items-center space-x-4">
-                <Link href="/integrations">
+                <Link to="/integrations">
                   <Button variant="outline">Integrações</Button>
                 </Link>
-                <Link href="/analytics">
+                <Link to="/analytics">
                   <Button variant="outline">Analytics</Button>
                 </Link>
               </div>
@@ -193,7 +188,7 @@ export default function Dashboard() {
               <p className="text-gray-600 mb-4">
                 Veja análises detalhadas de performance e conversões
               </p>
-              <Link href="/analytics">
+              <Link to="/analytics">
                 <Button className="w-full">Ver Analytics</Button>
               </Link>
             </div>
@@ -206,7 +201,7 @@ export default function Dashboard() {
               <p className="text-gray-600 mb-4">
                 Configure WhatsApp e outras integrações
               </p>
-              <Link href="/integrations">
+              <Link to="/integrations">
                 <Button className="w-full">Configurar</Button>
               </Link>
             </div>
@@ -219,7 +214,7 @@ export default function Dashboard() {
               <p className="text-gray-600 mb-4">
                 Gerencie e monitore suas transmissões ao vivo
               </p>
-              <Link href="/lives">
+              <Link to="/lives">
                 <Button className="w-full">Gerenciar Lives</Button>
               </Link>
             </div>
@@ -233,7 +228,7 @@ export default function Dashboard() {
                 <p className="text-gray-500">
                   Conecte suas integrações para ver atividades recentes aqui
                 </p>
-                <Link href="/integrations">
+                <Link to="/integrations">
                   <Button variant="outline" className="mt-4">
                     Configurar Integrações
                   </Button>

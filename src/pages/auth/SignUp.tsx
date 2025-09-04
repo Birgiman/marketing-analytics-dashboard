@@ -1,12 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
-import Head from 'next/head';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
+import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 
 export default function SignUp() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -77,7 +75,7 @@ export default function SignUp() {
           console.error('Error creating profile:', profileError);
         }
 
-        router.push('/auth/signin?message=Account created successfully');
+        navigate('/auth/signin?message=Account created successfully');
       }
     } catch (error: any) {
       setError(error.message || 'Erro ao criar conta');
@@ -88,10 +86,7 @@ export default function SignUp() {
 
   return (
     <>
-      <Head>
-        <title>Cadastro - Live Shop Analytics</title>
-        <meta name="description" content="Crie sua conta no Live Shop Analytics" />
-      </Head>
+      <title>Cadastro - Live Shop Analytics</title>
 
       <main className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
@@ -101,7 +96,7 @@ export default function SignUp() {
             </h2>
             <p className="mt-2 text-center text-sm text-gray-600">
               Ou{' '}
-              <Link href="/auth/signin" className="font-medium text-primary-600 hover:text-primary-500">
+              <Link to="/auth/signin" className="font-medium text-primary-600 hover:text-primary-500">
                 faça login se já tem uma conta
               </Link>
             </p>
@@ -227,7 +222,7 @@ export default function SignUp() {
             </div>
 
             <div className="text-center">
-              <Link href="/" className="text-sm text-primary-600 hover:text-primary-500">
+              <Link to="/" className="text-sm text-primary-600 hover:text-primary-500">
                 Voltar ao início
               </Link>
             </div>

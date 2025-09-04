@@ -1,12 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
-import Head from 'next/head';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
+import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 
 export default function SignIn() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,7 +27,7 @@ export default function SignIn() {
       }
 
       if (data?.user) {
-        router.push('/');
+        navigate('/');
       }
     } catch (error: any) {
       setError(error.message || 'Erro ao fazer login');
@@ -40,9 +38,7 @@ export default function SignIn() {
 
   return (
     <>
-      <Head>
-        <title>Login - Live Shop Analytics</title>
-      </Head>
+      <title>Login - Live Shop Analytics</title>
 
       <main className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
@@ -52,7 +48,7 @@ export default function SignIn() {
             </h2>
             <p className="mt-2 text-center text-sm text-gray-600">
               Ou{' '}
-              <Link href="/auth/signup" className="font-medium text-primary-600 hover:text-primary-500">
+              <Link to="/auth/signup" className="font-medium text-primary-600 hover:text-primary-500">
                 crie uma nova conta
               </Link>
             </p>
@@ -112,7 +108,7 @@ export default function SignIn() {
             </div>
 
             <div className="text-center">
-              <Link href="/" className="text-sm text-primary-600 hover:text-primary-500">
+              <Link to="/" className="text-sm text-primary-600 hover:text-primary-500">
                 Voltar ao início
               </Link>
             </div>
