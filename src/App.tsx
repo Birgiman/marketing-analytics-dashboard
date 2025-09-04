@@ -13,6 +13,7 @@ import Groups from "./pages/Groups";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import NotFound from "./pages/NotFound";
+import SupabaseConfig from "./pages/admin/SupabaseConfig";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +43,7 @@ function AppContent() {
             <Route path="/lives" element={<Lives />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/groups" element={<Groups />} />
+            <Route path="/admin/supabase-config" element={<SupabaseConfig />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
