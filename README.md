@@ -1,73 +1,169 @@
-# Welcome to your Lovable project
+# Live Shop Analytics - Rebuilt
 
-## Project info
+Sistema de analytics para LiveShop com foco em métricas de desempenho e análise de dados de WhatsApp e Meta Ads.
 
-**URL**: https://lovable.dev/projects/13b66300-2324-419b-8a95-e5c6c5c09a98
+## Arquitetura do Projeto
 
-## How can I edit this code?
+### Frontend
+- **Framework:** Next.js 14 com TypeScript
+- **Styling:** Tailwind CSS
+- **Estado:** React Hooks + Supabase Client
 
-There are several ways of editing your application.
+### Backend
+- **Database:** Supabase (PostgreSQL)
+- **Auth:** Supabase Auth
+- **APIs:** Meta Marketing API + WhatsApp Evolution API
 
-**Use Lovable**
+### Estrutura de Pastas
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/13b66300-2324-419b-8a95-e5c6c5c09a98) and start prompting.
+```
+src/
+├── components/          # Componentes React reutilizáveis
+│   ├── ui/             # Componentes base de UI
+│   └── QRCodeDisplay.tsx
+├── hooks/              # Custom hooks
+│   ├── useToast.ts
+│   └── useWhatsAppConnection.tsx
+├── lib/                # Configurações e utilitários
+│   └── supabase.ts
+├── pages/              # Páginas Next.js
+│   ├── auth/           # Páginas de autenticação
+│   ├── integrations/   # Páginas de integrações
+│   └── dashboard/      # Dashboard principal
+├── services/           # Serviços de API
+│   └── whatsappService.ts
+├── styles/             # Estilos globais
+├── types/              # Definições TypeScript
+└── utils/              # Funções utilitárias
+```
 
-Changes made via Lovable will be committed automatically to this repo.
+## Funcionalidades Implementadas
 
-**Use your preferred IDE**
+### ✅ Autenticação e Perfis
+- Sistema de login/cadastro com Supabase Auth
+- Perfis de usuário com nome, email e telefone
+- Sistema de aprovação manual (pending → active → blocked)
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### ✅ Integração WhatsApp (Completa)
+- **Hooks avançados**: `useWhatsAppConnection` e `useWhatsAppQR`
+- **Evolution API Integration**: Edge Functions completas no Supabase
+- **QR Code automático**: Geração baseada no perfil do usuário
+- **Polling inteligente**: Verificação automática de status a cada 10s
+- **Auto-refresh QR**: Renovação automática com countdown de 50s
+- **Gerenciamento completo**: Conectar, desconectar, deletar instâncias
+- **Logging avançado**: Todas as operações são logadas no Supabase
+- **Error handling**: Tratamento robusto de erros e timeouts
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### ✅ Dashboard Principal
+- Métricas básicas (visualizações, vendas, receita)
+- Cards de navegação rápida
+- Estatísticas de integrações conectadas
 
-Follow these steps:
+### ✅ Sistema de Tipos
+- Interfaces TypeScript completas para todas as entidades
+- Tipos para WhatsApp, Analytics, Lives, etc.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Configuração e Instalação
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### 🚀 **Teste Rápido (Modo Demo)**
 
-# Step 3: Install the necessary dependencies.
-npm i
+Para testar a interface imediatamente **SEM configurar banco de dados**:
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+cd liveshop-analytics-rebuilt
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Acesse `http://localhost:3000` - O modo demo está **ATIVO** por padrão!
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- ✅ **Login automático** - Pula autenticação
+- ✅ **Dados simulados** - Dashboard com métricas de exemplo
+- ✅ **WhatsApp demo** - QR Code simulado funcional
+- ✅ **Interface completa** - Todas as telas navegáveis
 
-**Use GitHub Codespaces**
+### 📋 **Configuração Completa (Produção)**
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Para usar com banco de dados real:
 
-## What technologies are used for this project?
+1. **Desativar modo demo** em `src/lib/demo-mode.ts`:
+   ```typescript
+   export const DEMO_MODE = false; // Mudar para false
+   ```
 
-This project is built with:
+2. **Configurar variáveis de ambiente** (`.env.local`):
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=your-project-url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+   ```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+3. **Configurar banco de dados**:
+   Execute o script SQL `schema_atualizado_supabase.sql` no Supabase
 
-## How can I deploy this project?
+4. **Executar aplicação**:
+   ```bash
+   npm run dev
+   ```
 
-Simply open [Lovable](https://lovable.dev/projects/13b66300-2324-419b-8a95-e5c6c5c09a98) and click on Share -> Publish.
+### 🛠️ **Comandos Disponíveis**
 
-## Can I connect a custom domain to my Lovable project?
+```bash
+# Desenvolvimento
+npm run dev
 
-Yes, you can!
+# Build para produção
+npm run build
+npm start
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+# Verificações
+npm run type-check
+npm run lint
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## Estrutura do Banco de Dados
+
+### Principais Tabelas
+
+- **`profiles`** - Perfis de usuário com dados pessoais
+- **`whatsapp_instances`** - Instâncias WhatsApp por usuário
+- **`lives`** - Dados das transmissões ao vivo
+- **`criativos`** - Performance de criativos publicitários
+- **`grupos`** - Atividades em grupos WhatsApp
+- **`user_approval_status`** - Sistema de aprovação de usuários
+
+## Próximos Passos
+
+### 🚧 Em Desenvolvimento
+1. **Meta Ads Integration** - Conectar com Meta Marketing API
+2. **Analytics Avançado** - Relatórios detalhados e gráficos
+3. **Live Management** - Interface para gerenciar transmissões
+4. **Grupo Monitoring** - Monitoramento de grupos WhatsApp
+5. **Creative Analysis** - Análise de performance de criativos
+
+### 📋 Melhorias Futuras
+- Sistema de notificações em tempo real
+- Exportação de relatórios em PDF/Excel
+- Dashboard customizável
+- Sistema de alertas automáticos
+- API pública para integrações
+
+## Notas Técnicas
+
+### Migração do Projeto Original
+Este projeto foi reconstruído a partir dos arquivos de build do projeto original no Lovable. Os componentes principais foram extraídos e adaptados para funcionar em Next.js padrão.
+
+### Dependências Principais
+- Next.js 14 com TypeScript
+- Supabase para backend e autenticação
+- Tailwind CSS para styling
+- Lucide React para ícones
+- React Hook Form para formulários
+
+### Integrações Externas
+- **Evolution API** - WhatsApp Business integration
+- **Supabase** - Database, Auth, Edge Functions
+- **Meta Marketing API** - Facebook/Instagram Ads (futuro)
+
+## Suporte e Desenvolvimento
+
+Para suporte ou contribuições, consulte a documentação do projeto original ou entre em contato com a equipe de desenvolvimento.
