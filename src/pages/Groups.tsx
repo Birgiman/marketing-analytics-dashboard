@@ -82,7 +82,7 @@ export default function Groups() {
   };
 
   // Group activities by group name
-  const groupsByName = groups.reduce((acc, group) => {
+  const groupsByName = (groups || []).reduce((acc, group) => {
     const groupName = group.nome_grupo || 'Grupo sem nome';
     if (!acc[groupName]) {
       acc[groupName] = [];
@@ -92,8 +92,8 @@ export default function Groups() {
   }, {} as Record<string, Group[]>);
 
   const totalGroups = Object.keys(groupsByName).length;
-  const totalActivities = groups.length;
-  const uniqueNumbers = new Set(groups.map(g => g.telefone).filter(Boolean)).size;
+  const totalActivities = (groups || []).length;
+  const uniqueNumbers = new Set((groups || []).map(g => g.telefone).filter(Boolean)).size;
 
   if (loading) {
     return (
@@ -185,7 +185,7 @@ export default function Groups() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Última Atividade</p>
                   <p className="text-sm font-semibold text-gray-900">
-                    {groups.length > 0 ? 'Hoje' : 'Nenhuma'}
+                    {(groups || []).length > 0 ? 'Hoje' : 'Nenhuma'}
                   </p>
                 </div>
               </div>
@@ -223,7 +223,7 @@ export default function Groups() {
                   </div>
 
                   <div className="divide-y divide-gray-200">
-                    {groupActivities.slice(0, 10).map((activity) => (
+                    {(groupActivities || []).slice(0, 10).map((activity) => (
                       <div key={activity.id} className="px-6 py-4 hover:bg-gray-50">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -246,10 +246,10 @@ export default function Groups() {
                       </div>
                     ))}
                     
-                    {groupActivities.length > 10 && (
+                    {(groupActivities || []).length > 10 && (
                       <div className="px-6 py-4 text-center">
                         <Button variant="outline" size="sm">
-                          Ver mais {groupActivities.length - 10} atividades
+                          Ver mais {(groupActivities || []).length - 10} atividades
                         </Button>
                       </div>
                     )}

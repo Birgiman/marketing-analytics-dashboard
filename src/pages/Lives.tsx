@@ -125,7 +125,7 @@ export default function Lives() {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Total Lives</p>
-                  <p className="text-2xl font-semibold text-gray-900">{lives.length}</p>
+                  <p className="text-2xl font-semibold text-gray-900">{(lives || []).length}</p>
                 </div>
               </div>
             </Card>
@@ -138,7 +138,7 @@ export default function Lives() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Visualizações</p>
                   <p className="text-2xl font-semibold text-gray-900">
-                    {lives.reduce((sum, live) => sum + (live.participants || 0), 0)}
+                    {(lives || []).reduce((sum, live) => sum + (live.participants || 0), 0)}
                   </p>
                 </div>
               </div>
@@ -152,7 +152,7 @@ export default function Lives() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Vendas</p>
                   <p className="text-2xl font-semibold text-gray-900">
-                    {lives.reduce((sum, live) => sum + (live.sales || 0), 0)}
+                    {(lives || []).reduce((sum, live) => sum + (live.sales || 0), 0)}
                   </p>
                 </div>
               </div>
@@ -166,7 +166,7 @@ export default function Lives() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Receita</p>
                   <p className="text-2xl font-semibold text-gray-900">
-                    R$ {lives.reduce((sum, live) => sum + (live.revenue || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {(lives || []).reduce((sum, live) => sum + (live.revenue || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
               </div>
@@ -179,7 +179,7 @@ export default function Lives() {
               <div className="text-center py-8">
                 <div className="text-lg">Carregando lives...</div>
               </div>
-            ) : lives.length === 0 ? (
+            ) : !lives || lives.length === 0 ? (
               <Card className="p-8 text-center">
                 <Play className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma live encontrada</h3>
@@ -192,7 +192,7 @@ export default function Lives() {
                 </Button>
               </Card>
             ) : (
-              lives.map((live) => {
+              (lives || []).map((live) => {
                 const { status, color } = getLiveStatus(live);
                 return (
                   <Card key={live.id} className="p-6">

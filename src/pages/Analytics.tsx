@@ -54,8 +54,8 @@ export default function Analytics() {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
-  const totalSpent = creatives.reduce((sum, c) => sum + (c.amount_spent || 0), 0);
-  const totalLeads = creatives.reduce((sum, c) => sum + (c.leads || 0), 0);
+  const totalSpent = (creatives || []).reduce((sum, c) => sum + (c.amount_spent || 0), 0);
+  const totalLeads = (creatives || []).reduce((sum, c) => sum + (c.leads || 0), 0);
   const avgCostPerLead = totalLeads > 0 ? totalSpent / totalLeads : 0;
 
   if (loading) {
@@ -111,7 +111,7 @@ export default function Analytics() {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Total Criativos</p>
-                  <p className="text-2xl font-semibold text-gray-900">{creatives.length}</p>
+                  <p className="text-2xl font-semibold text-gray-900">{(creatives || []).length}</p>
                 </div>
               </div>
             </Card>
@@ -164,7 +164,7 @@ export default function Analytics() {
                 <div className="text-center py-8">
                   <div className="text-lg">Carregando criativos...</div>
                 </div>
-              ) : creatives.length === 0 ? (
+              ) : !creatives || creatives.length === 0 ? (
                 <div className="text-center py-8">
                   <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum criativo encontrado</h3>
@@ -203,7 +203,7 @@ export default function Analytics() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {creatives.map((creative) => (
+                    {(creatives || []).map((creative) => (
                       <tr key={creative.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {formatDate(creative.day)}

@@ -30,16 +30,19 @@ export const useAnalytics = (userId?: string) => {
         // Modo demo - usar dados fictícios
         await new Promise(resolve => setTimeout(resolve, 1000)); // Simular delay
         setData({
-          creatives: DEMO_CREATIVES,
-          groups: DEMO_GROUPS,
-          lives: DEMO_LIVES,
+          creatives: DEMO_CREATIVES || [],
+          groups: DEMO_GROUPS || [],
+          lives: DEMO_LIVES || [],
           loading: false,
           error: null
         });
         return;
       }
 
-      if (!userId) return;
+      if (!userId) {
+        setData(prev => ({ ...prev, loading: false }));
+        return;
+      }
 
       // Load all analytics data in parallel
       const [creativesRes, groupsRes, livesRes] = await Promise.all([
@@ -53,9 +56,9 @@ export const useAnalytics = (userId?: string) => {
       if (livesRes.error) throw livesRes.error;
 
       setData({
-        creatives: creativesRes.data || [],
-        groups: groupsRes.data || [],
-        lives: livesRes.data || [],
+        creatives: Array.isArray(creativesRes.data) ? creativesRes.data : [],
+        groups: Array.isArray(groupsRes.data) ? groupsRes.data : [],
+        lives: Array.isArray(livesRes.data) ? livesRes.data : [],
         loading: false,
         error: null
       });
@@ -63,6 +66,9 @@ export const useAnalytics = (userId?: string) => {
       console.error('Error loading analytics data:', error);
       setData(prev => ({
         ...prev,
+        creatives: prev.creatives || [],
+        groups: prev.groups || [],
+        lives: prev.lives || [],
         loading: false,
         error: error.message || 'Erro ao carregar dados de analytics'
       }));
@@ -86,7 +92,7 @@ export const useAnalytics = (userId?: string) => {
 
       setData(prev => ({
         ...prev,
-        lives: [...prev.lives, live]
+        lives: [...(prev.lives || []), live]
       }));
 
       toast({
@@ -119,7 +125,7 @@ export const useAnalytics = (userId?: string) => {
 
       setData(prev => ({
         ...prev,
-        lives: prev.lives.map(l => l.id === id ? live : l)
+        lives: (prev.lives || []).map(l => l.id === id ? live : l)
       }));
 
       return live;
@@ -145,7 +151,7 @@ export const useAnalytics = (userId?: string) => {
 
       setData(prev => ({
         ...prev,
-        lives: prev.lives.filter(l => l.id !== id)
+        lives: (prev.lives || []).filter(l => l.id !== id)
       }));
 
       toast({
