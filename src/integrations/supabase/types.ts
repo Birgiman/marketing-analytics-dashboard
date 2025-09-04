@@ -146,6 +146,27 @@ export type Database = {
         }
         Relationships: []
       }
+      pesquisa: {
+        Row: {
+          created_at: string | null
+          data: Json | null
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -173,6 +194,42 @@ export type Database = {
           phone?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_deletion_logs: {
+        Row: {
+          action: string
+          error: string | null
+          id: string
+          instance_name: string
+          ip_address: string | null
+          timestamp: string
+          user_agent: string | null
+          user_id: string
+          validation_passed: boolean
+        }
+        Insert: {
+          action: string
+          error?: string | null
+          id?: string
+          instance_name: string
+          ip_address?: string | null
+          timestamp?: string
+          user_agent?: string | null
+          user_id: string
+          validation_passed?: boolean
+        }
+        Update: {
+          action?: string
+          error?: string | null
+          id?: string
+          instance_name?: string
+          ip_address?: string | null
+          timestamp?: string
+          user_agent?: string | null
+          user_id?: string
+          validation_passed?: boolean
         }
         Relationships: []
       }
@@ -212,6 +269,45 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_logs: {
+        Row: {
+          action: string
+          created_at: string
+          data: Json | null
+          error: string | null
+          id: string
+          instance_name: string
+          timestamp: string
+          user_agent: string | null
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          data?: Json | null
+          error?: string | null
+          id?: string
+          instance_name: string
+          timestamp?: string
+          user_agent?: string | null
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          data?: Json | null
+          error?: string | null
+          id?: string
+          instance_name?: string
+          timestamp?: string
+          user_agent?: string | null
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -220,7 +316,8 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
+      approval_status: "pending" | "approved" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -347,6 +444,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+      approval_status: ["pending", "approved", "rejected"],
+    },
   },
 } as const

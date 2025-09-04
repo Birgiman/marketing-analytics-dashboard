@@ -15,8 +15,8 @@ export interface Profile {
   updated_at: string;
 }
 
-export type ApprovalStatus = 'pending' | 'active' | 'blocked';
-export type UserRoleType = 'user' | 'admin' | 'superadmin';
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+export type UserRoleType = 'admin' | 'moderator' | 'user';
 
 export interface UserApprovalStatus {
   id: string;
@@ -117,6 +117,7 @@ export interface Group {
 export interface Live {
   id: string;
   name: string;
+  user_id?: string | null;
   live_date?: string | null;
   captacao_start?: string | null;
   ta_rolando_start?: string | null;

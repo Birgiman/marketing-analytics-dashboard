@@ -161,6 +161,12 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 - **Analytics Avançado**: Interface básica, gráficos pendentes  
 - **Sistema de Lives**: Estrutura de dados, interface pendente
 
+### ✅ Recém Adicionado (Janeiro 2025)
+- **Tabelas Supabase Completas**: Todos os esquemas do projeto antigo implementados
+- **Sistema de Pesquisas**: Tabela `pesquisa` com dados JSON
+- **Logs WhatsApp Avançados**: Logs de deleção e atividades detalhadas
+- **Enums de Sistema**: `approval_status` e `app_role` para controle de usuários
+
 ### 📋 Próximas Funcionalidades
 - Páginas de gerenciamento de lives
 - Análise de criativos publicitários

@@ -28,9 +28,15 @@
 - ✅ **grupos**: atividades de grupos WhatsApp
 - ✅ **lives**: dados de transmissões ao vivo
 - ✅ **whatsapp_instances**: instâncias de WhatsApp
-- ✅ **whatsapp_logs**: logs de atividades
+- ✅ **whatsapp_logs**: logs gerais de atividades WhatsApp
+- ✅ **whatsapp_deletion_logs**: logs específicos de deleção WhatsApp
+- ✅ **pesquisa**: dados de pesquisas em formato JSON
 - ✅ **user_approval_status**: status de aprovação de usuários
 - ✅ **user_roles**: roles dos usuários
+
+#### Enums do Sistema
+- ✅ **approval_status**: 'pending', 'approved', 'rejected'
+- ✅ **app_role**: 'admin', 'moderator', 'user'
 
 #### Políticas RLS (Row Level Security)
 - ✅ Todas as tabelas têm RLS ativado
@@ -96,9 +102,15 @@ Database:
 ├── grupos             # Atividades grupos WhatsApp
 ├── lives              # Dados de transmissões
 ├── whatsapp_instances # Instâncias WhatsApp
-├── whatsapp_logs      # Logs de atividades
+├── whatsapp_logs      # Logs gerais WhatsApp
+├── whatsapp_deletion_logs # Logs deleção WhatsApp
+├── pesquisa           # Dados de pesquisas JSON
 ├── user_approval_status # Status aprovação
 └── user_roles         # Roles dos usuários
+
+Enums:
+├── approval_status    # pending, approved, rejected
+└── app_role          # admin, moderator, user
 
 Edge Functions:
 ├── whatsapp-api       # API WhatsApp Business
