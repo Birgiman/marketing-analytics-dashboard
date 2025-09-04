@@ -36,17 +36,17 @@ const mainMenuItems = [
     icon: LayoutDashboard 
   },
   { 
-    title: "Backup de Públicos", 
+    title: "Backup De Públicos", 
     url: "/analytics", 
     icon: Users 
   },
   { 
-    title: "Vendas por público", 
+    title: "Vendas Por Público", 
     url: "/groups", 
     icon: TrendingUp 
   },
   { 
-    title: "Calculadora de LiveShop", 
+    title: "Calculadora De LiveShop", 
     url: "/lives", 
     icon: Calculator 
   },
