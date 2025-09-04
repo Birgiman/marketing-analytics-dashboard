@@ -1,4 +1,4 @@
-import { useToast } from '@/hooks/useToast';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { whatsappService } from '@/services/whatsappService';
 import { WhatsAppInstance } from '@/types';
