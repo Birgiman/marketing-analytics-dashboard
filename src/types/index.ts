@@ -16,7 +16,7 @@ export interface Profile {
 }
 
 export type ApprovalStatus = 'pending' | 'active' | 'blocked';
-export type UserRoleType = 'basic' | 'admin' | 'superadmin';
+export type UserRoleType = 'user' | 'admin' | 'superadmin';
 
 export interface UserApprovalStatus {
   id: string;
@@ -48,6 +48,31 @@ export interface WhatsAppInstance {
   qr_code?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface WhatsAppLog {
+  id: string;
+  user_id: string;
+  instance_name: string;
+  user_name?: string;
+  action: string;
+  data?: any;
+  error?: string;
+  user_agent?: string;
+  timestamp: string;
+  created_at: string;
+}
+
+export interface WhatsAppDeletionLog {
+  id: string;
+  user_id: string;
+  instance_name: string;
+  action: string;
+  validation_passed: boolean;
+  ip_address?: string;
+  user_agent?: string;
+  error?: string;
+  timestamp: string;
 }
 
 export interface CreateInstanceResponse {
@@ -103,4 +128,11 @@ export interface Live {
   peak_viewers?: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface Pesquisa {
+  id: string;
+  data?: any;
+  created_at: string;
+  user_id: string;
 }
