@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { DemoBanner } from '@/components/DemoBanner';
 import { useAnalytics } from '@/hooks/useAnalytics';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { DEMO_MODE } from '@/lib/demo-mode';
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
@@ -44,12 +44,12 @@ export default function Analytics() {
     checkAuth();
   }, [navigate]);
 
-  const formatCurrency = (value?: number) => {
+  const formatCurrency = (value?: number | null) => {
     if (!value) return 'R$ 0,00';
     return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
   };
 
-  const formatDate = (dateString?: string) => {
+  const formatDate = (dateString?: string | null) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('pt-BR');
   };

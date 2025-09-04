@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { DemoBanner } from '@/components/DemoBanner';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
 import { useWhatsAppConnection } from '@/hooks/useWhatsAppConnection';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { DEMO_MODE } from '@/lib/demo-mode';
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';

@@ -1,5 +1,5 @@
 import { useToast } from '@/hooks/useToast';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { whatsappService } from '@/services/whatsappService';
 import { WhatsAppInstance } from '@/types';
 import { useCallback, useEffect, useRef, useState } from 'react';

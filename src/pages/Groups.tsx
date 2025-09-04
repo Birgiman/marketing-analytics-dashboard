@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { DemoBanner } from '@/components/DemoBanner';
 import { useAnalytics } from '@/hooks/useAnalytics';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { DEMO_MODE } from '@/lib/demo-mode';
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
@@ -44,12 +44,12 @@ export default function Groups() {
     checkAuth();
   }, [navigate]);
 
-  const formatDateTime = (dateTime?: string) => {
+  const formatDateTime = (dateTime?: string | null) => {
     if (!dateTime) return 'N/A';
     return new Date(dateTime).toLocaleString('pt-BR');
   };
 
-  const getEventIcon = (evento?: string) => {
+  const getEventIcon = (evento?: string | null) => {
     switch (evento?.toLowerCase()) {
       case 'entrada':
       case 'join':
@@ -65,7 +65,7 @@ export default function Groups() {
     }
   };
 
-  const getEventColor = (evento?: string) => {
+  const getEventColor = (evento?: string | null) => {
     switch (evento?.toLowerCase()) {
       case 'entrada':
       case 'join':

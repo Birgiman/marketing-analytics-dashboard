@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Creative, Group, Live } from '@/types';
 import { DEMO_MODE, DEMO_LIVES, DEMO_CREATIVES, DEMO_GROUPS } from '@/lib/demo-mode';
 import { useToast } from './useToast';

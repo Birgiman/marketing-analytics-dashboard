@@ -1,5 +1,5 @@
 import { useToast } from '@/hooks/useToast';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { whatsappService } from '@/services/whatsappService';
 import { DEMO_MODE, DEMO_WHATSAPP_INSTANCES } from '@/lib/demo-mode';
 import { generateDemoQR } from '@/lib/demo-qr';

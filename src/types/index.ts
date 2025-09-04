@@ -89,45 +89,45 @@ export interface ConnectionStatusResponse {
 // Analytics Types
 export interface Creative {
   id: string;
-  day?: string;
-  campaign_name?: string;
-  ad_set_name?: string;
-  ad_name?: string;
-  amount_spent?: number;
-  leads?: number;
-  cost_per_lead?: number;
-  creative_link?: string;
-  created_at: string;
-  user_id: string;
+  day?: string | null;
+  campaign_name?: string | null;
+  ad_set_name?: string | null;
+  ad_name?: string | null;
+  amount_spent?: number | null;
+  leads?: number | null;
+  cost_per_lead?: number | null;
+  creative_link?: string | null;
+  created_at: string | null;
+  user_id: string | null;
 }
 
 export interface Group {
   id: string;
-  data_hora?: string;
-  data?: string;
-  hora?: string;
-  id_grupo?: string;
-  nome_grupo?: string;
-  telefone?: string;
-  evento?: string;
-  created_at: string;
-  user_id: string;
+  data_hora?: string | null;
+  data?: string | null;
+  hora?: string | null;
+  id_grupo?: string | null;
+  nome_grupo?: string | null;
+  telefone?: string | null;
+  evento?: string | null;
+  created_at: string | null;
+  user_id: string | null;
 }
 
 export interface Live {
   id: string;
   name: string;
-  live_date?: string;
-  captacao_start?: string;
-  ta_rolando_start?: string;
-  ta_rolando_end?: string;
-  participants?: number;
-  sales?: number;
-  revenue?: number;
-  current_viewers?: number;
-  peak_viewers?: number;
-  created_at: string;
-  updated_at: string;
+  live_date?: string | null;
+  captacao_start?: string | null;
+  ta_rolando_start?: string | null;
+  ta_rolando_end?: string | null;
+  participants?: number | null;
+  sales?: number | null;
+  revenue?: number | null;
+  current_viewers?: number | null;
+  peak_viewers?: number | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 export interface Pesquisa {

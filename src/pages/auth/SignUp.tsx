@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 
