@@ -1,5 +1,1 @@
-[functions.whatsapp-api]
-verify_jwt = false
-
-[functions.get-evolution-config]
-verify_jwt = false
+project_id = "liykllgnzlqqzjyvvygb"
