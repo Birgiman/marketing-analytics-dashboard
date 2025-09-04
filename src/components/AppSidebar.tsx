@@ -37,7 +37,7 @@ const mainMenuItems = [
   },
   { 
     title: "Backup De Públicos", 
-    url: "/analytics", 
+    url: "/leads", 
     icon: Users 
   },
   { 

@@ -10,6 +10,7 @@ import Integrations from "./pages/Integrations";
 import Lives from "./pages/Lives";
 import Analytics from "./pages/Analytics";
 import Groups from "./pages/Groups";
+import Leads from "./pages/Leads";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import NotFound from "./pages/NotFound";
@@ -43,6 +44,7 @@ function AppContent() {
             <Route path="/lives" element={<Lives />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/groups" element={<Groups />} />
+            <Route path="/leads" element={<Leads />} />
             <Route path="/admin/supabase-config" element={<SupabaseConfig />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
