@@ -14,7 +14,204 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      criativos: {
+        Row: {
+          ad_name: string | null
+          ad_set_name: string | null
+          amount_spent: number | null
+          campaign_name: string | null
+          cost_per_lead: number | null
+          created_at: string
+          creative_link: string | null
+          day: string | null
+          id: string
+          leads: number | null
+          user_id: string | null
+        }
+        Insert: {
+          ad_name?: string | null
+          ad_set_name?: string | null
+          amount_spent?: number | null
+          campaign_name?: string | null
+          cost_per_lead?: number | null
+          created_at?: string
+          creative_link?: string | null
+          day?: string | null
+          id?: string
+          leads?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          ad_name?: string | null
+          ad_set_name?: string | null
+          amount_spent?: number | null
+          campaign_name?: string | null
+          cost_per_lead?: number | null
+          created_at?: string
+          creative_link?: string | null
+          day?: string | null
+          id?: string
+          leads?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      grupos: {
+        Row: {
+          created_at: string
+          data: string | null
+          data_hora: string | null
+          evento: string | null
+          hora: string | null
+          id: string
+          id_grupo: string | null
+          nome_grupo: string | null
+          telefone: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          data?: string | null
+          data_hora?: string | null
+          evento?: string | null
+          hora?: string | null
+          id?: string
+          id_grupo?: string | null
+          nome_grupo?: string | null
+          telefone?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          data?: string | null
+          data_hora?: string | null
+          evento?: string | null
+          hora?: string | null
+          id?: string
+          id_grupo?: string | null
+          nome_grupo?: string | null
+          telefone?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      lives: {
+        Row: {
+          captacao_start: string | null
+          created_at: string
+          current_viewers: number | null
+          id: string
+          live_date: string | null
+          name: string
+          participants: number | null
+          peak_viewers: number | null
+          revenue: number | null
+          sales: number | null
+          ta_rolando_end: string | null
+          ta_rolando_start: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          captacao_start?: string | null
+          created_at?: string
+          current_viewers?: number | null
+          id?: string
+          live_date?: string | null
+          name: string
+          participants?: number | null
+          peak_viewers?: number | null
+          revenue?: number | null
+          sales?: number | null
+          ta_rolando_end?: string | null
+          ta_rolando_start?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          captacao_start?: string | null
+          created_at?: string
+          current_viewers?: number | null
+          id?: string
+          live_date?: string | null
+          name?: string
+          participants?: number | null
+          peak_viewers?: number | null
+          revenue?: number | null
+          sales?: number | null
+          ta_rolando_end?: string | null
+          ta_rolando_start?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          first_name: string
+          id: string
+          last_name: string
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          first_name: string
+          id?: string
+          last_name: string
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_instances: {
+        Row: {
+          created_at: string
+          id: string
+          instance_id: string | null
+          instance_name: string
+          phone_number: string | null
+          qr_code: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instance_id?: string | null
+          instance_name: string
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instance_id?: string | null
+          instance_name?: string
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
