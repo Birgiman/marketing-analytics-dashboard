@@ -48,7 +48,7 @@ export const useAnalytics = (userId?: string) => {
       const [creativesRes, groupsRes, livesRes] = await Promise.all([
         supabase.from('criativos').select('*').eq('user_id', userId),
         supabase.from('grupos').select('*').eq('user_id', userId),
-        supabase.from('lives').select('*')
+        supabase.from('lives').select('*').eq('user_id', userId)
       ]);
 
       if (creativesRes.error) throw creativesRes.error;
@@ -92,7 +92,7 @@ export const useAnalytics = (userId?: string) => {
 
       setData(prev => ({
         ...prev,
-        lives: [...(prev.lives || []), live]
+        lives: [...(Array.isArray(prev.lives) ? prev.lives : []), live]
       }));
 
       toast({
@@ -125,7 +125,7 @@ export const useAnalytics = (userId?: string) => {
 
       setData(prev => ({
         ...prev,
-        lives: (prev.lives || []).map(l => l.id === id ? live : l)
+        lives: (Array.isArray(prev.lives) ? prev.lives : []).map(l => l.id === id ? live : l)
       }));
 
       return live;
@@ -151,7 +151,7 @@ export const useAnalytics = (userId?: string) => {
 
       setData(prev => ({
         ...prev,
-        lives: (prev.lives || []).filter(l => l.id !== id)
+        lives: (Array.isArray(prev.lives) ? prev.lives : []).filter(l => l.id !== id)
       }));
 
       toast({
