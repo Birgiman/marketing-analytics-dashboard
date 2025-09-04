@@ -11,7 +11,7 @@ import {
   LogOut,
   User
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { DEMO_MODE } from "@/lib/demo-mode";
 
 import {

@@ -42,12 +42,12 @@ export interface WhatsAppInstance {
   id: string;
   user_id: string;
   instance_name: string;
-  instance_id?: string;
-  phone_number?: string;
+  instance_id?: string | null;
+  phone_number?: string | null;
   status: WhatsAppStatus;
-  qr_code?: string;
-  created_at: string;
-  updated_at: string;
+  qr_code?: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 export interface WhatsAppLog {

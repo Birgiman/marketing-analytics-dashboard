@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   WhatsAppInstance, 
   CreateInstanceResponse, 
@@ -203,6 +203,10 @@ class WhatsAppService {
 
       return data?.map(item => ({
         ...item,
+        instance_id: item.instance_id ?? null,
+        phone_number: item.phone_number ?? null,
+        qr_code: item.qr_code ?? null,
+        updated_at: item.updated_at ?? null,
         status: item.status as WhatsAppStatus
       })) || [];
     } catch (error) {

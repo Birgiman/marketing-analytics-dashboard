@@ -1,14 +1,24 @@
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function SignIn() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
+
+  // Redireciona para o dashboard se já estiver logado
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        navigate('/dashboard');
+      }
+    });
+  }, [navigate]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +37,7 @@ export default function SignIn() {
       }
 
       if (data?.user) {
-        navigate('/');
+        navigate('/dashboard');
       }
     } catch (error: any) {
       setError(error.message || 'Erro ao fazer login');

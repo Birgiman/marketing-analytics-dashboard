@@ -1,0 +1,77 @@
+-- Create a test user through SQL (this will bypass the normal signup flow)
+-- Note: This is for testing purposes only
+INSERT INTO auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  invited_at,
+  confirmation_token,
+  confirmation_sent_at,
+  recovery_token,
+  recovery_sent_at,
+  email_change_token_new,
+  email_change,
+  email_change_sent_at,
+  last_sign_in_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  is_super_admin,
+  created_at,
+  updated_at,
+  phone,
+  phone_confirmed_at,
+  phone_change,
+  phone_change_token,
+  phone_change_sent_at,
+  email_change_token_current,
+  email_change_confirm_status,
+  banned_until,
+  reauthentication_token,
+  reauthentication_sent_at
+) VALUES (
+  '00000000-0000-0000-0000-000000000000',
+  gen_random_uuid(),
+  'authenticated',
+  'authenticated',
+  'teste@teste.com',
+  crypt('123456', gen_salt('bf')),
+  NOW(),
+  NOW(),
+  '',
+  NOW(),
+  '',
+  NOW(),
+  '',
+  '',
+  NOW(),
+  NOW(),
+  '{"provider": "email", "providers": ["email"]}',
+  '{}',
+  false,
+  NOW(),
+  NOW(),
+  null,
+  null,
+  '',
+  '',
+  NOW(),
+  '',
+  0,
+  null,
+  '',
+  NOW()
+);
+
+-- Also create a profile for this test user
+INSERT INTO public.profiles (user_id, first_name, last_name, phone)
+SELECT 
+  u.id,
+  'Teste',
+  'Usuario',
+  '11999999999'
+FROM auth.users u 
+WHERE u.email = 'teste@teste.com';
