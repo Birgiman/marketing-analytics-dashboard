@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./components/AppSidebar";
-import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import Integrations from "./pages/Integrations";
 import Lives from "./pages/Lives";
@@ -24,7 +23,7 @@ function AppContent() {
   if (isAuthPage) {
     return (
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<SignIn />} />
         <Route path="/auth/signin" element={<SignIn />} />
         <Route path="/auth/signup" element={<SignUp />} />
         <Route path="*" element={<NotFound />} />
