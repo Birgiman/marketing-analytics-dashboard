@@ -95,7 +95,7 @@ serve(async (req) => {
     
     switch (action) {
       case 'reconnect_instance': {
-        console.log('1. Reconectando instância existente...');
+        console.log('1. Reconectando instância existente e gerando novo QR Code...');
         console.log('1.1. Evolution API URL:', evolutionApiUrl);
         console.log('1.2. Evolution API Key presente:', !!evolutionApiKey);
         console.log('1.3. Instance Name:', instanceName);
@@ -103,34 +103,56 @@ serve(async (req) => {
         
         await logWhatsAppAction('reconnect_instance_start', { instanceName });
 
-        const connectUrl = `${evolutionApiUrl}/instance/connect/${instanceName}`;
-        console.log('1.5. URL completa:', connectUrl);
+        // Primeiro, gerar novo QR Code para a instância existente
+        const qrUrl = `${evolutionApiUrl}/instance/connect/${instanceName}`;
+        console.log('1.5. URL para gerar QR Code:', qrUrl);
         
         try {
-          console.log('1.6. Iniciando fetch request...');
+          console.log('1.6. Iniciando fetch request para gerar QR Code...');
           
-          const response = await fetch(connectUrl, {
+          const response = await fetch(qrUrl, {
             method: 'GET',
             headers,
             signal: AbortSignal.timeout(30000) // 30s timeout
           });
 
-          console.log('2. Reconnect response status:', response.status);
-          console.log('2.1. Reconnect response headers:', JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
+          console.log('2. QR Code response status:', response.status);
+          console.log('2.1. QR Code response headers:', JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
           
           if (!response.ok) {
             const errorText = await response.text();
-            console.error('3. Reconnect API Error:', errorText);
+            console.error('3. QR Code API Error:', errorText);
             await logWhatsAppAction('reconnect_instance_error', null, `HTTP ${response.status}: ${errorText}`);
             throw new Error(`Erro na Evolution API: ${response.status} - ${errorText}`);
           }
 
           console.log('2.2. Response OK, parseando JSON...');
           const data = await response.json();
-          console.log('3. Reconnect response data:', JSON.stringify(data, null, 2));
-          console.log('4. QR Code presente:', !!(data.qrcode?.base64 || data.base64));
-
-          const qrCode = data.qrcode?.base64 || data.base64;
+          console.log('3. QR Code response data:', JSON.stringify(data, null, 2));
+          
+          // Se não retornou QR Code, tentar endpoint alternativo
+          let qrCode = data.qrcode?.base64 || data.base64;
+          
+          if (!qrCode) {
+            console.log('4. QR Code não encontrado, tentando endpoint alternativo...');
+            
+            const alternativeUrl = `${evolutionApiUrl}/instance/qr/${instanceName}`;
+            console.log('4.1. URL alternativa:', alternativeUrl);
+            
+            const qrResponse = await fetch(alternativeUrl, {
+              method: 'GET',
+              headers,
+              signal: AbortSignal.timeout(30000)
+            });
+            
+            if (qrResponse.ok) {
+              const qrData = await qrResponse.json();
+              console.log('4.2. QR Code alternativo:', JSON.stringify(qrData, null, 2));
+              qrCode = qrData.qrcode?.base64 || qrData.base64;
+            }
+          }
+          
+          console.log('5. QR Code final presente:', !!qrCode);
           
           await logWhatsAppAction('reconnect_instance_success', { 
             instanceId: data.instance?.instanceId,
@@ -138,7 +160,7 @@ serve(async (req) => {
             qrCodeLength: qrCode?.length
           });
 
-          console.log('5. Retornando response de sucesso...');
+          console.log('6. Retornando response com novo QR Code...');
           return new Response(
             JSON.stringify({
               success: true,
