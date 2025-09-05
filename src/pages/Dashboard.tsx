@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SalesHeader } from "@/components/SalesHeader";
+import { CreateLiveModal } from "@/components/CreateLiveModal";
 
 interface DashboardStats {
   totalLives: number;
@@ -18,6 +19,7 @@ interface DashboardStats {
 export default function Dashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [isCreateLiveOpen, setIsCreateLiveOpen] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     totalLives: 0,
     totalParticipants: 0,
@@ -153,7 +155,7 @@ export default function Dashboard() {
                 <CardTitle className="text-xl">Suas Lives</CardTitle>
                 <p className="text-sm text-muted-foreground">Gerencie e analise todas as suas transmissões</p>
               </div>
-              <Button className="gap-2">
+              <Button className="gap-2" onClick={() => setIsCreateLiveOpen(true)}>
                 <Plus className="w-4 h-4" />
                 Nova Live
               </Button>
@@ -186,7 +188,7 @@ export default function Dashboard() {
               <div className="flex flex-col items-center justify-center py-16">
                 <Video className="w-12 h-12 text-muted-foreground mb-4" />
                 <p className="text-muted-foreground mb-4">Você ainda não possui lives cadastradas</p>
-                <Button>
+                <Button onClick={() => setIsCreateLiveOpen(true)}>
                   <Plus className="w-4 h-4 mr-2" />
                   Criar sua primeira live
                 </Button>
@@ -195,6 +197,12 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Create Live Modal */}
+      <CreateLiveModal 
+        open={isCreateLiveOpen} 
+        onOpenChange={setIsCreateLiveOpen} 
+      />
     </div>
   );
 }
