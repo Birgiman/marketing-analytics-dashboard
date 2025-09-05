@@ -82,6 +82,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const { data: webhookData, instance, event } = eventData;
     
     console.log('🎯 Event type:', event);
+    console.log('📋 Full event data keys:', Object.keys(eventData));
+    
+    // Log all group-related events for debugging
+    if (event && event.includes('group')) {
+      console.log('🔍 GROUP EVENT DETECTED:', event);
+      console.log('📄 Event payload:', JSON.stringify(eventData, null, 2));
+    }
     
     if (!webhookData) {
       console.error('❌ Missing data object in payload');
@@ -113,7 +120,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     console.log('👤 Found user_id:', user_id);
 
     // Handle different event types
-    if (event === 'groups.upsert' || event === 'groups.update') {
+    if (event === 'groups.upsert' || event === 'groups.update' || event === 'group.update' || event === 'group_update') {
       console.log('📝 Processing GROUPS_UPSERT/UPDATE event');
       
       // GROUPS_UPSERT sends data as array, get first group
