@@ -15,6 +15,7 @@ import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import NotFound from "./pages/NotFound";
 import SupabaseConfig from "./pages/admin/SupabaseConfig";
+import { CreateTestUser } from "./components/CreateTestUser";
 import SeedTestUser from "./pages/auth/SeedTestUser";
 
 const queryClient = new QueryClient();
@@ -47,8 +48,9 @@ function AppContent() {
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/groups" element={<Groups />} />
             <Route path="/leads" element={<Leads />} />
-            <Route path="/admin/supabase-config" element={<SupabaseConfig />} />
-            <Route path="*" element={<NotFound />} />
+        <Route path="/admin/supabase-config" element={<SupabaseConfig />} />
+        <Route path="/admin/create-test-user" element={<CreateTestUser />} />
+        <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
       </div>

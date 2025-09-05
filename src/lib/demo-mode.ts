@@ -1,5 +1,5 @@
 // Demo mode para testes sem Supabase
-export const DEMO_MODE = false; // Desabilitado para permitir testes com usuários reais
+export const DEMO_MODE = false; // Desativar modo demo para testes com Supabase real
 
 export const DEMO_USER = {
   id: 'demo-user-123',
