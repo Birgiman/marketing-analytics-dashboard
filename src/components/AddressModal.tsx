@@ -29,7 +29,7 @@ export const AddressModal = ({ open, onOpenChange }: AddressModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-white dark:bg-slate-900">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold">
             Endereço de Envio

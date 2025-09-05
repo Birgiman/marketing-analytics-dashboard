@@ -5,7 +5,7 @@ Sistema de analytics para LiveShop com foco em métricas de desempenho e anális
 ## Arquitetura do Projeto
 
 ### Frontend
-- **Framework:** Next.js 14 com TypeScript
+- **Framework:** Vite + React 18 com TypeScript
 - **Styling:** Tailwind CSS
 - **Estado:** React Hooks + Supabase Client
 
@@ -147,13 +147,36 @@ npm run lint
 - Sistema de alertas automáticos
 - API pública para integrações
 
+## 🚀 Desenvolvimento Local
+
+### Configuração Paralela com Lovable
+Este projeto pode ser executado **localmente** conectando ao **mesmo Supabase do Lovable**, permitindo:
+
+- ✅ **Desenvolvimento simultâneo**: Local + Lovable funcionando em paralelo
+- ✅ **Dados compartilhados**: Mesmo banco de dados
+- ✅ **Hot reload**: Desenvolvimento ágil com mudanças instantâneas
+- ✅ **Sem conflitos**: Ambos os ambientes coexistem perfeitamente
+
+📖 **[Ver Guia Completo de Configuração Local](./configuracao-local.md)**
+
+### Quick Start Local
+```bash
+# Instalar dependências
+npm install
+
+# Rodar localmente (conecta automaticamente ao Supabase)
+npm run dev
+
+# Acesso: http://localhost:3000
+```
+
 ## Notas Técnicas
 
 ### Migração do Projeto Original
-Este projeto foi reconstruído a partir dos arquivos de build do projeto original no Lovable. Os componentes principais foram extraídos e adaptados para funcionar em Next.js padrão.
+Este projeto foi reconstruído a partir dos arquivos de build do projeto original no Lovable. Os componentes principais foram extraídos e adaptados para funcionar com Vite + React.
 
 ### Dependências Principais
-- Next.js 14 com TypeScript
+- Vite + React 18 com TypeScript
 - Supabase para backend e autenticação
 - Tailwind CSS para styling
 - Lucide React para ícones
