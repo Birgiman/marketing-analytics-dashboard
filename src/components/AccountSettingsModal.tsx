@@ -38,7 +38,7 @@ export const AccountSettingsModal = ({ open, onOpenChange }: AccountSettingsModa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-white dark:bg-slate-900">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">Configurações da Conta</DialogTitle>
         </DialogHeader>

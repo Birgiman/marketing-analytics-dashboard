@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { X } from "lucide-react";
 
 interface AddressModalProps {
   open: boolean;
@@ -30,19 +29,11 @@ export const AddressModal = ({ open, onOpenChange }: AddressModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+      <DialogContent className="sm:max-w-md bg-white dark:bg-slate-900">
+        <DialogHeader>
           <DialogTitle className="text-lg font-semibold">
             Endereço de Envio
           </DialogTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-            className="h-6 w-6 p-0"
-          >
-            <X className="h-4 w-4" />
-          </Button>
         </DialogHeader>
         
         <div className="space-y-4">

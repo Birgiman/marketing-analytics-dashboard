@@ -36,7 +36,7 @@ export const CreateLiveModal = ({ open, onOpenChange }: CreateLiveModalProps) =>
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md bg-white dark:bg-slate-900">
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold text-center">
             Vamos criar sua LiveShop! 🛍️
