@@ -12,7 +12,6 @@ import {
   User
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { DEMO_MODE } from "@/lib/demo-mode";
 
 import {
   Sidebar,
@@ -73,24 +72,34 @@ const adminItems = [
 export function AppSidebar() {
   const { open, isMobile } = useSidebar();
   const navigate = useNavigate();
-  const [userName, setUserName] = useState("EDUARDO DOMINGUES");
+  const [userName, setUserName] = useState("");
 
   useEffect(() => {
-    if (!DEMO_MODE) {
-      const getUser = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.user_metadata?.full_name) {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Buscar dados do perfil primeiro
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("first_name, last_name")
+          .eq("user_id", user.id)
+          .single();
+        
+        if (profileData && profileData.first_name) {
+          const fullName = `${profileData.first_name} ${profileData.last_name || ""}`.trim();
+          setUserName(fullName.toUpperCase());
+        } else if (user.user_metadata?.full_name) {
           setUserName(user.user_metadata.full_name.toUpperCase());
+        } else {
+          setUserName(user.email?.split("@")[0].toUpperCase() || "USUÁRIO");
         }
-      };
-      getUser();
-    }
+      }
+    };
+    getUser();
   }, []);
 
   const handleSignOut = async () => {
-    if (!DEMO_MODE) {
-      await supabase.auth.signOut();
-    }
+    await supabase.auth.signOut();
     navigate("/auth/signin");
   };
 
@@ -102,14 +111,17 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r border-sidebar-border">
       <SidebarHeader className="p-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
+        <button 
+          onClick={() => navigate("/profile")}
+          className="flex items-center gap-3 w-full text-left hover:bg-sidebar-accent hover:text-sidebar-accent-foreground p-2 rounded-md transition-colors"
+        >
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
             <User className="w-4 h-4 text-primary-foreground" />
           </div>
           <div className="text-sm font-medium text-sidebar-foreground">
             {userName}
           </div>
-        </div>
+        </button>
       </SidebarHeader>
 
       <SidebarContent>
