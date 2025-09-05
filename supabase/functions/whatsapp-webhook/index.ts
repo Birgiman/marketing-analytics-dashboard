@@ -78,15 +78,34 @@ Deno.serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    // Validate required fields
-    const { group_id, group_name, participant, action } = eventData;
+    // Extract fields from Evolution API payload structure
+    const { data: webhookData, instance } = eventData;
     
-    if (!group_id || !group_name || !participant || !action) {
+    if (!webhookData) {
+      console.error('❌ Missing data object in payload');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Missing data object in payload',
+          received: eventData 
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    const group_id = webhookData.id;
+    const group_name = instance || 'Unknown Group'; // Use instance name as fallback
+    const participant = webhookData.participants?.[0]; // Get first participant from array
+    const action = webhookData.action;
+    
+    // Validate required fields
+    if (!group_id || !participant || !action) {
       const missingFields = [];
-      if (!group_id) missingFields.push('group_id');
-      if (!group_name) missingFields.push('group_name');
-      if (!participant) missingFields.push('participant');
-      if (!action) missingFields.push('action');
+      if (!group_id) missingFields.push('group_id (data.id)');
+      if (!participant) missingFields.push('participant (data.participants[0])');
+      if (!action) missingFields.push('action (data.action)');
       
       console.error('❌ Missing required fields:', missingFields.join(', '));
       console.log('Discarding insertion due to missing fields');
@@ -104,16 +123,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    // Validate action value (should be join or leave)
-    const normalizedAction = action.toLowerCase();
-    if (normalizedAction !== 'join' && normalizedAction !== 'leave') {
+    // Map Evolution API actions to our events
+    let normalizedAction;
+    if (action === 'add') {
+      normalizedAction = 'join';
+    } else if (action === 'remove') {
+      normalizedAction = 'leave';
+    } else {
       console.error('❌ Invalid action value:', action);
-      console.log('Expected "join" or "leave", got:', action);
+      console.log('Expected "add" or "remove", got:', action);
       
       return new Response(
         JSON.stringify({ 
           error: 'Invalid action value', 
-          expected: ['join', 'leave'],
+          expected: ['add', 'remove'],
           received: action 
         }),
         { 
