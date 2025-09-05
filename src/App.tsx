@@ -15,6 +15,7 @@ import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import NotFound from "./pages/NotFound";
 import SupabaseConfig from "./pages/admin/SupabaseConfig";
+import SeedTestUser from "./pages/auth/SeedTestUser";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ function AppContent() {
         <Route path="/" element={<SignIn />} />
         <Route path="/auth/signin" element={<SignIn />} />
         <Route path="/auth/signup" element={<SignUp />} />
+        <Route path="/auth/seed-test-user" element={<SeedTestUser />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     );

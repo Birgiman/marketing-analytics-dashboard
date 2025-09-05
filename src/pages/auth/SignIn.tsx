@@ -121,6 +121,10 @@ export default function SignIn() {
               <Link to="/" className="text-sm text-primary-600 hover:text-primary-500">
                 Voltar ao início
               </Link>
+              {' • '}
+              <Link to="/auth/seed-test-user" className="text-sm text-primary-600 hover:text-primary-500">
+                Criar usuário de teste
+              </Link>
             </div>
           </form>
         </div>
