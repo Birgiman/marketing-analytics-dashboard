@@ -46,7 +46,7 @@ const mainMenuItems = [
   },
   { 
     title: "Calculadora De LiveShop", 
-    url: "/lives", 
+    url: "/calculator", 
     icon: Calculator 
   },
   { 
