@@ -79,7 +79,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     // Extract fields from Evolution API payload structure
-    const { data: webhookData, instance } = eventData;
+    const { data: webhookData, instance, event } = eventData;
+    
+    console.log('🎯 Event type:', event);
     
     if (!webhookData) {
       console.error('❌ Missing data object in payload');
@@ -110,12 +112,61 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const user_id = instanceData?.user_id || null;
     console.log('👤 Found user_id:', user_id);
 
+    // Handle different event types
+    if (event === 'groups.upsert') {
+      console.log('📝 Processing GROUPS_UPSERT event');
+      
+      // For GROUPS_UPSERT, we can get the real group name
+      const group_id = webhookData.id;
+      const group_name = webhookData.subject || webhookData.name || group_id;
+      
+      console.log('📝 Group info - ID:', group_id, 'Name:', group_name);
+      
+      // Store or update group information (optional - for future reference)
+      // For now, just log that we have the group name
+      console.log('✅ Group name captured:', group_name);
+      
+      return new Response(
+        JSON.stringify({ 
+          ok: true,
+          message: 'Groups upsert event processed',
+          group_id,
+          group_name
+        }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Handle GROUP_PARTICIPANTS_UPDATE
+    if (event !== 'group-participants.update') {
+      console.log('⚠️ Unsupported event type:', event);
+      return new Response(
+        JSON.stringify({ 
+          ok: true,
+          message: 'Event type not processed',
+          event_type: event
+        }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    console.log('👥 Processing GROUP_PARTICIPANTS_UPDATE event');
+    
     const group_id = webhookData.id;
-    // For now, use group_id as group_name since GROUP_PARTICIPANTS_UPDATE doesn't include real group name
-    // Consider setting up GROUP_UPDATE event to capture actual group name changes
-    const group_name = group_id;
     const participant = webhookData.participants?.[0]; // Get first participant from array
     const action = webhookData.action;
+    
+    // Try to get group name from previous GROUPS_UPSERT events or use group_id as fallback
+    let group_name = group_id; // Default fallback
+    
+    // TODO: In the future, we could query a groups table to get the real name
+    // For now, use group_id as group_name
     
     // Validate required fields
     if (!group_id || !participant || !action) {
