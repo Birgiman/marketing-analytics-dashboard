@@ -230,21 +230,39 @@ serve(async (req) => {
       }
 
       case 'check_instance_exists': {
-        console.log('1. Verificando se instância existe na Evolution API...');
+        console.log('1. Verificando se instância específica existe na Evolution API...');
         await logWhatsAppAction('instance_existence_check_start', { instanceName });
 
         try {
-          const response = await fetch(`${evolutionApiUrl}/instance/fetchInstances`, {
+          // SEGURANÇA: Consultar apenas a instância específica do usuário
+          const response = await fetch(`${evolutionApiUrl}/instance/connectionState/${instanceName}`, {
             method: 'GET',
             headers,
             signal: AbortSignal.timeout(15000)
           });
 
-          console.log('2. FetchInstances response status:', response.status);
+          console.log('2. Instance check response status:', response.status);
+
+          // Se retornou 404, a instância não existe
+          if (response.status === 404) {
+            console.log('3. Instância não existe (404)');
+            await logWhatsAppAction('instance_existence_check_success', { 
+              instanceExists: false,
+              reason: 'Instance not found (404)'
+            });
+
+            return new Response(
+              JSON.stringify({
+                exists: false,
+                reason: 'Instance not found'
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
 
           if (!response.ok) {
             const errorText = await response.text();
-            console.error('3. FetchInstances API Error:', errorText);
+            console.error('3. Instance check API Error:', errorText);
             await logWhatsAppAction('instance_existence_check_error', null, `HTTP ${response.status}: ${errorText}`);
             
             return new Response(
@@ -257,24 +275,21 @@ serve(async (req) => {
           }
 
           const data = await response.json();
-          console.log('3. FetchInstances response data:', JSON.stringify(data, null, 2));
+          console.log('3. Instance data:', JSON.stringify(data, null, 2));
 
-          // Verificar se a instância específica existe na lista
-          const instanceExists = Array.isArray(data) ? 
-            data.some(instance => instance.instanceName === instanceName || instance.name === instanceName) :
-            (data.instanceName === instanceName || data.name === instanceName);
-
+          // Se conseguiu buscar dados da instância, ela existe
+          const instanceExists = !!(data.instance || data.instanceName || data.name);
           console.log('4. Instance exists check result:', instanceExists);
           
           await logWhatsAppAction('instance_existence_check_success', { 
             instanceExists,
-            totalInstances: Array.isArray(data) ? data.length : 1
+            instanceState: data.instance?.state || data.status
           });
 
           return new Response(
             JSON.stringify({
               exists: instanceExists,
-              instances: data
+              state: data.instance?.state || data.status || 'unknown'
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
