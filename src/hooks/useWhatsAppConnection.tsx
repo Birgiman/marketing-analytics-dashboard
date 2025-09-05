@@ -163,7 +163,8 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
       
       setConnectionState('disconnected');
       setQrCode(null);
-      setCurrentInstance(null);
+      // NÃO limpar currentInstance para manter referência para reconexão
+      // setCurrentInstance(null);
       
       // Parar polling
       stopStatusPolling();

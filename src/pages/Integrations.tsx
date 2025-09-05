@@ -328,7 +328,7 @@ export default function Integrations() {
                        connectionState === 'error' ? 'error' : 'generating'}
                 countdown={qrCountdown}
                 attempts={qrAttempts}
-                maxAttempts={3}
+                maxAttempts={10}
                 isLoading={isLoading}
                 error={error}
                 onRefresh={handleRefreshQR}

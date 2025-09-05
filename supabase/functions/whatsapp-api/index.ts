@@ -24,11 +24,23 @@ serve(async (req) => {
     const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
     const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
 
+    console.log('=== VERIFICANDO VARIÁVEIS DE AMBIENTE ===');
+    console.log('Evolution API URL:', evolutionApiUrl);
+    console.log('Evolution API Key presente:', !!evolutionApiKey);
+
     if (!evolutionApiUrl || !evolutionApiKey) {
+      console.error('ERRO: Variáveis de ambiente não configuradas');
+      console.error('EVOLUTION_API_URL:', evolutionApiUrl || 'UNDEFINED');
+      console.error('EVOLUTION_API_KEY presente:', !!evolutionApiKey);
+      
       return new Response(
         JSON.stringify({ 
           error: 'Evolution API não configurada',
-          hasConfig: false 
+          hasConfig: false,
+          debug: {
+            evolutionApiUrl: evolutionApiUrl || 'UNDEFINED',
+            evolutionApiKeyPresent: !!evolutionApiKey
+          }
         }), 
         { 
           status: 400, 
@@ -37,12 +49,18 @@ serve(async (req) => {
       );
     }
 
-    const { action, instanceName, userId, profileData } = await req.json();
+    const requestBody = await req.json();
+    console.log('=== WHATSAPP EDGE FUNCTION DEBUG ===');
+    console.log('Request body recebido:', JSON.stringify(requestBody, null, 2));
+    
+    const { action, instanceName, userId, profileData } = requestBody;
 
     console.log('=== WHATSAPP API DEBUG ===');
-    console.log('Action:', action);
+    console.log('TIMESTAMP:', new Date().toISOString());
+    console.log('Action extraída:', action);
     console.log('Instance Name:', instanceName);
     console.log('User ID:', userId);
+    console.log('Profile Data:', profileData);
     console.log('API URL:', evolutionApiUrl);
     console.log('API Key presente:', !!evolutionApiKey);
 
@@ -69,7 +87,80 @@ serve(async (req) => {
       'apikey': evolutionApiKey
     };
 
+    console.log('=== ENTRANDO NO SWITCH ===');
+    console.log('Action type:', typeof action);
+    console.log('Action value:', JSON.stringify(action));
+    console.log('Action === "reconnect_instance":', action === 'reconnect_instance');
+    console.log('Action === "create_instance":', action === 'create_instance');
+    
     switch (action) {
+      case 'reconnect_instance': {
+        console.log('1. Reconectando instância existente...');
+        console.log('1.1. Evolution API URL:', evolutionApiUrl);
+        console.log('1.2. Evolution API Key presente:', !!evolutionApiKey);
+        console.log('1.3. Instance Name:', instanceName);
+        console.log('1.4. Headers:', JSON.stringify(headers, null, 2));
+        
+        await logWhatsAppAction('reconnect_instance_start', { instanceName });
+
+        const connectUrl = `${evolutionApiUrl}/instance/connect/${instanceName}`;
+        console.log('1.5. URL completa:', connectUrl);
+        
+        try {
+          console.log('1.6. Iniciando fetch request...');
+          
+          const response = await fetch(connectUrl, {
+            method: 'GET',
+            headers,
+            signal: AbortSignal.timeout(30000) // 30s timeout
+          });
+
+          console.log('2. Reconnect response status:', response.status);
+          console.log('2.1. Reconnect response headers:', JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('3. Reconnect API Error:', errorText);
+            await logWhatsAppAction('reconnect_instance_error', null, `HTTP ${response.status}: ${errorText}`);
+            throw new Error(`Erro na Evolution API: ${response.status} - ${errorText}`);
+          }
+
+          console.log('2.2. Response OK, parseando JSON...');
+          const data = await response.json();
+          console.log('3. Reconnect response data:', JSON.stringify(data, null, 2));
+          console.log('4. QR Code presente:', !!(data.qrcode?.base64 || data.base64));
+
+          const qrCode = data.qrcode?.base64 || data.base64;
+          
+          await logWhatsAppAction('reconnect_instance_success', { 
+            instanceId: data.instance?.instanceId,
+            status: data.instance?.status,
+            qrCodeLength: qrCode?.length
+          });
+
+          console.log('5. Retornando response de sucesso...');
+          return new Response(
+            JSON.stringify({
+              success: true,
+              instance: data.instance,
+              qrCode: qrCode,
+              instanceName: instanceName
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+          
+        } catch (fetchError) {
+          console.error('=== ERRO NO FETCH RECONNECT ===');
+          console.error('Tipo do erro:', typeof fetchError);
+          console.error('Erro:', fetchError);
+          console.error('Stack:', fetchError.stack);
+          console.error('Message:', fetchError.message);
+          
+          await logWhatsAppAction('reconnect_instance_fetch_error', null, `Fetch error: ${fetchError.message}`);
+          throw new Error(`Erro ao conectar com Evolution API: ${fetchError.message}`);
+        }
+      }
+
       case 'create_instance': {
         console.log('1. Iniciando criação de instância...');
         await logWhatsAppAction('create_instance_start', { instanceName });
@@ -249,8 +340,13 @@ serve(async (req) => {
       }
 
       default:
+        console.error('Action não reconhecida:', action);
+        console.error('Actions disponíveis: create_instance, reconnect_instance, check_status, get_qr, disconnect, delete_instance');
         return new Response(
-          JSON.stringify({ error: 'Ação não suportada' }), 
+          JSON.stringify({ 
+            error: `Ação não suportada: ${action}`,
+            availableActions: ['create_instance', 'reconnect_instance', 'check_status', 'get_qr', 'disconnect', 'delete_instance']
+          }), 
           { 
             status: 400, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -259,9 +355,20 @@ serve(async (req) => {
     }
 
   } catch (error) {
+    console.error('=== ERRO GERAL NA FUNÇÃO ===');
     console.error('Erro na função WhatsApp API:', error);
+    console.error('Stack trace:', error.stack);
+    console.error('Error type:', typeof error);
+    console.error('Error properties:', Object.keys(error));
+    
+    const errorMessage = error?.message || error?.toString() || 'Erro desconhecido';
+    
     return new Response(
-      JSON.stringify({ error: error.message }), 
+      JSON.stringify({ 
+        error: errorMessage,
+        errorType: typeof error,
+        timestamp: new Date().toISOString()
+      }), 
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
