@@ -116,22 +116,55 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (event === 'groups.upsert') {
       console.log('📝 Processing GROUPS_UPSERT event');
       
-      // For GROUPS_UPSERT, we can get the real group name
-      const group_id = webhookData.id;
-      const group_name = webhookData.subject || webhookData.name || group_id;
+      // GROUPS_UPSERT sends data as array, get first group
+      const groupData = Array.isArray(webhookData) ? webhookData[0] : webhookData;
+      const group_id = groupData?.id;
+      const group_name = groupData?.subject || groupData?.name || group_id;
       
       console.log('📝 Group info - ID:', group_id, 'Name:', group_name);
       
-      // Store or update group information (optional - for future reference)
-      // For now, just log that we have the group name
-      console.log('✅ Group name captured:', group_name);
+      if (!group_id || !group_name || !user_id) {
+        console.log('⚠️ Missing required fields for group cache, skipping');
+        return new Response(
+          JSON.stringify({ 
+            ok: true,
+            message: 'Groups upsert event processed (incomplete data)',
+            missing_fields: { group_id: !group_id, group_name: !group_name, user_id: !user_id }
+          }),
+          { 
+            status: 200, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+      
+      // Insert or update group in cache table
+      const { data: groupCacheData, error: groupCacheError } = await supabase
+        .from('whatsapp_groups')
+        .upsert(
+          {
+            group_id,
+            group_name,
+            user_id,
+            updated_at: new Date().toISOString()
+          },
+          { onConflict: 'group_id,user_id' }
+        )
+        .select();
+
+      if (groupCacheError) {
+        console.error('❌ Error caching group data:', groupCacheError);
+      } else {
+        console.log('✅ Group cached successfully:', groupCacheData);
+      }
       
       return new Response(
         JSON.stringify({ 
           ok: true,
-          message: 'Groups upsert event processed',
+          message: 'Groups upsert event processed and cached',
           group_id,
-          group_name
+          group_name,
+          cached: !groupCacheError
         }),
         { 
           status: 200, 
@@ -162,11 +195,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const participant = webhookData.participants?.[0]; // Get first participant from array
     const action = webhookData.action;
     
-    // Try to get group name from previous GROUPS_UPSERT events or use group_id as fallback
+    // Get group name from whatsapp_groups cache table
     let group_name = group_id; // Default fallback
     
-    // TODO: In the future, we could query a groups table to get the real name
-    // For now, use group_id as group_name
+    if (user_id && group_id) {
+      console.log('🔍 Looking up group name from cache...');
+      const { data: groupCache, error: groupCacheError } = await supabase
+        .from('whatsapp_groups')
+        .select('group_name')
+        .eq('group_id', group_id)
+        .eq('user_id', user_id)
+        .maybeSingle();
+      
+      if (groupCacheError) {
+        console.error('❌ Error fetching group name from cache:', groupCacheError);
+      } else if (groupCache?.group_name) {
+        group_name = groupCache.group_name;
+        console.log('✅ Found group name from cache:', group_name);
+      } else {
+        console.log('⚠️ Group not found in cache, using group_id as name');
+      }
+    }
     
     // Validate required fields
     if (!group_id || !participant || !action) {
