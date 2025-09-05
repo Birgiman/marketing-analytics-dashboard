@@ -267,19 +267,27 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
     setPollingInterval(interval);
     
     // Timeout de 5 minutos
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       stopStatusPolling();
-      if (connectionState === 'pending-qr') {
-        setConnectionState('error');
-        setError('Timeout: QR Code expirado');
-        toast({
-          title: "QR Code expirado",
-          description: "Tempo limite excedido, gere um novo QR code",
-          variant: "destructive",
-        });
-      }
+      // Verificar o estado ATUAL no momento do timeout, não o estado capturado no closure
+      setConnectionState(currentState => {
+        if (currentState === 'pending-qr') {
+          setError('Timeout: QR Code expirado');
+          toast({
+            title: "QR Code expirado",
+            description: "Tempo limite excedido, gere um novo QR code",
+            variant: "destructive",
+          });
+          return 'error';
+        }
+        // Se não está mais pending-qr, não fazer nada
+        return currentState;
+      });
     }, 5 * 60 * 1000);
-  }, [checkStatus, connectionState, toast]);
+    
+    // Guardar referência do timeout para poder cancelar se necessário
+    return timeoutId;
+  }, [checkStatus, toast]);
 
   // Parar polling de status
   const stopStatusPolling = useCallback(() => {
