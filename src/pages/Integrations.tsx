@@ -20,6 +20,7 @@ export default function Integrations() {
     connectionState,
     qrCode,
     isLoading,
+    isSyncing,
     error,
     connect,
     disconnect,
@@ -175,68 +176,80 @@ export default function Integrations() {
           <div className="grid md:grid-cols-2 gap-8">
             {/* WhatsApp Integration */}
             <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center mb-4">
-                <div className="p-2 bg-green-100 rounded-lg mr-3">
-                  <MessageSquare className="h-6 w-6 text-green-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900">WhatsApp Business</h3>
-                  <div className="flex items-center mt-1">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${whatsappStatus.bgColor} ${whatsappStatus.color}`}>
-                      {whatsappStatus.text}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-gray-600 mb-4">
-                Conecte sua conta do WhatsApp Business para automatizar mensagens e acompanhar conversões
-              </p>
-
-              {currentInstance?.instance_name && (
-                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">
-                    <strong>Instância:</strong> {currentInstance.instance_name}
-                  </p>
-                  {currentInstance.phone_number && (
-                    <p className="text-sm text-gray-600">
-                      <strong>Telefone:</strong> {currentInstance.phone_number}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {connectionState === 'connected' ? (
-                <div className="space-y-3">
-                  <Button 
-                    onClick={handleDisconnectWhatsApp} 
-                    variant="destructive" 
-                    className="w-full"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? 'Desconectando...' : 'Desconectar WhatsApp'}
-                  </Button>
-                  <Button variant="outline" className="w-full">
-                    Configurações Avançadas
-                  </Button>
+              {isSyncing ? (
+                // Loading state - mantém o mesmo tamanho da div
+                <div className="flex flex-col items-center justify-center py-16">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mb-4"></div>
+                  <p className="text-gray-600 text-sm">Verificando status do WhatsApp...</p>
+                  <p className="text-gray-500 text-xs mt-1">Sincronizando com Evolution API</p>
                 </div>
               ) : (
-                <Button 
-                  onClick={handleConnectWhatsApp} 
-                  className="w-full"
-                  disabled={isLoading || connectionState === 'connecting'}
-                >
-                  {isLoading || connectionState === 'connecting' 
-                    ? 'Conectando...' 
-                    : 'Conectar WhatsApp'
-                  }
-                </Button>
-              )}
+                // Conteúdo normal
+                <>
+                  <div className="flex items-center mb-4">
+                    <div className="p-2 bg-green-100 rounded-lg mr-3">
+                      <MessageSquare className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-gray-900">WhatsApp Business</h3>
+                      <div className="flex items-center mt-1">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${whatsappStatus.bgColor} ${whatsappStatus.color}`}>
+                          {whatsappStatus.text}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
 
-              {error && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-600">{error}</p>
-                </div>
+                  <p className="text-gray-600 mb-4">
+                    Conecte sua conta do WhatsApp Business para automatizar mensagens e acompanhar conversões
+                  </p>
+
+                  {currentInstance?.instance_name && (
+                    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                      <p className="text-sm text-gray-600">
+                        <strong>Instância:</strong> {currentInstance.instance_name}
+                      </p>
+                      {currentInstance.phone_number && (
+                        <p className="text-sm text-gray-600">
+                          <strong>Telefone:</strong> {currentInstance.phone_number}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {connectionState === 'connected' ? (
+                    <div className="space-y-3">
+                      <Button 
+                        onClick={handleDisconnectWhatsApp} 
+                        variant="destructive" 
+                        className="w-full"
+                        disabled={isLoading}
+                      >
+                        {isLoading ? 'Desconectando...' : 'Desconectar WhatsApp'}
+                      </Button>
+                      <Button variant="outline" className="w-full">
+                        Configurações Avançadas
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button 
+                      onClick={handleConnectWhatsApp} 
+                      className="w-full"
+                      disabled={isLoading || connectionState === 'connecting'}
+                    >
+                      {isLoading || connectionState === 'connecting' 
+                        ? 'Conectando...' 
+                        : 'Conectar WhatsApp'
+                      }
+                    </Button>
+                  )}
+
+                  {error && (
+                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm text-red-600">{error}</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

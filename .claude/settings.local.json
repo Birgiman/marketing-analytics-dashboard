@@ -10,7 +10,8 @@
       "WebFetch(domain:doc.evolution-api.com)",
       "Bash(supabase functions deploy:*)",
       "Bash(git push:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

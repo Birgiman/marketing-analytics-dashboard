@@ -14,12 +14,14 @@ export interface UseWhatsAppConnectionResult {
   connectionState: ConnectionState;
   qrCode: string | null;
   isLoading: boolean;
+  isSyncing: boolean;
   error: string | null;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   checkStatus: () => Promise<void>;
   generateQR: () => Promise<void>;
   refreshInstances: () => Promise<void>;
+  syncWithAPI: () => Promise<void>;
 }
 
 export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
@@ -28,6 +30,7 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -41,6 +44,33 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
     const { data: { session } } = await supabase.auth.getSession();
     return session?.user?.id;
   }, []);
+
+  // Sincronizar status com Evolution API
+  const syncWithAPI = useCallback(async () => {
+    if (DEMO_MODE) return;
+
+    setIsSyncing(true);
+    try {
+      const userId = await getUserId();
+      if (!userId) return;
+
+      await whatsappService.syncInstanceStatus(userId);
+      
+      toast({
+        title: "Status sincronizado",
+        description: "Informações atualizadas com sucesso",
+      });
+    } catch (err: any) {
+      console.error('Erro ao sincronizar:', err);
+      toast({
+        title: "Erro na sincronização",
+        description: err.message || 'Falha ao sincronizar com Evolution API',
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [getUserId, toast]);
 
   // Carregar instâncias do usuário
   const refreshInstances = useCallback(async () => {
@@ -297,14 +327,19 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
     }
   }, [pollingInterval]);
 
-  // Carregar instâncias ao montar componente
+  // Carregar instâncias e sincronizar ao montar componente
   useEffect(() => {
-    refreshInstances();
+    const initializeConnection = async () => {
+      await syncWithAPI(); // Primeiro sincronizar com API
+      await refreshInstances(); // Depois carregar dados atualizados
+    };
+    
+    initializeConnection();
     
     return () => {
       stopStatusPolling();
     };
-  }, [refreshInstances, stopStatusPolling]);
+  }, [syncWithAPI, refreshInstances, stopStatusPolling]);
 
   // Iniciar polling se houver instância pendente
   useEffect(() => {
@@ -321,11 +356,13 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
     connectionState,
     qrCode,
     isLoading,
+    isSyncing,
     error,
     connect,
     disconnect,
     checkStatus,
     generateQR,
-    refreshInstances
+    refreshInstances,
+    syncWithAPI
   };
 };

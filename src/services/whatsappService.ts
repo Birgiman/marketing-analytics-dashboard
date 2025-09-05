@@ -297,10 +297,74 @@ class WhatsAppService {
     }
   }
 
+  // Sincronizar status com Evolution API e atualizar banco
+  async syncInstanceStatus(userId: string): Promise<void> {
+    try {
+      console.log('=== SINCRONIZANDO STATUS COM EVOLUTION API ===');
+      
+      // Buscar instâncias no banco local
+      const { data: localInstances, error } = await supabase
+        .from('whatsapp_instances')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Erro ao buscar instâncias locais:', error);
+        return;
+      }
+
+      if (!localInstances || localInstances.length === 0) {
+        console.log('Nenhuma instância local encontrada');
+        return;
+      }
+
+      // Para cada instância local, verificar status na Evolution API
+      for (const localInstance of localInstances) {
+        try {
+          console.log(`Verificando status da instância: ${localInstance.instance_name}`);
+          
+          // Verificar se ainda existe na Evolution API
+          const existsInAPI = await this.checkInstanceExists(localInstance.instance_name, userId);
+          
+          if (!existsInAPI) {
+            // Instância não existe mais na API - marcar como desconectada
+            console.log(`Instância ${localInstance.instance_name} não existe mais na API`);
+            await this.updateInstanceStatus(localInstance.instance_name, 'disconnected');
+            continue;
+          }
+
+          // Se existe, verificar status atual
+          const statusResponse = await this.checkConnectionStatus(localInstance.instance_name, userId);
+          const apiStatus: WhatsAppStatus = statusResponse.connected ? 'connected' : 'disconnected';
+          
+          console.log(`Status da API: ${apiStatus}, Status local: ${localInstance.status}`);
+          
+          // Se status mudou, atualizar no banco
+          if (apiStatus !== localInstance.status) {
+            console.log(`Atualizando status de ${localInstance.status} para ${apiStatus}`);
+            await this.updateInstanceStatus(localInstance.instance_name, apiStatus);
+          }
+          
+        } catch (instanceError) {
+          console.error(`Erro ao verificar instância ${localInstance.instance_name}:`, instanceError);
+          // Em caso de erro, assumir desconectado
+          if (localInstance.status !== 'disconnected') {
+            await this.updateInstanceStatus(localInstance.instance_name, 'disconnected');
+          }
+        }
+      }
+      
+      console.log('=== SINCRONIZAÇÃO CONCLUÍDA ===');
+    } catch (error) {
+      console.error('Erro na sincronização de status:', error);
+      throw error;
+    }
+  }
+
   // Atualizar status da instância no Supabase
   async updateInstanceStatus(instanceName: string, status: WhatsAppStatus, qrCode?: string): Promise<void> {
     try {
-      const updateData: any = { status };
+      const updateData: any = { status, updated_at: new Date().toISOString() };
       if (qrCode) updateData.qr_code = qrCode;
 
       await supabase
