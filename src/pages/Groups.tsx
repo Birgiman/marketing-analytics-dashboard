@@ -1,41 +1,161 @@
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { DemoBanner } from '@/components/DemoBanner';
-import { useAnalytics } from '@/hooks/useAnalytics';
-import { supabase } from '@/integrations/supabase/client';
-import { DEMO_MODE } from '@/lib/demo-mode';
-import { Link, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { Group } from '@/types';
-import { Users, MessageSquare, Phone, Calendar, Activity } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Users, 
+  UserMinus, 
+  UserCheck, 
+  ShoppingCart, 
+  DollarSign, 
+  TrendingUp,
+  Download,
+  Search,
+  Settings,
+  MapPin,
+  BarChart3,
+  ArrowUp,
+  ArrowDown
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+
+interface GroupData {
+  id: string;
+  grupo: string;
+  publico: string;
+  live: string;
+  entrouGrupo: number;
+  saiuGrupo: number;
+  leadsAtivos: number;
+  vendas: number;
+  receita: number;
+  ticketMedio: number;
+}
 
 export default function Groups() {
   const navigate = useNavigate();
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const { groups, loading: analyticsLoading } = useAnalytics(userId || undefined);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedPublico, setSelectedPublico] = useState("todos");
+  const [selectedLive, setSelectedLive] = useState("todas");
+
+  // Mock data - replace with real data from your backend
+  const mockGroupsData: GroupData[] = [
+    {
+      id: "1",
+      grupo: "Grupo WhatsApp 1",
+      publico: "Black Friday 2024",
+      live: "Live Black Friday #1",
+      entrouGrupo: 450,
+      saiuGrupo: 32,
+      leadsAtivos: 418,
+      vendas: 15,
+      receita: 7350,
+      ticketMedio: 490
+    },
+    {
+      id: "2", 
+      grupo: "Grupo WhatsApp 2",
+      publico: "Black Friday 2024",
+      live: "Live Black Friday #1",
+      entrouGrupo: 380,
+      saiuGrupo: 28,
+      leadsAtivos: 352,
+      vendas: 12,
+      receita: 5880,
+      ticketMedio: 490
+    },
+    {
+      id: "3",
+      grupo: "Grupo Telegram VIP",
+      publico: "Black Friday 2024", 
+      live: "Live Black Friday #2",
+      entrouGrupo: 125,
+      saiuGrupo: 8,
+      leadsAtivos: 117,
+      vendas: 5,
+      receita: 2440,
+      ticketMedio: 488
+    },
+    {
+      id: "4",
+      grupo: "Grupo Exclusivo VIP",
+      publico: "Lançamento Produto X",
+      live: "Live Produto X",
+      entrouGrupo: 220,
+      saiuGrupo: 15,
+      leadsAtivos: 205,
+      vendas: 10,
+      receita: 4680,
+      ticketMedio: 468
+    },
+    {
+      id: "5",
+      grupo: "Grupo WhatsApp Beta",
+      publico: "Lançamento Produto X",
+      live: "Live Produto X",
+      entrouGrupo: 180,
+      saiuGrupo: 12,
+      leadsAtivos: 168,
+      vendas: 8,
+      receita: 3740,
+      ticketMedio: 467
+    },
+    {
+      id: "6",
+      grupo: "Grupo Premium Members",
+      publico: "Cyber Monday",
+      live: "Live Cyber Monday",
+      entrouGrupo: 95,
+      saiuGrupo: 5,
+      leadsAtivos: 90,
+      vendas: 7,
+      receita: 3850,
+      ticketMedio: 550
+    },
+    {
+      id: "7",
+      grupo: "Grupo Diamond",
+      publico: "Black Friday 2024",
+      live: "Live Black Friday #3",
+      entrouGrupo: 300,
+      saiuGrupo: 20,
+      leadsAtivos: 280,
+      vendas: 18,
+      receita: 8640,
+      ticketMedio: 480
+    },
+    {
+      id: "8",
+      grupo: "Grupo Elite",
+      publico: "Cyber Monday",
+      live: "Live Cyber Monday",
+      entrouGrupo: 150,
+      saiuGrupo: 10,
+      leadsAtivos: 140,
+      vendas: 9,
+      receita: 4950,
+      ticketMedio: 550
+    }
+  ];
 
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        if (DEMO_MODE) {
-          setUserId('demo-user-123');
-          setLoading(false);
-          return;
-        }
-
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
           navigate('/auth/signin');
           return;
         }
-
         setUserId(session.user.id);
       } catch (error) {
         console.error('Error checking auth:', error);
-        if (!DEMO_MODE) {
-          navigate('/auth/signin');
-        }
+        navigate('/auth/signin'); 
       } finally {
         setLoading(false);
       }
@@ -44,56 +164,23 @@ export default function Groups() {
     checkAuth();
   }, [navigate]);
 
-  const formatDateTime = (dateTime?: string | null) => {
-    if (!dateTime) return 'N/A';
-    return new Date(dateTime).toLocaleString('pt-BR');
-  };
+  // Calculate totals
+  const totals = mockGroupsData.reduce((acc, group) => ({
+    entrouGrupo: acc.entrouGrupo + group.entrouGrupo,
+    saiuGrupo: acc.saiuGrupo + group.saiuGrupo,
+    leadsAtivos: acc.leadsAtivos + group.leadsAtivos,
+    vendas: acc.vendas + group.vendas,
+    receita: acc.receita + group.receita,
+    ticketMedio: acc.receita / acc.vendas || 0
+  }), { entrouGrupo: 0, saiuGrupo: 0, leadsAtivos: 0, vendas: 0, receita: 0, ticketMedio: 0 });
 
-  const getEventIcon = (evento?: string | null) => {
-    switch (evento?.toLowerCase()) {
-      case 'entrada':
-      case 'join':
-        return <Activity className="h-4 w-4 text-green-600" />;
-      case 'saida':
-      case 'leave':
-        return <Activity className="h-4 w-4 text-red-600" />;
-      case 'mensagem':
-      case 'message':
-        return <MessageSquare className="h-4 w-4 text-blue-600" />;
-      default:
-        return <Activity className="h-4 w-4 text-gray-600" />;
-    }
-  };
-
-  const getEventColor = (evento?: string | null) => {
-    switch (evento?.toLowerCase()) {
-      case 'entrada':
-      case 'join':
-        return 'bg-green-100 text-green-800';
-      case 'saida':
-      case 'leave':
-        return 'bg-red-100 text-red-800';
-      case 'mensagem':
-      case 'message':
-        return 'bg-blue-100 text-blue-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  // Group activities by group name
-  const groupsByName = (groups || []).reduce((acc, group) => {
-    const groupName = group.nome_grupo || 'Grupo sem nome';
-    if (!acc[groupName]) {
-      acc[groupName] = [];
-    }
-    acc[groupName].push(group);
-    return acc;
-  }, {} as Record<string, Group[]>);
-
-  const totalGroups = Object.keys(groupsByName).length;
-  const totalActivities = (groups || []).length;
-  const uniqueNumbers = new Set((groups || []).map(g => g.telefone).filter(Boolean)).size;
+  // Filter data
+  const filteredData = mockGroupsData.filter(group => {
+    const matchesSearch = group.grupo.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesPublico = selectedPublico === "todos" || group.publico === selectedPublico;
+    const matchesLive = selectedLive === "todas" || group.live === selectedLive;
+    return matchesSearch && matchesPublico && matchesLive;
+  });
 
   if (loading) {
     return (
@@ -104,162 +191,256 @@ export default function Groups() {
   }
 
   return (
-    <>
-      <title>Grupos - Live Shop Analytics</title>
+    <div className="flex-1 space-y-6 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-6 w-6" />
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              LiveShop Analytics
+            </h1>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+            <span>R$ 1,10M / 10M</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Badge variant="secondary">11%</Badge>
+          </div>
+          <div className="flex items-center gap-1">
+            <MapPin className="h-4 w-4" />
+            <span>Endereço</span>
+          </div>
+          <Button variant="ghost" size="sm">
+            <Settings className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
 
-      <main className="min-h-screen bg-gray-50">
-        <DemoBanner />
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Entrou no Grupo</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totals.entrouGrupo.toLocaleString()}</div>
+            <div className="flex items-center text-xs text-green-600">
+              <ArrowUp className="h-3 w-3 mr-1" />
+              +15% vs ontem
+            </div>
+          </CardContent>
+        </Card>
         
-        {/* Navigation */}
-        <nav className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16">
-              <div className="flex items-center">
-                <Link to="/" className="text-xl font-bold text-gray-900">
-                  Live Shop Analytics
-                </Link>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Saiu do Grupo</CardTitle>
+            <UserMinus className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totals.saiuGrupo}</div>
+            <div className="flex items-center text-xs text-red-600">
+              <ArrowDown className="h-3 w-3 mr-1" />
+              -5% vs ontem
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Leads Ativos</CardTitle>
+            <UserCheck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totals.leadsAtivos.toLocaleString()}</div>
+            <div className="flex items-center text-xs text-green-600">
+              <ArrowUp className="h-3 w-3 mr-1" />
+              +12% vs ontem
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Vendas</CardTitle>
+            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totals.vendas}</div>
+            <div className="flex items-center text-xs text-green-600">
+              <ArrowUp className="h-3 w-3 mr-1" />
+              +16% vs ontem
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Ticket Médio</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">R$ {Math.round(totals.ticketMedio)}</div>
+            <div className="flex items-center text-xs text-green-600">
+              <ArrowUp className="h-3 w-3 mr-1" />
+              +8% vs ontem
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Faturamento Total</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">R$ {totals.receita.toLocaleString()}</div>
+            <div className="flex items-center text-xs text-green-600">
+              <ArrowUp className="h-3 w-3 mr-1" />
+              +22% vs ontem
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Sales by Public Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Vendas por Público - Geral
+              </CardTitle>
+              <CardDescription>
+                Visualize e filtre os dados de todos os grupos e campanhas
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-4">
+              <Button variant="outline" className="gap-2">
+                <Download className="h-4 w-4" />
+                Exportar CSV
+              </Button>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Data início:</label>
+                <Input type="date" defaultValue="2024-11-01" className="w-auto" />
               </div>
-              <div className="flex items-center space-x-4">
-                <Link to="/dashboard">
-                  <Button variant="outline">Dashboard</Button>
-                </Link>
-                <Link to="/integrations">
-                  <Button variant="outline">Integrações</Button>
-                </Link>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Data fim:</label>
+                <Input type="date" defaultValue="2024-11-30" className="w-auto" />
               </div>
             </div>
           </div>
-        </nav>
-
-        <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Grupos WhatsApp</h1>
-            <p className="text-gray-600">
-              Monitore atividades e engajamento nos grupos WhatsApp
-            </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Filters */}
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome do grupo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={selectedPublico} onValueChange={setSelectedPublico}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Todos os públicos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os públicos</SelectItem>
+                <SelectItem value="Black Friday 2024">Black Friday 2024</SelectItem>
+                <SelectItem value="Lançamento Produto X">Lançamento Produto X</SelectItem>
+                <SelectItem value="Cyber Monday">Cyber Monday</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={selectedLive} onValueChange={setSelectedLive}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Todas as lives" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas as lives</SelectItem>
+                <SelectItem value="Live Black Friday #1">Live Black Friday #1</SelectItem>
+                <SelectItem value="Live Black Friday #2">Live Black Friday #2</SelectItem>
+                <SelectItem value="Live Black Friday #3">Live Black Friday #3</SelectItem>
+                <SelectItem value="Live Produto X">Live Produto X</SelectItem>
+                <SelectItem value="Live Cyber Monday">Live Cyber Monday</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <Card className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Users className="h-5 w-5 text-blue-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Grupos</p>
-                  <p className="text-2xl font-semibold text-gray-900">{totalGroups}</p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <Activity className="h-5 w-5 text-green-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Atividades</p>
-                  <p className="text-2xl font-semibold text-gray-900">{totalActivities}</p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <Phone className="h-5 w-5 text-purple-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Números Únicos</p>
-                  <p className="text-2xl font-semibold text-gray-900">{uniqueNumbers}</p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Calendar className="h-5 w-5 text-yellow-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Última Atividade</p>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {(groups || []).length > 0 ? 'Hoje' : 'Nenhuma'}
-                  </p>
-                </div>
-              </div>
-            </Card>
+          {/* Table */}
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Grupo</TableHead>
+                  <TableHead>Público</TableHead>
+                  <TableHead>Live</TableHead>
+                  <TableHead className="text-center">
+                    Entrou no Grupo
+                    <div className="text-xs text-muted-foreground font-normal">Total: {totals.entrouGrupo.toLocaleString()}</div>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    Saiu do Grupo  
+                    <div className="text-xs text-muted-foreground font-normal">Total: {totals.saiuGrupo}</div>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    Leads Ativos
+                    <div className="text-xs text-muted-foreground font-normal">Total: {totals.leadsAtivos.toLocaleString()}</div>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    Vendas
+                    <div className="text-xs text-muted-foreground font-normal">Total: {totals.vendas}</div>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    Receita
+                    <div className="text-xs text-muted-foreground font-normal">Total: R$ {totals.receita.toLocaleString()}</div>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    Ticket Médio
+                    <div className="text-xs text-muted-foreground font-normal">Média: R$ {Math.round(totals.ticketMedio)}</div>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredData.map((group) => (
+                  <TableRow key={group.id}>
+                    <TableCell className="font-medium">{group.grupo}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{group.publico}</Badge>
+                    </TableCell>
+                    <TableCell className="text-blue-600">{group.live}</TableCell>
+                    <TableCell className="text-center text-green-600 font-medium">
+                      {group.entrouGrupo}
+                    </TableCell>
+                    <TableCell className="text-center text-red-600 font-medium">
+                      {group.saiuGrupo}
+                    </TableCell>
+                    <TableCell className="text-center text-blue-600 font-medium">
+                      {group.leadsAtivos}
+                    </TableCell>
+                    <TableCell className="text-center font-medium">
+                      {group.vendas}
+                    </TableCell>
+                    <TableCell className="text-center font-medium">
+                      R$ {group.receita.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-center font-medium">
+                      R$ {group.ticketMedio}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-
-          {/* Groups List */}
-          <div className="space-y-6">
-            {analyticsLoading ? (
-              <div className="text-center py-8">
-                <div className="text-lg">Carregando grupos...</div>
-              </div>
-            ) : Object.keys(groupsByName).length === 0 ? (
-              <Card className="p-8 text-center">
-                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum grupo encontrado</h3>
-                <p className="text-gray-600 mb-4">
-                  As atividades dos grupos WhatsApp aparecerão aqui
-                </p>
-              </Card>
-            ) : (
-              Object.entries(groupsByName).map(([groupName, groupActivities]) => (
-                <Card key={groupName} className="overflow-hidden">
-                  <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Users className="h-5 w-5 text-gray-600" />
-                        <h3 className="text-lg font-semibold text-gray-900">{groupName}</h3>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
-                        <span>ID: {groupActivities[0]?.id_grupo || 'N/A'}</span>
-                        <span>{groupActivities.length} atividades</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="divide-y divide-gray-200">
-                    {(groupActivities || []).slice(0, 10).map((activity) => (
-                      <div key={activity.id} className="px-6 py-4 hover:bg-gray-50">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            {getEventIcon(activity.evento)}
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-gray-900">
-                                  {activity.telefone || 'Número não identificado'}
-                                </span>
-                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getEventColor(activity.evento)}`}>
-                                  {activity.evento || 'Evento'}
-                                </span>
-                              </div>
-                              <p className="text-sm text-gray-600">
-                                {formatDateTime(activity.data_hora)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {(groupActivities || []).length > 10 && (
-                      <div className="px-6 py-4 text-center">
-                        <Button variant="outline" size="sm">
-                          Ver mais {(groupActivities || []).length - 10} atividades
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              ))
-            )}
-          </div>
-        </div>
-      </main>
-    </>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
