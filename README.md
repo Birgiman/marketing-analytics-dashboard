@@ -26,7 +26,7 @@ src/
 │   └── useWhatsAppConnection.tsx
 ├── lib/                # Configurações e utilitários
 │   └── supabase.ts
-├── pages/              # Páginas Next.js
+├── pages/              # Páginas React
 │   ├── auth/           # Páginas de autenticação
 │   ├── integrations/   # Páginas de integrações
 │   └── dashboard/      # Dashboard principal

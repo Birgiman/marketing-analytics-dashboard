@@ -145,12 +145,20 @@ export const AccountSettingsModal = ({ open, onOpenChange }: AccountSettingsModa
           </section>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={handleCancel}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSave}>
+          <div className="flex justify-between pt-4 border-t">
+            <Button
+              variant="default"
+              onClick={handleSave}
+              className="bg-slate-900 hover:bg-slate-800 text-white px-8"
+            >
               Salvar Alterações
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={handleCancel}
+              className="text-muted-foreground"
+            >
+              Cancelar
             </Button>
           </div>
         </div>
