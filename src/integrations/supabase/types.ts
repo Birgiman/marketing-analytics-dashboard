@@ -56,45 +56,6 @@ export type Database = {
         }
         Relationships: []
       }
-      grupos: {
-        Row: {
-          created_at: string
-          data: string | null
-          data_hora: string | null
-          evento: string | null
-          hora: string | null
-          id: string
-          id_grupo: string | null
-          nome_grupo: string | null
-          telefone: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          data?: string | null
-          data_hora?: string | null
-          evento?: string | null
-          hora?: string | null
-          id?: string
-          id_grupo?: string | null
-          nome_grupo?: string | null
-          telefone?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          data?: string | null
-          data_hora?: string | null
-          evento?: string | null
-          hora?: string | null
-          id?: string
-          id_grupo?: string | null
-          nome_grupo?: string | null
-          telefone?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       lives: {
         Row: {
           captacao_start: string | null
@@ -230,6 +191,36 @@ export type Database = {
           user_agent?: string | null
           user_id?: string
           validation_passed?: boolean
+        }
+        Relationships: []
+      }
+      whatsapp_groups_log: {
+        Row: {
+          created_at: string
+          evento: string | null
+          id: string
+          id_grupo: string | null
+          nome_grupo: string | null
+          telefone: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          evento?: string | null
+          id?: string
+          id_grupo?: string | null
+          nome_grupo?: string | null
+          telefone?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          evento?: string | null
+          id?: string
+          id_grupo?: string | null
+          nome_grupo?: string | null
+          telefone?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
