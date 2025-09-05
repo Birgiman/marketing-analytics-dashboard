@@ -96,9 +96,11 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
       // Definir instância atual (mais recente)
       const current = userInstances[0] || null;
       setCurrentInstance(current);
-      setConnectionState(current?.status || 'disconnected');
-      
-      if (current?.qr_code) {
+
+      // Preserve local pending-qr/QR code to avoid UI flicker during reconnect
+      setConnectionState((prev) => (prev === 'pending-qr' || !!qrCode ? prev : (current?.status || 'disconnected')));
+
+      if (!qrCode && current?.qr_code) {
         setQrCode(current.qr_code);
       }
     } catch (err) {
@@ -227,8 +229,14 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
       
       const status = await whatsappService.checkConnectionStatus(currentInstance.instance_name, userId);
       
-      const newState: ConnectionState = status.connected ? 'connected' : 
-        currentInstance.status === 'pending-qr' ? 'pending-qr' : 'disconnected';
+      let newState: ConnectionState;
+      if (status.connected) {
+        newState = 'connected';
+      } else if (connectionState === 'pending-qr' || !!qrCode || currentInstance.status === 'pending-qr') {
+        newState = 'pending-qr';
+      } else {
+        newState = 'disconnected';
+      }
 
       if (newState !== connectionState) {
         setConnectionState(newState);
