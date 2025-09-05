@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Download, Phone, Eye, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { DEMO_MODE } from '@/lib/demo-mode';
 
 interface Lead {
   id: string;
@@ -43,16 +44,30 @@ export default function Leads() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        navigate('/auth/signin');
-        return;
+      try {
+        if (DEMO_MODE) {
+          // Modo demo - usar dados mock
+          setLeads(mockLeads);
+          setLoading(false);
+          return;
+        }
+
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          navigate('/auth/signin');
+          return;
+        }
+        
+        // Por enquanto usar dados mock
+        setLeads(mockLeads);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error checking auth:', error);
+        if (!DEMO_MODE) {
+          navigate('/auth/signin');
+        }
       }
-      
-      // Por enquanto usar dados mock
-      setLeads(mockLeads);
-      setLoading(false);
     };
 
     checkAuth();
