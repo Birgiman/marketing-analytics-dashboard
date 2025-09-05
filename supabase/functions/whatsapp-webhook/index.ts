@@ -113,8 +113,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     console.log('👤 Found user_id:', user_id);
 
     // Handle different event types
-    if (event === 'groups.upsert') {
-      console.log('📝 Processing GROUPS_UPSERT event');
+    if (event === 'groups.upsert' || event === 'groups.update') {
+      console.log('📝 Processing GROUPS_UPSERT/UPDATE event');
       
       // GROUPS_UPSERT sends data as array, get first group
       const groupData = Array.isArray(webhookData) ? webhookData[0] : webhookData;
