@@ -207,6 +207,71 @@ serve(async (req) => {
         );
       }
 
+      case 'check_instance_exists': {
+        console.log('1. Verificando se instância existe na Evolution API...');
+        await logWhatsAppAction('instance_existence_check_start', { instanceName });
+
+        try {
+          const response = await fetch(`${evolutionApiUrl}/instance/fetchInstances`, {
+            method: 'GET',
+            headers,
+            signal: AbortSignal.timeout(15000)
+          });
+
+          console.log('2. FetchInstances response status:', response.status);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('3. FetchInstances API Error:', errorText);
+            await logWhatsAppAction('instance_existence_check_error', null, `HTTP ${response.status}: ${errorText}`);
+            
+            return new Response(
+              JSON.stringify({
+                exists: false,
+                error: `HTTP ${response.status}: ${errorText}`
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+
+          const data = await response.json();
+          console.log('3. FetchInstances response data:', JSON.stringify(data, null, 2));
+
+          // Verificar se a instância específica existe na lista
+          const instanceExists = Array.isArray(data) ? 
+            data.some(instance => instance.instanceName === instanceName || instance.name === instanceName) :
+            (data.instanceName === instanceName || data.name === instanceName);
+
+          console.log('4. Instance exists check result:', instanceExists);
+          
+          await logWhatsAppAction('instance_existence_check_success', { 
+            instanceExists,
+            totalInstances: Array.isArray(data) ? data.length : 1
+          });
+
+          return new Response(
+            JSON.stringify({
+              exists: instanceExists,
+              instances: data
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+
+        } catch (fetchError) {
+          console.error('=== ERRO NO FETCH CHECK INSTANCE ===');
+          console.error('Erro:', fetchError.message);
+          await logWhatsAppAction('instance_existence_fetch_error', null, `Fetch error: ${fetchError.message}`);
+          
+          return new Response(
+            JSON.stringify({
+              exists: false,
+              error: `Erro ao verificar instância: ${fetchError.message}`
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+
       case 'check_status': {
         console.log('1. Verificando status da instância...');
         await logWhatsAppAction('status_check_start', { instanceName });
@@ -341,11 +406,11 @@ serve(async (req) => {
 
       default:
         console.error('Action não reconhecida:', action);
-        console.error('Actions disponíveis: create_instance, reconnect_instance, check_status, get_qr, disconnect, delete_instance');
+        console.error('Actions disponíveis: create_instance, reconnect_instance, check_instance_exists, check_status, get_qr, disconnect, delete_instance');
         return new Response(
           JSON.stringify({ 
             error: `Ação não suportada: ${action}`,
-            availableActions: ['create_instance', 'reconnect_instance', 'check_status', 'get_qr', 'disconnect', 'delete_instance']
+            availableActions: ['create_instance', 'reconnect_instance', 'check_instance_exists', 'check_status', 'get_qr', 'disconnect', 'delete_instance']
           }), 
           { 
             status: 400, 

@@ -63,6 +63,21 @@ class WhatsAppService {
     }
   }
 
+  // Verificar se instância existe na Evolution API
+  private async checkInstanceExists(instanceName: string, userId: string): Promise<boolean> {
+    try {
+      const result = await this.callEvolutionAPI('check_instance_exists', {
+        instanceName,
+        userId
+      });
+      
+      return result.exists || false;
+    } catch (error) {
+      console.error('Erro ao verificar existência da instância:', error);
+      return false;
+    }
+  }
+
   // Criar nova instância WhatsApp automaticamente usando perfil
   async createWhatsAppInstance(userId: string): Promise<CreateInstanceResponse> {
     try {
@@ -76,27 +91,18 @@ class WhatsAppService {
       console.log('User:', fullName);
       console.log('Instance Name:', instanceName);
 
-      // Verificar se já existe uma instância no banco
-      console.log('2. Verificando se instância já existe no banco...');
-      const { data: existingInstance, error: queryError } = await supabase
-        .from('whatsapp_instances')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('instance_name', instanceName)
-        .single();
-
-      console.log('3. Erro na query:', queryError);
-      console.log('4. Instância encontrada:', existingInstance);
+      // PASSO 1: Verificar se instância existe na Evolution API (FONTE DA VERDADE)
+      console.log('2. Verificando se instância existe na Evolution API...');
+      const instanceExistsInAPI = await this.checkInstanceExists(instanceName, userId);
+      console.log('3. Instância existe na Evolution API:', instanceExistsInAPI);
 
       let result;
       
-      // Aguardar um pouco para garantir que a desconexão foi processada
-      if (existingInstance && !queryError) {
-        // Instância já existe - usar connect para reconectar
-        console.log('5. Instância existente encontrada - reconectando...');
-        console.log('6. Status da instância existente:', existingInstance.status);
-        console.log('7. Aguardando 2s antes de reconectar...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
+      if (instanceExistsInAPI) {
+        // Instância existe na Evolution API - usar reconnect
+        console.log('4. Instância existe na API - fazendo reconnect...');
+        console.log('5. Aguardando 1s antes de reconectar...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         result = await this.callEvolutionAPI('reconnect_instance', {
           instanceName,
@@ -104,9 +110,8 @@ class WhatsAppService {
           profileData: { fullName }
         });
       } else {
-        // Primeira conexão - criar nova instância
-        console.log('5. Primeira conexão - criando nova instância...');
-        console.log('6. Motivo: existingInstance =', !!existingInstance, ', queryError =', queryError?.code);
+        // Instância NÃO existe na Evolution API - criar nova
+        console.log('4. Instância NÃO existe na API - criando nova...');
         result = await this.callEvolutionAPI('create_instance', {
           instanceName,
           userId,
@@ -115,15 +120,23 @@ class WhatsAppService {
       }
 
       if (!result.success) {
-        throw new Error(result.error || 'Falha ao criar instância');
+        throw new Error(result.error || 'Falha ao criar/conectar instância');
       }
 
-      // Salvar ou atualizar no Supabase
+      // PASSO 2: Verificar se já existe no banco local para update/insert
+      console.log('5. Verificando se instância existe no banco local...');
+      const { data: existingInstance, error: queryError } = await supabase
+        .from('whatsapp_instances')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('instance_name', instanceName)
+        .single();
+
       let instance, supabaseError;
       
       if (existingInstance && !queryError) {
-        // Atualizar instância existente
-        console.log('7. Atualizando instância existente no banco...');
+        // Atualizar instância existente no banco
+        console.log('6. Atualizando instância existente no banco...');
         const { data, error } = await supabase
           .from('whatsapp_instances')
           .update({
@@ -140,8 +153,8 @@ class WhatsAppService {
         instance = data;
         supabaseError = error;
       } else {
-        // Criar nova instância
-        console.log('7. Criando nova instância no banco...');
+        // Criar nova instância no banco
+        console.log('6. Criando nova instância no banco...');
         const { data, error } = await supabase
           .from('whatsapp_instances')
           .insert({
@@ -163,8 +176,8 @@ class WhatsAppService {
         throw new Error('Falha ao salvar instância no banco de dados');
       }
 
-      console.log('2. Instância criada com sucesso');
-      console.log('3. QR Code presente:', !!result.qrCode);
+      console.log('7. Instância processada com sucesso');
+      console.log('8. QR Code presente:', !!result.qrCode);
 
       return {
         success: true,
