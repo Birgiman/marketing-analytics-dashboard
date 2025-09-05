@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { DemoBanner } from "@/components/DemoBanner";
 import { 
   Users, 
   UserMinus, 
@@ -191,7 +192,11 @@ export default function Groups() {
   }
 
   return (
-    <div className="flex-1 space-y-6 p-6">
+    <>
+      <title>Vendas por Público - Live Shop Analytics</title>
+      <main className="min-h-screen bg-gray-50">
+        <DemoBanner />
+        <div className="flex-1 space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
@@ -441,6 +446,8 @@ export default function Groups() {
           </div>
         </CardContent>
       </Card>
-    </div>
+        </div>
+      </main>
+    </>
   );
 }
