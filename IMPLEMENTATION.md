@@ -38,6 +38,9 @@ O projeto **Live Shop Analytics** foi reconstruído com sucesso a partir dos arq
 - ✅ Hook `useToast` para notificações
 - ✅ Layout responsivo com Tailwind CSS
 - ✅ Iconografia com Lucide React
+- ✅ **SalesHeader**: Cabeçalho com métricas e acesso rápido
+- ✅ **AddressModal**: Modal para gerenciamento de endereços
+- ✅ **DemoBanner**: Banner de modo demonstração
 
 ### 6. **Estrutura de Dados**
 - ✅ Tipos TypeScript para todas as entidades
@@ -155,6 +158,11 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 - Estrutura de componentes e hooks
 - Sistema de tipos TypeScript
 - Configuração de build e deploy
+- **Página de Perfil**: Atualização completa de dados pessoais
+- **Calculadora**: Interface para cálculos de campanhas
+- **Analytics por Grupos**: Métricas detalhadas com filtros
+- **Painel Admin**: Sistema de aprovação de usuários
+- **Modais e Componentes**: Interface rica com modais funcionais
 
 ### 🚧 Parcialmente Implementado
 - **Meta Ads Integration**: Estrutura criada, API não conectada
@@ -166,6 +174,11 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 - **Sistema de Pesquisas**: Tabela `pesquisa` com dados JSON
 - **Logs WhatsApp Avançados**: Logs de deleção e atividades detalhadas
 - **Enums de Sistema**: `approval_status` e `app_role` para controle de usuários
+- **Página de Perfil Completa**: Sistema de atualização de dados pessoais, email e senha
+- **Calculadora LiveShop**: Página para cálculos de campanha com dados salvos
+- **Vendas por Público**: Analytics detalhado com filtros e métricas por grupos
+- **Modal de Endereço**: Sistema de gerenciamento de endereços de entrega
+- **Painel Administrativo**: Interface completa para aprovação/rejeição de usuários
 
 ### 📋 Próximas Funcionalidades
 - Páginas de gerenciamento de lives
