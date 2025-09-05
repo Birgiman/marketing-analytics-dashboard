@@ -23,10 +23,23 @@ export const CreateTestUser = () => {
   const createTestUser = async () => {
     setLoading(true);
     try {
+      // Sanitizar e validar email localmente
+      const email = userData.email.trim().toLowerCase();
+      const password = userData.password;
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        toast({
+          title: "Email inválido",
+          description: "Verifique o endereço de email informado.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Criar usuário no Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: userData.email,
-        password: userData.password,
+        email,
+        password,
         options: {
           emailRedirectTo: `${window.location.origin}/dashboard`,
           data: {
