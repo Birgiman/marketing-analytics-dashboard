@@ -95,8 +95,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
       );
     }
 
+    // Find user_id from whatsapp_instances table using instance name
+    console.log('🔍 Searching for user_id using instance:', instance);
+    const { data: instanceData, error: instanceError } = await supabase
+      .from('whatsapp_instances')
+      .select('user_id')
+      .eq('instance_name', instance)
+      .single();
+
+    if (instanceError) {
+      console.error('❌ Error finding user_id:', instanceError);
+    }
+
+    const user_id = instanceData?.user_id || null;
+    console.log('👤 Found user_id:', user_id);
+
     const group_id = webhookData.id;
-    const group_name = instance || 'Unknown Group'; // Use instance name as fallback
+    // For now, use group_id as group_name since GROUP_PARTICIPANTS_UPDATE doesn't include real group name
+    // Consider setting up GROUP_UPDATE event to capture actual group name changes
+    const group_name = group_id;
     const participant = webhookData.participants?.[0]; // Get first participant from array
     const action = webhookData.action;
     
@@ -152,7 +169,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       nome_grupo: group_name,
       telefone: participant,
       evento: normalizedAction,
-      user_id: null, // Will be null for now as requested
+      user_id: user_id, // Use the found user_id from whatsapp_instances
       created_at: new Date().toISOString()
     };
 
