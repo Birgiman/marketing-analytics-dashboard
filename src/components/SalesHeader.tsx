@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MapPin, Settings } from 'lucide-react';
 import { AccountSettingsModal } from './AccountSettingsModal';
+import { AddressModal } from './AddressModal';
 
 interface SalesHeaderProps {
   title: string;
@@ -16,6 +17,7 @@ export const SalesHeader = ({
   location = "Endereço"
 }: SalesHeaderProps) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAddressOpen, setIsAddressOpen] = useState(false);
   return (
     <header className="flex items-center justify-between p-6 bg-card border-b border-border">
       <h1 className="text-xl font-semibold text-foreground">{title}</h1>
@@ -28,7 +30,10 @@ export const SalesHeader = ({
           <span className="text-muted-foreground">{salesPercentage}</span>
         </div>
         
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div 
+          className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+          onClick={() => setIsAddressOpen(true)}
+        >
           <MapPin className="w-4 h-4" />
           <span>{location}</span>
         </div>
@@ -42,6 +47,10 @@ export const SalesHeader = ({
       <AccountSettingsModal 
         open={isSettingsOpen} 
         onOpenChange={setIsSettingsOpen} 
+      />
+      <AddressModal 
+        open={isAddressOpen} 
+        onOpenChange={setIsAddressOpen} 
       />
     </header>
   );
