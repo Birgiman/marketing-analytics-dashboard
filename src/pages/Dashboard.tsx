@@ -6,6 +6,7 @@ import { DEMO_MODE } from "@/lib/demo-mode";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SalesHeader } from "@/components/SalesHeader";
 
 interface DashboardStats {
   totalLives: number;
@@ -89,14 +90,12 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Header */}
-      <header className="flex items-center justify-between p-6 border-b border-border bg-card">
-        <h1 className="text-2xl font-semibold text-foreground">LiveShop Analytics</h1>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span>R$ 1,10M / 10M</span>
-          <span>11%</span>
-          <span>Endereço</span>
-        </div>
-      </header>
+      <SalesHeader 
+        title="LiveShop Analytics" 
+        salesTarget="R$ 1,10M / 10M"
+        salesPercentage="11%"
+        location="Endereço"
+      />
 
       {/* Stats Grid */}
       <div className="p-6">

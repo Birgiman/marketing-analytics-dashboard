@@ -11,7 +11,7 @@ interface SalesHeaderProps {
 
 export const SalesHeader = ({ 
   title, 
-  salesTarget = "R$ 110M / 10M", 
+  salesTarget = "R$ 1,10M / 10M", 
   salesPercentage = "11%",
   location = "Endereço"
 }: SalesHeaderProps) => {
