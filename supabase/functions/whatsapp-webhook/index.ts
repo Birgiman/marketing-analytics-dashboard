@@ -84,9 +84,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     console.log('🎯 Event type:', event);
     console.log('📋 Full event data keys:', Object.keys(eventData));
     
-    // Log all group-related events for debugging
-    if (event && event.includes('group')) {
-      console.log('🔍 GROUP EVENT DETECTED:', event);
+    // Log all group/chat-related events for debugging
+    if (event && (event.includes('group') || event.includes('chat'))) {
+      console.log('🔍 GROUP/CHAT EVENT DETECTED:', event);
       console.log('📄 Event payload:', JSON.stringify(eventData, null, 2));
     }
     
@@ -177,6 +177,67 @@ Deno.serve(async (req: Request): Promise<Response> => {
           status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
+      );
+    }
+
+    // Handle CHATS_UPDATE/UPSERT for group name changes
+    if (event === 'chats.update' || event === 'chats.upsert') {
+      console.log('📝 Processing CHATS_UPDATE/UPSERT event');
+      // Determine if data is array or object
+      const chatData = Array.isArray(webhookData) ? webhookData[0] : webhookData;
+      const chat_id = chatData?.id || chatData?.jid || chatData?.key?.remoteJid;
+      const chat_name = chatData?.name || chatData?.subject || chatData?.title;
+      console.log('🧭 Chat info - ID:', chat_id, 'Name:', chat_name);
+      // Only process group chats
+      const isGroup = typeof chat_id === 'string' && chat_id.endsWith('@g.us');
+      if (!isGroup || !user_id) {
+        console.log('⚠️ Chat is not a group or missing user_id, skipping');
+        return new Response(
+          JSON.stringify({ 
+            ok: true, 
+            message: 'Chat update ignored', 
+            isGroup, 
+            user_id_present: !!user_id 
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (!chat_id || !chat_name) {
+        console.log('⚠️ Missing chat_id or chat_name, skipping cache update');
+        return new Response(
+          JSON.stringify({ 
+            ok: true, 
+            message: 'Chats update processed (incomplete data)', 
+            missing_fields: { chat_id: !chat_id, chat_name: !chat_name } 
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const { data: upsertData, error: upsertError } = await supabase
+        .from('whatsapp_groups')
+        .upsert(
+          { 
+            group_id: chat_id, 
+            group_name: chat_name, 
+            user_id, 
+            updated_at: new Date().toISOString() 
+          }, 
+          { onConflict: 'group_id,user_id' }
+        )
+        .select();
+      if (upsertError) {
+        console.error('❌ Error updating group from chats event:', upsertError);
+      } else {
+        console.log('✅ Group updated from chats event:', upsertData);
+      }
+      return new Response(
+        JSON.stringify({ 
+          ok: true, 
+          message: 'Chats update processed and cached', 
+          group_id: chat_id, 
+          group_name: chat_name 
+        }), 
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
