@@ -13,6 +13,7 @@ import Groups from "./pages/Groups";
 import Leads from "./pages/Leads";
 import Profile from "./pages/Profile";
 import Calculator from "./pages/Calculator";
+import Admin from "./pages/Admin";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import NotFound from "./pages/NotFound";
@@ -52,6 +53,7 @@ function AppContent() {
             <Route path="/groups" element={<Groups />} />
             <Route path="/leads" element={<Leads />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/admin" element={<Admin />} />
         <Route path="/admin/supabase-config" element={<SupabaseConfig />} />
         <Route path="/admin/create-test-user" element={<CreateTestUser />} />
         <Route path="*" element={<NotFound />} />
