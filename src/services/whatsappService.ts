@@ -47,7 +47,6 @@ class WhatsAppService {
         body: requestBody
       });
 
-      console.log('Response status:', response.status);
       console.log('Response error:', response.error);
       console.log('Response data:', response.data);
 
