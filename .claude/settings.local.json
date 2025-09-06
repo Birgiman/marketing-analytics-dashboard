@@ -11,7 +11,13 @@
       "Bash(supabase functions deploy:*)",
       "Bash(git push:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npm install:*)",
+      "Bash(winget install:*)",
+      "Bash(scoop bucket add:*)",
+      "Bash(powershell:*)",
+      "Bash(npx:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

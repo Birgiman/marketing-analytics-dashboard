@@ -131,19 +131,50 @@ class WhatsAppService {
         .eq('instance_name', instanceName)
         .single();
 
+      // Log detalhado sobre instância existente
+      if (existingInstance && !queryError) {
+        console.log('5.1. Instância encontrada no banco local:', {
+          id: existingInstance.id,
+          status: existingInstance.status,
+          has_token: !!existingInstance.api_token,
+          created_at: existingInstance.created_at,
+          updated_at: existingInstance.updated_at
+        });
+        console.log('5.2. Sobrescrevendo dados da instância existente...');
+      } else if (queryError?.code === 'PGRST116') {
+        console.log('5.1. Nenhuma instância encontrada no banco local - criando nova');
+      } else if (queryError) {
+        console.error('5.1. Erro ao consultar banco local:', queryError);
+      }
+
       let instance, supabaseError;
       
       if (existingInstance && !queryError) {
-        // Atualizar instância existente no banco
+        // Atualizar instância existente no banco (SEMPRE SOBRESCREVER)
         console.log('6. Atualizando instância existente no banco...');
+        const updateData: any = {
+          instance_id: result.instance?.instanceId,
+          status: result.qrCode ? 'pending-qr' : 'connecting',
+          qr_code: result.qrCode,
+          updated_at: new Date().toISOString()
+        };
+        
+        // SEMPRE atualizar o token se disponível (sobrescrevendo o anterior)
+        if (result.token) {
+          updateData.api_token = result.token;
+          console.log('6.1. Token atualizado na instância existente (sobrescrevendo anterior)');
+        }
+        
+        console.log('6.2. Dados que serão atualizados:', {
+          instance_id: updateData.instance_id,
+          status: updateData.status,
+          has_qr: !!updateData.qr_code,
+          has_token: !!updateData.api_token
+        });
+        
         const { data, error } = await supabase
           .from('whatsapp_instances')
-          .update({
-            instance_id: result.instance?.instanceId,
-            status: result.qrCode ? 'pending-qr' : 'connecting',
-            qr_code: result.qrCode,
-            updated_at: new Date().toISOString()
-          })
+          .update(updateData)
           .eq('user_id', userId)
           .eq('instance_name', instanceName)
           .select()
@@ -154,15 +185,23 @@ class WhatsAppService {
       } else {
         // Criar nova instância no banco
         console.log('6. Criando nova instância no banco...');
+        const insertData: any = {
+          user_id: userId,
+          instance_name: instanceName,
+          instance_id: result.instance?.instanceId,
+          status: result.qrCode ? 'pending-qr' : 'connecting',
+          qr_code: result.qrCode
+        };
+        
+        // Adicionar token se disponível na resposta
+        if (result.token) {
+          insertData.api_token = result.token;
+          console.log('6.1. Token incluído na criação da nova instância');
+        }
+        
         const { data, error } = await supabase
           .from('whatsapp_instances')
-          .insert({
-            user_id: userId,
-            instance_name: instanceName,
-            instance_id: result.instance?.instanceId,
-            status: result.qrCode ? 'pending-qr' : 'connecting',
-            qr_code: result.qrCode
-          })
+          .insert(insertData)
           .select()
           .single();
           

@@ -1,5 +1,47 @@
 # Changelog - Live Shop Analytics
 
+## [2025-01-06] - WhatsApp Integration Improvements
+
+### 🎯 Group Name Change Validation
+**Problema**: Eventos `CHATS_UPDATE` eram disparados tanto para mudanças de nome quanto para mensagens recebidas, causando updates desnecessários no banco de dados.
+
+**Solução**: Implementada validação que compara o nome do grupo no cache com o nome atual da Evolution API antes de atualizar o banco.
+
+**Benefícios**:
+- ✅ Redução de writes no banco de dados
+- ✅ Melhor performance do webhook  
+- ✅ Updates apenas quando nome realmente muda
+
+**Arquivos alterados**:
+- `supabase/functions/whatsapp-webhook/index.ts`
+
+---
+
+### 🔐 Captura Automática de Token da Instância
+**Problema**: Tokens da Evolution API não eram capturados automaticamente durante criação/reconexão de instâncias, exigindo configuração manual.
+
+**Solução**: Implementado sistema automático de captura e armazenamento de tokens durante o processo de conexão.
+
+**Funcionalidades**:
+- 🔄 **Token automático**: Capturado durante conexão/reconexão
+- 🔄 **Sobrescrita inteligente**: Permite recriar instância com mesmo nome
+- 📝 **Logs completos**: Tracking detalhado do processo
+- 🛡️ **Validação robusta**: Verifica existência antes de criar/reconectar
+
+**Como funciona**:
+1. Sistema verifica se instância existe na Evolution API
+2. **Se existe**: Faz reconnect + captura novo token + atualiza banco
+3. **Se não existe**: Cria nova + captura token + salva no banco
+4. **Resultado**: Token sempre atualizado automaticamente
+
+**Arquivos alterados**:
+- `supabase/functions/whatsapp-api/index.ts`
+- `src/services/whatsappService.ts`
+
+**Campos de token suportados**: `hash`, `token`, `apikey`, `instance.token`
+
+---
+
 ## [2025-01-09] - Últimas Implementações Completadas
 
 ### ✅ Novas Páginas Implementadas

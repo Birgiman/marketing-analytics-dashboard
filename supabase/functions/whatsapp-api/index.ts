@@ -154,10 +154,39 @@ serve(async (req) => {
           
           console.log('5. QR Code final presente:', !!qrCode);
           
+          // Extrair token da instância se disponível durante reconnect
+          const instanceToken = data.hash || data.token || data.apikey || data.instance?.token;
+          console.log('5.1. Token da instância presente no reconnect:', !!instanceToken);
+          
+          // Salvar o token no banco de dados se disponível
+          if (instanceToken) {
+            console.log('5.2. Salvando token no banco de dados (reconnect)...');
+            const { error: tokenError } = await supabase
+              .from('whatsapp_instances')
+              .upsert({
+                user_id: userId,
+                instance_name: instanceName,
+                instance_id: data.instance?.instanceId,
+                api_token: instanceToken,
+                status: qrCode ? 'pending-qr' : 'connecting',
+                qr_code: qrCode,
+                updated_at: new Date().toISOString()
+              }, {
+                onConflict: 'user_id,instance_name'
+              });
+            
+            if (tokenError) {
+              console.error('5.3. Erro ao salvar token no reconnect:', tokenError);
+            } else {
+              console.log('5.3. Token salvo com sucesso no reconnect');
+            }
+          }
+          
           await logWhatsAppAction('reconnect_instance_success', { 
             instanceId: data.instance?.instanceId,
             status: data.instance?.status,
-            qrCodeLength: qrCode?.length
+            qrCodeLength: qrCode?.length,
+            tokenPresent: !!instanceToken
           });
 
           console.log('6. Retornando response com novo QR Code...');
@@ -166,7 +195,8 @@ serve(async (req) => {
               success: true,
               instance: data.instance,
               qrCode: qrCode,
-              instanceName: instanceName
+              instanceName: instanceName,
+              token: instanceToken
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
@@ -212,10 +242,39 @@ serve(async (req) => {
 
         const qrCode = data.qrcode?.base64 || data.base64;
         
+        // Extrair token da instância se disponível
+        const instanceToken = data.hash || data.token || data.apikey || data.instance?.token;
+        console.log('4.1. Token da instância presente:', !!instanceToken);
+        
+        // Salvar o token no banco de dados se disponível
+        if (instanceToken) {
+          console.log('4.2. Salvando token no banco de dados...');
+          const { error: tokenError } = await supabase
+            .from('whatsapp_instances')
+            .upsert({
+              user_id: userId,
+              instance_name: instanceName,
+              instance_id: data.instance?.instanceId,
+              api_token: instanceToken,
+              status: qrCode ? 'pending-qr' : 'connecting',
+              qr_code: qrCode,
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'user_id,instance_name'
+            });
+          
+          if (tokenError) {
+            console.error('4.3. Erro ao salvar token:', tokenError);
+          } else {
+            console.log('4.3. Token salvo com sucesso');
+          }
+        }
+        
         await logWhatsAppAction('create_instance_success', { 
           instanceId: data.instance?.instanceId,
           status: data.instance?.status,
-          qrCodeLength: qrCode?.length
+          qrCodeLength: qrCode?.length,
+          tokenPresent: !!instanceToken
         });
 
         return new Response(
@@ -223,7 +282,8 @@ serve(async (req) => {
             success: true,
             instance: data.instance,
             qrCode: qrCode,
-            instanceName: instanceName
+            instanceName: instanceName,
+            token: instanceToken
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
