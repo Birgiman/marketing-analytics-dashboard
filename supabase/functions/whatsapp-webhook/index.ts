@@ -124,7 +124,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       } else if (contentType.includes('application/x-www-form-urlencoded')) {
         const formData = await req.formData();
         eventData = {};
-        for (const [key, value] of formData.entries()) {
+        const entries = Array.from(formData.entries());
+        for (const [key, value] of entries) {
           if (typeof value === 'string') {
             try {
               eventData[key] = JSON.parse(value);
@@ -136,7 +137,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       } else if (contentType.includes('multipart/form-data')) {
         const formData = await req.formData();
         eventData = {};
-        for (const [key, value] of formData.entries()) {
+        const entries = Array.from(formData.entries());
+        for (const [key, value] of entries) {
           if (typeof value === 'string') {
             try {
               eventData[key] = JSON.parse(value);
@@ -154,7 +156,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     } catch (error) {
       console.error('❌ Failed to parse request body:', error);
       console.error('❌ Raw content type:', contentType);
-      console.error('❌ Request headers:', JSON.stringify([...req.headers.entries()], null, 2));
+      console.error('❌ Request headers:', JSON.stringify(Array.from(req.headers.entries()), null, 2));
       
       // Try to read raw body for debugging
       try {
