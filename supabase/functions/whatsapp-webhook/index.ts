@@ -270,13 +270,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const user_id = instanceData?.user_id || null;
     console.log('👤 Found user_id:', user_id);
 
-    // Helper function to fetch group info from Evolution API as fallback
+    // Helper function to fetch group info from Evolution API
     const fetchGroupInfoFromEvolutionAPI = async (groupId: string, instanceName: string) => {
       try {
-        console.log('🔄 Fetching group info from Evolution API as fallback...');
-        
-        // Get Evolution API configuration
-        console.log('🔍 Fetching Evolution API config for:', { instanceName });
+        console.log('🔄 Fetching group info from Evolution API...');
         
         // Get API URL from environment variable (global config)
         // @ts-ignore
@@ -289,43 +286,52 @@ Deno.serve(async (req: Request): Promise<Response> => {
         // Get API token from instance table (instance-specific)
         const { data: configData, error: configError } = await supabase
           .from('whatsapp_instances')
-          .select('api_token, instance_name')
+          .select('api_token')
           .eq('instance_name', instanceName)
           .single();
-        
-        console.log('🔍 Evolution API config query result:', { 
-          has_api_url: !!apiUrl, 
-          api_token_found: !!configData?.api_token, 
-          configError 
-        });
 
         if (configError || !configData?.api_token) {
           console.log('⚠️ Could not get API token for instance:', instanceName);
           return null;
         }
 
-        const cleanApiUrl = apiUrl.replace(/\/$/, ''); // Remove trailing slash
-        const response = await fetch(`${cleanApiUrl}/group/findOne/${instanceName}`, {
-          method: 'POST',
+        const cleanApiUrl = apiUrl.replace(/\/$/, '');
+        
+        // Use the correct Evolution API endpoint to fetch all groups and find the specific one
+        console.log(`🔄 Calling Evolution API: GET ${cleanApiUrl}/group/fetchAllGroups/${instanceName}`);
+        
+        const response = await fetch(`${cleanApiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false`, {
+          method: 'GET',
           headers: {
             'Content-Type': 'application/json',
             'apikey': configData.api_token
-          },
-          body: JSON.stringify({ groupJid: groupId })
+          }
         });
 
-        if (!response.ok) {
-          console.log('⚠️ Evolution API call failed:', response.status, response.statusText);
+        if (!response || !response.ok) {
+          console.log('⚠️ Evolution API call failed:', response ? `${response.status} ${response.statusText}` : 'No response');
           return null;
         }
 
-        const groupInfo = await response.json();
-        console.log('✅ Fetched group info from Evolution API:', groupInfo);
+        const allGroups = await response.json();
+        console.log(`✅ Fetched ${allGroups.length} groups from Evolution API`);
         
-        return {
-          id: groupInfo.id || groupId,
-          subject: groupInfo.subject || groupInfo.name || null
-        };
+        // Find the specific group by ID
+        const targetGroup = allGroups.find((group: any) => group.id === groupId);
+        
+        if (targetGroup) {
+          console.log('✅ Found target group:', { id: targetGroup.id, subject: targetGroup.subject });
+          return {
+            id: targetGroup.id,
+            subject: targetGroup.subject,
+            owner: targetGroup.owner,
+            creation: targetGroup.creation,
+            size: targetGroup.size
+          };
+        } else {
+          console.log('⚠️ Group not found in Evolution API response');
+          return null;
+        }
       } catch (error) {
         console.error('❌ Error fetching from Evolution API:', error);
         return null;
@@ -367,37 +373,78 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return { processed: false, reason: 'missing_required_fields', missing_fields: { group_id: !group_id, user_id: !user_id } };
       }
 
-      // SPECIAL HANDLING FOR CHATS.UPDATE - Always fetch from Evolution API since it only sends ID
+      // SPECIAL HANDLING FOR CHATS.UPDATE - Validate if group name actually changed
       if (eventType && eventType.toLowerCase().includes('chats.update')) {
-        console.log('🎯 CHATS.UPDATE detected - forcing Evolution API fetch for group name...');
+        console.log('🎯 CHATS.UPDATE detected - checking if group name actually changed...');
+        
         if (instance) {
-          const fallbackInfo = await fetchGroupInfoFromEvolutionAPI(group_id, instance);
-          if (fallbackInfo?.subject) {
-            group_name = fallbackInfo.subject;
-            console.log('✅ Got updated group name from Evolution API for CHATS.UPDATE:', group_name);
+          // First, get the cached group name from database
+          const { data: cachedGroup, error: cacheError } = await supabase
+            .from('whatsapp_groups')
+            .select('group_name')
+            .eq('group_id', group_id)
+            .eq('user_id', user_id)
+            .maybeSingle();
+          
+          if (cacheError) {
+            console.log('⚠️ Error reading cached group name:', cacheError);
+          }
+          
+          const cachedGroupName = cachedGroup?.group_name;
+          console.log('📄 Cached group name:', cachedGroupName);
+          
+          // Fetch current group info from Evolution API
+          const groupInfo = await fetchGroupInfoFromEvolutionAPI(group_id, instance);
+          if (groupInfo?.subject) {
+            const currentGroupName = groupInfo.subject;
+            console.log('🆕 Current group name from Evolution API:', currentGroupName);
+            
+            // Compare cached name with current name
+            if (cachedGroupName && cachedGroupName === currentGroupName) {
+              console.log('✋ Group name unchanged - skipping database update');
+              console.log(`📌 Name remains: "${currentGroupName}"`);
+              return { 
+                processed: false, 
+                reason: 'group_name_unchanged',
+                group_id,
+                cached_name: cachedGroupName,
+                current_name: currentGroupName
+              };
+            } else {
+              console.log('🎯 Group name changed - proceeding with database update');
+              console.log(`📝 From: "${cachedGroupName || 'N/A'}" → To: "${currentGroupName}"`);
+              group_name = currentGroupName;
+            }
+            
+            console.log('✅ Got current group info from Evolution API:', {
+              name: group_name,
+              owner: groupInfo.owner,
+              creation: groupInfo.creation,
+              size: groupInfo.size
+            });
           } else {
-            console.log('❌ Evolution API failed for CHATS.UPDATE, cannot get group name');
-            return { processed: false, reason: 'evolution_api_failed_for_chats_update' };
+            console.log('⚠️ Could not fetch group info from Evolution API');
+            group_name = `[Group Updated] ${group_id.substring(0, 15)}...`;
           }
         } else {
-          console.log('❌ No instance available for CHATS.UPDATE Evolution API fetch');
-          return { processed: false, reason: 'no_instance_for_chats_update' };
+          console.log('⚠️ No instance available for Evolution API fetch');
+          group_name = `[Group Updated] ${group_id.substring(0, 15)}...`;
         }
       }
-      // For other events, try fallback only if name is missing
+      // For other events, use existing logic
       else if (!group_name && instance) {
-        console.log('🔄 No group name in payload, trying Evolution API fallback...');
-        const fallbackInfo = await fetchGroupInfoFromEvolutionAPI(group_id, instance);
-        if (fallbackInfo?.subject) {
-          group_name = fallbackInfo.subject;
-          console.log('✅ Got group name from Evolution API fallback:', group_name);
+        console.log('🔄 No group name in payload, trying Evolution API...');
+        const groupInfo = await fetchGroupInfoFromEvolutionAPI(group_id, instance);
+        if (groupInfo?.subject) {
+          group_name = groupInfo.subject;
+          console.log('✅ Got group name from Evolution API:', group_name);
         } else {
-          console.log('⚠️ Evolution API fallback failed, using group_id as name');
-          group_name = group_id; // Ultimate fallback
+          console.log('⚠️ Evolution API failed, using group_id as name');
+          group_name = group_id;
         }
       } else if (!group_name) {
-        console.log('⚠️ No group name and no instance for fallback, using group_id as name');
-        group_name = group_id; // Ultimate fallback
+        console.log('⚠️ No group name available, using group_id as name');
+        group_name = group_id;
       }
       
       // Insert or update group in cache table
