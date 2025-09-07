@@ -271,7 +271,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     console.log('👤 Found user_id:', user_id);
 
     // Helper function to fetch group info from Evolution API
-    const fetchGroupInfoFromEvolutionAPI = async (groupId: string, instanceName: string) => {
+    const fetchGroupInfoFromEvolutionAPI = async (groupId: string, instanceName: string, checkParticipation: boolean = false) => {
       try {
         console.log('🔄 Fetching group info from Evolution API...');
         
@@ -283,10 +283,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
           return null;
         }
         
-        // Get API token from instance table (instance-specific)
+        // Get API token and instance info from instance table
         const { data: configData, error: configError } = await supabase
           .from('whatsapp_instances')
-          .select('api_token')
+          .select('api_token, instance_phone')
           .eq('instance_name', instanceName)
           .single();
 
@@ -297,10 +297,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
         const cleanApiUrl = apiUrl.replace(/\/$/, '');
         
-        // Use the correct Evolution API endpoint to fetch all groups and find the specific one
-        console.log(`🔄 Calling Evolution API: GET ${cleanApiUrl}/group/fetchAllGroups/${instanceName}`);
+        // Use getParticipants=true when we need to check participation
+        const getParticipants = checkParticipation ? 'true' : 'false';
+        console.log(`🔄 Calling Evolution API: GET ${cleanApiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=${getParticipants}`);
         
-        const response = await fetch(`${cleanApiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false`, {
+        const response = await fetch(`${cleanApiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=${getParticipants}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -320,13 +321,45 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const targetGroup = allGroups.find((group: any) => group.id === groupId);
         
         if (targetGroup) {
-          console.log('✅ Found target group:', { id: targetGroup.id, subject: targetGroup.subject });
+          // Basic validation: group must have at least 1 participant
+          const groupSize = targetGroup.size || 0;
+          if (groupSize === 0) {
+            console.log('⚠️ Group has 0 participants, likely inactive:', { id: targetGroup.id, subject: targetGroup.subject });
+            return null;
+          }
+
+          // Enhanced validation when checking participation
+          if (checkParticipation && targetGroup.participants) {
+            const instancePhone = configData.instance_phone;
+            if (instancePhone) {
+              // Check if instance phone is in the participants list
+              const isParticipant = targetGroup.participants.some((p: any) => 
+                p.id && (p.id.includes(instancePhone) || p.id === `${instancePhone}@s.whatsapp.net`)
+              );
+              
+              if (!isParticipant) {
+                console.log('⚠️ Instance is not a participant in this group:', { 
+                  id: targetGroup.id, 
+                  subject: targetGroup.subject,
+                  instance_phone: instancePhone 
+                });
+                return null;
+              }
+              
+              console.log('✅ Confirmed instance participation in group:', targetGroup.subject);
+            } else {
+              console.log('⚠️ No instance phone available for participation check');
+            }
+          }
+          
+          console.log('✅ Found valid group:', { id: targetGroup.id, subject: targetGroup.subject, size: groupSize });
           return {
             id: targetGroup.id,
             subject: targetGroup.subject,
             owner: targetGroup.owner,
             creation: targetGroup.creation,
-            size: targetGroup.size
+            size: groupSize,
+            participants: checkParticipation ? targetGroup.participants : undefined
           };
         } else {
           console.log('⚠️ Group not found in Evolution API response');
@@ -335,6 +368,93 @@ Deno.serve(async (req: Request): Promise<Response> => {
       } catch (error) {
         console.error('❌ Error fetching from Evolution API:', error);
         return null;
+      }
+    };
+
+    // Helper function to fetch only active groups (where user participates)
+    const fetchActiveGroupsFromEvolutionAPI = async (instanceName: string) => {
+      try {
+        console.log('🔄 Fetching active groups from Evolution API...');
+        
+        // Get API URL from environment variable (global config)
+        // @ts-ignore
+        const apiUrl = Deno.env.get('EVOLUTION_API_URL');
+        if (!apiUrl) {
+          console.log('⚠️ EVOLUTION_API_URL environment variable not set');
+          return [];
+        }
+        
+        // Get API token and instance info from instance table
+        const { data: configData, error: configError } = await supabase
+          .from('whatsapp_instances')
+          .select('api_token, instance_phone')
+          .eq('instance_name', instanceName)
+          .single();
+
+        if (configError || !configData?.api_token) {
+          console.log('⚠️ Could not get API token for instance:', instanceName);
+          return [];
+        }
+
+        const cleanApiUrl = apiUrl.replace(/\/$/, '');
+        
+        // Fetch all groups with participants to check participation
+        console.log(`🔄 Calling Evolution API: GET ${cleanApiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=true`);
+        
+        const response = await fetch(`${cleanApiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=true`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': configData.api_token
+          }
+        });
+
+        if (!response || !response.ok) {
+          console.log('⚠️ Evolution API call failed:', response ? `${response.status} ${response.statusText}` : 'No response');
+          return [];
+        }
+
+        const allGroups = await response.json();
+        console.log(`✅ Fetched ${allGroups.length} total groups from Evolution API`);
+        
+        // Filter for active groups only
+        const instancePhone = configData.instance_phone;
+        const activeGroups = allGroups.filter((group: any) => {
+          // Rule 1: Group must have at least 1 participant
+          const groupSize = group.size || 0;
+          if (groupSize === 0) {
+            console.log(`⚠️ Filtering out group with 0 participants: ${group.subject || group.id}`);
+            return false;
+          }
+
+          // Rule 2: Instance must be a participant (if we have phone number)
+          if (instancePhone && group.participants) {
+            const isParticipant = group.participants.some((p: any) => 
+              p.id && (p.id.includes(instancePhone) || p.id === `${instancePhone}@s.whatsapp.net`)
+            );
+            
+            if (!isParticipant) {
+              console.log(`⚠️ Filtering out group where instance is not participant: ${group.subject || group.id}`);
+              return false;
+            }
+          }
+
+          console.log(`✅ Active group: ${group.subject || group.id} (${groupSize} participants)`);
+          return true;
+        });
+
+        console.log(`✅ Found ${activeGroups.length} active groups out of ${allGroups.length} total`);
+        
+        return activeGroups.map((group: any) => ({
+          id: group.id,
+          subject: group.subject,
+          owner: group.owner,
+          creation: group.creation,
+          size: group.size
+        }));
+      } catch (error) {
+        console.error('❌ Error fetching active groups from Evolution API:', error);
+        return [];
       }
     };
 
@@ -393,8 +513,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
           const cachedGroupName = cachedGroup?.group_name;
           console.log('📄 Cached group name:', cachedGroupName);
           
-          // Fetch current group info from Evolution API
-          const groupInfo = await fetchGroupInfoFromEvolutionAPI(group_id, instance);
+          // Fetch current group info from Evolution API with participation check
+          const groupInfo = await fetchGroupInfoFromEvolutionAPI(group_id, instance, true);
           if (groupInfo?.subject) {
             const currentGroupName = groupInfo.subject;
             console.log('🆕 Current group name from Evolution API:', currentGroupName);
@@ -431,29 +551,40 @@ Deno.serve(async (req: Request): Promise<Response> => {
           group_name = `[Group Updated] ${group_id.substring(0, 15)}...`;
         }
       }
-      // For other events, use existing logic
+      // For other events, validate group activity before processing
       else if (!group_name && instance) {
-        console.log('🔄 No group name in payload, trying Evolution API...');
-        const groupInfo = await fetchGroupInfoFromEvolutionAPI(group_id, instance);
+        console.log('🔄 No group name in payload, validating group activity...');
+        const groupInfo = await fetchGroupInfoFromEvolutionAPI(group_id, instance, true);
         if (groupInfo?.subject) {
           group_name = groupInfo.subject;
-          console.log('✅ Got group name from Evolution API:', group_name);
+          console.log('✅ Got valid active group name from Evolution API:', group_name);
         } else {
-          console.log('⚠️ Evolution API failed, using group_id as name');
-          group_name = group_id;
+          console.log('⚠️ Group is inactive or user not participant, skipping processing');
+          return { processed: false, reason: 'inactive_group_or_no_participation', group_id };
         }
       } else if (!group_name) {
-        console.log('⚠️ No group name available, using group_id as name');
-        group_name = group_id;
+        console.log('⚠️ No group name available and no instance for validation');
+        return { processed: false, reason: 'no_group_name_or_validation', group_id };
       }
       
-      // Insert or update group in cache table
+      // Get participant count from Evolution API for cache update
+      let participant_count = null;
+      if (instance) {
+        const groupInfo = await fetchGroupInfoFromEvolutionAPI(group_id, instance);
+        if (groupInfo?.size) {
+          participant_count = groupInfo.size;
+          console.log('✅ Got participant count from Evolution API:', participant_count);
+        }
+      }
+
+      // Insert or update group in cache table with participant count
       const { data: groupCacheData, error: groupCacheError } = await supabase
         .from('whatsapp_groups')
         .upsert(
           {
             group_id,
             group_name,
+            participant_count,
             user_id,
             updated_at: new Date().toISOString()
           },
@@ -597,42 +728,69 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const participant = webhookData.participants?.[0]; // Get first participant from array
     const action = webhookData.action;
     
-    // Get group name from whatsapp_groups cache table, with fallback sync
+    // Get group info including name and participant count
     let group_name = group_id; // Default fallback
+    let participant_count = null;
     
     if (user_id && group_id) {
-      console.log('🔍 Looking up group name from cache...');
+      console.log('🔍 Looking up group info from cache...');
       const { data: groupCache, error: groupCacheError } = await supabase
         .from('whatsapp_groups')
-        .select('group_name')
+        .select('group_name, participant_count')
         .eq('group_id', group_id)
         .eq('user_id', user_id)
         .maybeSingle();
       
       if (groupCacheError) {
-        console.error('❌ Error fetching group name from cache:', groupCacheError);
+        console.error('❌ Error fetching group info from cache:', groupCacheError);
       } else if (groupCache?.group_name) {
         group_name = groupCache.group_name;
-        console.log('✅ Found group name from cache:', group_name);
-      } else {
-        console.log('⚠️ Group not found in cache, trying Evolution API sync...');
-        
-        // DURING PARTICIPANT EVENTS: Only fetch name for logging, DON'T update cache
-        if (instance) {
-          console.log('🔍 Trying to get group name for participant event logging (read-only)...');
-          const fallbackInfo = await fetchGroupInfoFromEvolutionAPI(group_id, instance);
-          if (fallbackInfo?.subject) {
-            group_name = fallbackInfo.subject;
-            console.log('✅ Got group name from Evolution API (for logging only):', group_name);
-            // NOTE: NOT updating the cache here - this is just for the participant log entry
+        participant_count = groupCache.participant_count;
+        console.log('✅ Found cached group info:', { name: group_name, count: participant_count });
+      }
+      
+      // Fetch fresh data from Evolution API with activity validation
+      if (instance) {
+        console.log('🔄 Fetching fresh group info with activity validation...');
+        const freshInfo = await fetchGroupInfoFromEvolutionAPI(group_id, instance, true);
+        if (freshInfo?.subject) {
+          group_name = freshInfo.subject;
+          participant_count = freshInfo.size || null;
+          console.log('✅ Fresh active group info:', { name: group_name, count: participant_count });
+          
+          // Update cache with fresh info
+          const { error: updateError } = await supabase
+            .from('whatsapp_groups')
+            .upsert({
+              group_id,
+              group_name,
+              participant_count,
+              user_id,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'group_id,user_id' });
+          
+          if (updateError) {
+            console.error('❌ Error updating group cache:', updateError);
           } else {
-            console.log('⚠️ Evolution API fetch failed, will use group_id as fallback name');
-            group_name = group_id; // Use group_id as fallback for the log entry
+            console.log('✅ Updated group cache with fresh data');
           }
         } else {
-          console.log('⚠️ No instance available for Evolution API fetch, using group_id as name');
-          group_name = group_id; // Use group_id as fallback for the log entry
+          console.log('⚠️ Group is inactive or user not participant - skipping participant event');
+          return new Response(
+            JSON.stringify({ 
+              ok: true,
+              message: 'Group inactive or user not participant - event ignored',
+              group_id,
+              event_type: 'GROUP_PARTICIPANTS_UPDATE'
+            }),
+            { 
+              status: 200, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
         }
+      } else {
+        console.log('⚠️ No instance available for Evolution API fetch');
       }
     }
     
@@ -682,12 +840,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    // Prepare data for insertion
+    // Prepare data for insertion with participant count
     const insertData = {
       id_grupo: group_id,
       nome_grupo: group_name,
       telefone: participant,
       evento: normalizedAction,
+      quantidade_pessoas: participant_count, // Add participant count
       user_id: user_id, // Use the found user_id from whatsapp_instances
       created_at: new Date().toISOString()
     };

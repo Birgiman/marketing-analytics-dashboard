@@ -15,7 +15,6 @@ interface WhatsAppGroup {
   group_size?: number;
   group_owner?: string;
   group_created_at?: string;
-  group_description?: string;
 }
 
 interface WhatsAppAdvancedSettingsProps {
@@ -84,7 +83,7 @@ export function WhatsAppAdvancedSettings({
 
       const { data, error } = await supabase
         .from('whatsapp_groups')
-        .select('id, group_id, group_name, monitoring, group_size, group_owner, group_created_at, group_description')
+        .select('id, group_id, group_name, monitoring, group_size, group_owner, group_created_at')
         .eq('user_id', session.session.user.id)
         .order('group_name');
 
@@ -371,11 +370,6 @@ export function WhatsAppAdvancedSettings({
                             </span>
                           )}
                         </div>
-                        {group.group_description && (
-                          <p className="text-xs text-gray-400 truncate mt-1">
-                            {group.group_description}
-                          </p>
-                        )}
                       </div>
                       <div className="flex items-center gap-3 ml-4">
                         <span className="text-sm text-gray-600 whitespace-nowrap">

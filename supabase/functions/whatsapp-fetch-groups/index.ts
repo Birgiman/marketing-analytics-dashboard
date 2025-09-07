@@ -39,7 +39,16 @@ serve(async (req) => {
       )
     }
 
-    console.log(`🔍 Fetching groups for instance: ${instanceName}`)
+    console.log(`🔍 Fetching groups for instance: ${instanceName}, userId: ${userId}`)
+
+    // First, let's check what instances exist for this user
+    const { data: userInstances, error: userInstancesError } = await supabase
+      .from('whatsapp_instances')
+      .select('instance_name, api_token')
+      .eq('user_id', userId)
+
+    console.log(`👤 Found ${userInstances?.length || 0} instances for user ${userId}:`, 
+      userInstances?.map(i => ({ name: i.instance_name, hasToken: !!i.api_token })))
 
     // Get Evolution API credentials from user's stored instance
     const { data: instanceData, error: instanceError } = await supabase
@@ -49,23 +58,47 @@ serve(async (req) => {
       .eq('instance_name', instanceName)
       .single()
 
+    console.log(`🔍 Query result for instance ${instanceName}:`, {
+      found: !!instanceData,
+      hasToken: !!instanceData?.api_token,
+      error: instanceError
+    })
+
     if (instanceError || !instanceData?.api_token) {
-      console.error('❌ Instance or API token not found:', instanceError)
+      console.error('❌ Instance or API token not found:', {
+        instanceError,
+        instanceData,
+        requestedInstance: instanceName,
+        requestedUserId: userId
+      })
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Instance not found or API token missing. Please reconnect your WhatsApp instance.' 
+          error: 'Instance not found or API token missing. Please reconnect your WhatsApp instance.',
+          debug: {
+            instanceName,
+            userId,
+            availableInstances: userInstances?.map(i => i.instance_name) || [],
+            instanceError: instanceError?.message || 'No error'
+          }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     const apiKey = instanceData.api_token
+    const instancePhone = null // Column doesn't exist yet, will be added later
 
-    // Use the correct Evolution API URL from your successful test
-    const evolutionUrl = `https://evolution-api-2-3-0-production-6d75.up.railway.app/group/fetchAllGroups/${instanceName}?getParticipants=false`
+    // Get Evolution API URL from environment variable
+    const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'https://evolution-api-2-3-0-production-6d75.up.railway.app'
+    const cleanApiUrl = evolutionApiUrl.replace(/\/$/, '')
+    
+    // Use getParticipants=false to avoid polluting the interface
+    const evolutionUrl = `${cleanApiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false`
     console.log(`🌐 Calling Evolution API: ${evolutionUrl}`)
 
+    console.log(`🔄 Fetching groups from Evolution API: ${evolutionUrl}`)
+    
     const response = await fetch(evolutionUrl, {
       method: 'GET',
       headers: {
@@ -104,7 +137,6 @@ serve(async (req) => {
         const groupName = group.subject || 'Sem nome'
         const groupSize = group.size || 0
         const groupOwner = group.owner
-        const groupDescription = group.desc || null
         
         // Convert Unix timestamp to ISO string
         const groupCreatedAt = group.creation 
@@ -116,13 +148,12 @@ serve(async (req) => {
           continue
         }
 
-        console.log(`💾 Processing group: ${groupName} (${groupId})`)
+        console.log(`💾 Processing group: ${groupName} (${groupId}) - ${groupSize} participants`)
 
         // Smart upsert: only update changed fields
-        // First check if group exists and get current values
         const { data: existingGroup } = await supabase
           .from('whatsapp_groups')
-          .select('group_name, group_size, group_owner, group_created_at, group_description, monitoring')
+          .select('group_name, group_size, group_owner, group_created_at, monitoring')
           .eq('user_id', userId)
           .eq('group_id', groupId)
           .single()
@@ -134,7 +165,6 @@ serve(async (req) => {
           group_size: groupSize,
           group_owner: groupOwner,
           group_created_at: groupCreatedAt,
-          group_description: groupDescription,
           updated_at: new Date().toISOString()
         }
 
@@ -148,7 +178,6 @@ serve(async (req) => {
             existingGroup.group_name !== groupName ||
             existingGroup.group_size !== groupSize ||
             existingGroup.group_owner !== groupOwner ||
-            existingGroup.group_description !== groupDescription ||
             (existingGroup.group_created_at ? new Date(existingGroup.group_created_at).toISOString() : null) !== groupCreatedAt
 
           if (!hasChanges) {
@@ -193,6 +222,7 @@ serve(async (req) => {
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
+
 
   } catch (error) {
     console.error('❌ Function error:', error)
