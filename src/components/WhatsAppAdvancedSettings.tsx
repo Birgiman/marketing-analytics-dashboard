@@ -109,17 +109,29 @@ export function WhatsAppAdvancedSettings({
       if (!session.session?.user) return;
 
       // Call our Edge Function to fetch groups from Evolution API
+      console.log('🐛 Calling fetch groups with:', {
+        instanceName: currentInstance.instance_name,
+        userId: session.session.user.id
+      });
+      
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-fetch-groups`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.session.access_token}`
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
         },
         body: JSON.stringify({
           instanceName: currentInstance.instance_name,
           userId: session.session.user.id
         })
       });
+
+      console.log('🐛 Response status:', response.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('🐛 Response error:', errorText);
+      }
 
       const result = await response.json();
 
@@ -259,31 +271,37 @@ export function WhatsAppAdvancedSettings({
               </div>
             ) : (
               <div className="overflow-y-auto space-y-2 pr-2">
-                {filteredGroups.map((group) => (
-                  <div
-                    key={group.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-gray-900 truncate">
-                        {group.group_name}
-                      </h4>
-                      <p className="text-sm text-gray-500 truncate">
-                        ID: {group.group_id}
-                      </p>
+                {filteredGroups.map((group) => {
+                  console.log('🐛 Rendering group:', group);
+                  return (
+                    <div
+                      key={group.id}
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-gray-900 truncate">
+                          {group.group_name}
+                        </h4>
+                        <p className="text-sm text-gray-500 truncate">
+                          ID: {group.group_id}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 ml-4">
+                        <span className="text-sm text-gray-600 whitespace-nowrap">
+                          {group.monitoring ? 'Monitorando' : 'Parado'}
+                        </span>
+                        <Switch
+                          checked={group.monitoring}
+                          onCheckedChange={() => {
+                            console.log('🐛 Toggle clicked for group:', group.id, 'current:', group.monitoring);
+                            toggleGroupMonitoring(group.id, group.monitoring);
+                          }}
+                          className="shrink-0"
+                        />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 ml-4">
-                      <span className="text-sm text-gray-600 whitespace-nowrap">
-                        {group.monitoring ? 'Monitorando' : 'Parado'}
-                      </span>
-                      <Switch
-                        checked={group.monitoring}
-                        onCheckedChange={() => toggleGroupMonitoring(group.id, group.monitoring)}
-                        className="shrink-0"
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

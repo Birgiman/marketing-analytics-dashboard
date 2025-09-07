@@ -41,17 +41,36 @@ serve(async (req) => {
 
     console.log(`🔍 Fetching groups for instance: ${instanceName}`)
 
-    // Get Evolution API credentials
-    const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL')
-    const apiKey = Deno.env.get('EVOLUTION_API_KEY')
+    // Get Evolution API credentials from user's stored instance
+    const { data: instanceData, error: instanceError } = await supabase
+      .from('whatsapp_instances')
+      .select('api_token')
+      .eq('user_id', userId)
+      .eq('instance_name', instanceName)
+      .single()
 
-    if (!evolutionApiUrl || !apiKey) {
-      console.error('❌ Evolution API credentials not found')
+    if (instanceError || !instanceData?.api_token) {
+      console.error('❌ Instance or API token not found:', instanceError)
       return new Response(
-        JSON.stringify({ success: false, error: 'Evolution API credentials not configured' }),
+        JSON.stringify({ 
+          success: false, 
+          error: 'Instance not found or API token missing. Please reconnect your WhatsApp instance.' 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Get Evolution API base URL
+    const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL')
+    if (!evolutionApiUrl) {
+      console.error('❌ Evolution API URL not configured')
+      return new Response(
+        JSON.stringify({ success: false, error: 'Evolution API URL not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    const apiKey = instanceData.api_token
 
     // Fetch groups from Evolution API
     const evolutionUrl = `${evolutionApiUrl}/group/fetchAllGroups/${instanceName}`
