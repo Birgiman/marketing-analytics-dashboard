@@ -32,22 +32,31 @@ export function WhatsAppAdvancedSettings({
   const [groups, setGroups] = useState<WhatsAppGroup[]>([]);
   const [filteredGroups, setFilteredGroups] = useState<WhatsAppGroup[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true); // Start with loading=true for better UX
+  const [loading, setLoading] = useState(true); // Always start loading until sync completes
   const [fetchingGroups, setFetchingGroups] = useState(false);
+  const [allGroupsEnabled, setAllGroupsEnabled] = useState(true); // Track if all groups are enabled
 
   useEffect(() => {
     if (isOpen && currentInstance) {
-      loadGroupsFromDatabase();
-      // Groups should already be pre-loaded from Integrations page, no need for auto-sync
+      // Always start with loading and fetch fresh data
+      setLoading(true);
+      loadGroupsFromDatabase().finally(() => {
+        // After loading from DB, fetch fresh data from API
+        fetchAllGroupsFromAPI();
+      });
     }
   }, [isOpen, currentInstance]);
 
   useEffect(() => {
-    // Filter groups based on search term
+    // Filter groups based on search term and update allGroupsEnabled state
     const filtered = groups.filter(group => 
       group.group_name.toLowerCase().includes(searchTerm.toLowerCase())
     );
     setFilteredGroups(filtered);
+    
+    // Update allGroupsEnabled state based on current groups
+    const enabledCount = groups.filter(g => g.monitoring).length;
+    setAllGroupsEnabled(enabledCount === groups.length && groups.length > 0);
   }, [groups, searchTerm]);
 
   const loadGroupsFromDatabase = async () => {
@@ -147,6 +156,7 @@ export function WhatsAppAdvancedSettings({
       console.error('Error fetching groups from API:', error);
     } finally {
       setFetchingGroups(false);
+      setLoading(false); // Always turn off loading when fetch completes
     }
   };
 
@@ -184,12 +194,15 @@ export function WhatsAppAdvancedSettings({
     }
   };
 
-  const handleBulkToggle = async (enableAll: boolean) => {
+  const handleBulkToggle = async () => {
+    // Toggle between all enabled/disabled based on current state
+    const targetState = !allGroupsEnabled;
+    
     if (DEMO_MODE) {
       // Update all demo data
       const updatedGroups = groups.map(group => ({
         ...group,
-        monitoring: enableAll
+        monitoring: targetState
       }));
       setGroups(updatedGroups);
       return;
@@ -199,11 +212,11 @@ export function WhatsAppAdvancedSettings({
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) return;
 
-      console.log(`🔄 ${enableAll ? 'Enabling' : 'Disabling'} monitoring for all groups...`);
+      console.log(`🔄 ${targetState ? 'Enabling' : 'Disabling'} monitoring for all groups...`);
       
       const { error } = await supabase
         .from('whatsapp_groups')
-        .update({ monitoring: enableAll })
+        .update({ monitoring: targetState })
         .eq('user_id', session.session.user.id);
 
       if (error) {
@@ -212,10 +225,11 @@ export function WhatsAppAdvancedSettings({
         // Update local state
         const updatedGroups = groups.map(group => ({
           ...group,
-          monitoring: enableAll
+          monitoring: targetState
         }));
         setGroups(updatedGroups);
-        console.log(`✅ All groups ${enableAll ? 'enabled' : 'disabled'} successfully`);
+        setAllGroupsEnabled(targetState);
+        console.log(`✅ All groups ${targetState ? 'enabled' : 'disabled'} successfully`);
       }
     } catch (error) {
       console.error('Error bulk updating groups:', error);
@@ -233,59 +247,47 @@ export function WhatsAppAdvancedSettings({
         </DialogHeader>
 
         <div className="flex flex-col gap-4 flex-1">
-          {/* Search and Actions */}
-          <div className="space-y-3">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Buscar grupos..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Button
-                onClick={fetchAllGroupsFromAPI}
-                disabled={fetchingGroups}
-                variant="outline"
-                className="shrink-0"
-              >
-                {fetchingGroups ? (
-                  <>
-                    <Loader className="h-4 w-4 mr-2 animate-spin" />
-                    Atualizando...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Atualizar Grupos
-                  </>
-                )}
-              </Button>
+          {/* Search and Actions - Single Row */}
+          <div className="flex gap-2 items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Buscar grupos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
-            
-            {/* Bulk Actions */}
-            <div className="flex gap-2 justify-center">
-              <Button
-                onClick={() => handleBulkToggle(true)}
-                disabled={fetchingGroups || loading}
-                variant="outline"
-                size="sm"
-                className="text-green-600 hover:text-green-700 hover:bg-green-50"
-              >
-                ✅ Habilitar Todos
-              </Button>
-              <Button
-                onClick={() => handleBulkToggle(false)}
-                disabled={fetchingGroups || loading}
-                variant="outline"
-                size="sm"
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              >
-                ❌ Desabilitar Todos
-              </Button>
-            </div>
+            <Button
+              onClick={fetchAllGroupsFromAPI}
+              disabled={fetchingGroups}
+              variant="outline"
+              className="shrink-0"
+            >
+              {fetchingGroups ? (
+                <>
+                  <Loader className="h-4 w-4 mr-2 animate-spin" />
+                  Atualizando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Atualizar Grupos
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={handleBulkToggle}
+              disabled={fetchingGroups || loading || groups.length === 0}
+              variant="outline"
+              className={`shrink-0 ${
+                allGroupsEnabled 
+                  ? 'text-red-600 hover:text-red-700 hover:bg-red-50' 
+                  : 'text-green-600 hover:text-green-700 hover:bg-green-50'
+              }`}
+            >
+              {allGroupsEnabled ? '❌ Desabilitar Todos' : '✅ Habilitar Todos'}
+            </Button>
           </div>
 
           {/* Info Banner */}

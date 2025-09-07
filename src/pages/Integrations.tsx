@@ -153,7 +153,7 @@ export default function Integrations() {
       // Add a small delay to ensure connection is stable
       const timer = setTimeout(() => {
         preloadGroups();
-      }, 2000);
+      }, 1000);
       
       return () => clearTimeout(timer);
     }
