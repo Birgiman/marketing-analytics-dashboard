@@ -12,6 +12,10 @@ interface WhatsAppGroup {
   group_id: string;
   group_name: string;
   monitoring: boolean;
+  group_size?: number;
+  group_owner?: string;
+  group_created_at?: string;
+  group_description?: string;
 }
 
 interface WhatsAppAdvancedSettingsProps {
@@ -64,7 +68,7 @@ export function WhatsAppAdvancedSettings({
 
       const { data, error } = await supabase
         .from('whatsapp_groups')
-        .select('id, group_id, group_name, monitoring')
+        .select('id, group_id, group_name, monitoring, group_size, group_owner, group_created_at, group_description')
         .eq('user_id', session.session.user.id)
         .order('group_name');
 
@@ -282,9 +286,22 @@ export function WhatsAppAdvancedSettings({
                         <h4 className="font-medium text-gray-900 truncate">
                           {group.group_name}
                         </h4>
-                        <p className="text-sm text-gray-500 truncate">
-                          ID: {group.group_id}
-                        </p>
+                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                          <span className="truncate">ID: {group.group_id}</span>
+                          {group.group_size !== undefined && (
+                            <span className="shrink-0">👥 {group.group_size}</span>
+                          )}
+                          {group.group_created_at && (
+                            <span className="shrink-0">
+                              📅 {new Date(group.group_created_at).toLocaleDateString('pt-BR')}
+                            </span>
+                          )}
+                        </div>
+                        {group.group_description && (
+                          <p className="text-xs text-gray-400 truncate mt-1">
+                            {group.group_description}
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 ml-4">
                         <span className="text-sm text-gray-600 whitespace-nowrap">
@@ -296,7 +313,7 @@ export function WhatsAppAdvancedSettings({
                             console.log('🐛 Toggle clicked for group:', group.id, 'current:', group.monitoring);
                             toggleGroupMonitoring(group.id, group.monitoring);
                           }}
-                          className="shrink-0"
+                          className="shrink-0 data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-300 border-2 border-gray-400 data-[state=checked]:border-green-600"
                         />
                       </div>
                     </div>

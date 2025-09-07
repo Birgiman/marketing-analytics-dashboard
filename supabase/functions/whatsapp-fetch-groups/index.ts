@@ -60,26 +60,15 @@ serve(async (req) => {
       )
     }
 
-    // Get Evolution API base URL
-    const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL')
-    if (!evolutionApiUrl) {
-      console.error('❌ Evolution API URL not configured')
-      return new Response(
-        JSON.stringify({ success: false, error: 'Evolution API URL not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
     const apiKey = instanceData.api_token
 
-    // Fetch groups from Evolution API
-    const evolutionUrl = `${evolutionApiUrl}/group/fetchAllGroups/${instanceName}`
+    // Use the correct Evolution API URL from your successful test
+    const evolutionUrl = `https://evolution-api-2-3-0-production-6d75.up.railway.app/group/fetchAllGroups/${instanceName}?getParticipants=false`
     console.log(`🌐 Calling Evolution API: ${evolutionUrl}`)
 
     const response = await fetch(evolutionUrl, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
         'apikey': apiKey
       }
     })
@@ -111,8 +100,16 @@ serve(async (req) => {
     
     for (const group of groupsData) {
       try {
-        const groupId = group.id || group.remoteJid || group.key?.remoteJid
-        const groupName = group.subject || group.name || 'Sem nome'
+        const groupId = group.id
+        const groupName = group.subject || 'Sem nome'
+        const groupSize = group.size || 0
+        const groupOwner = group.owner
+        const groupDescription = group.desc || null
+        
+        // Convert Unix timestamp to ISO string
+        const groupCreatedAt = group.creation 
+          ? new Date(group.creation * 1000).toISOString()
+          : null
 
         if (!groupId) {
           console.warn('⚠️ Skipping group without ID:', group)
@@ -121,13 +118,17 @@ serve(async (req) => {
 
         console.log(`💾 Processing group: ${groupName} (${groupId})`)
 
-        // Upsert group into database
+        // Upsert group into database with all the new fields
         const { data: upsertedGroup, error: upsertError } = await supabase
           .from('whatsapp_groups')
           .upsert({
             user_id: userId,
             group_id: groupId,
             group_name: groupName,
+            group_size: groupSize,
+            group_owner: groupOwner,
+            group_created_at: groupCreatedAt,
+            group_description: groupDescription,
             monitoring: true, // Default to monitoring enabled
             updated_at: new Date().toISOString()
           }, {
