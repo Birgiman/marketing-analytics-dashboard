@@ -246,16 +246,11 @@ export default function Integrations() {
                     Conecte sua conta do WhatsApp Business para automatizar mensagens e acompanhar conversões
                   </p>
 
-                  {currentInstance?.instance_name && (
+                  {currentInstance?.phone_number && (
                     <div className="mb-4 p-3 bg-gray-50 rounded-lg">
                       <p className="text-sm text-gray-600">
-                        <strong>Instância:</strong> {currentInstance.instance_name}
+                        <strong>Telefone:</strong> {currentInstance.phone_number}
                       </p>
-                      {currentInstance.phone_number && (
-                        <p className="text-sm text-gray-600">
-                          <strong>Telefone:</strong> {currentInstance.phone_number}
-                        </p>
-                      )}
                     </div>
                   )}
 

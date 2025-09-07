@@ -307,23 +307,17 @@ export function WhatsAppAdvancedSettings({
                     </span>
                   )}
                 </p>
-                {currentInstance?.instance_name && (
-                  <p className="text-blue-500 text-xs mt-2">
-                    <strong>Instância:</strong> {currentInstance.instance_name}
-                  </p>
-                )}
               </div>
             </div>
           </div>
 
           {/* Groups List */}
           <div className="flex-1 min-h-0">
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="flex flex-col items-center gap-3">
-                  <Loader className="h-8 w-8 animate-spin text-gray-400" />
-                  <p className="text-gray-500 text-sm">Carregando grupos...</p>
-                </div>
+            {loading || fetchingGroups ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mb-4"></div>
+                <p className="text-gray-600 text-sm">Sincronizando grupos...</p>
+                <p className="text-gray-500 text-xs mt-1">Buscando dados mais recentes do WhatsApp</p>
               </div>
             ) : filteredGroups.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-gray-500">
@@ -351,7 +345,6 @@ export function WhatsAppAdvancedSettings({
                           {group.group_name}
                         </h4>
                         <div className="flex items-center gap-4 text-sm text-gray-500">
-                          <span className="truncate">ID: {group.group_id}</span>
                           {group.group_size !== undefined && (
                             <span className="shrink-0">👥 {group.group_size}</span>
                           )}
