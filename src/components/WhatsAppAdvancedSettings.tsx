@@ -1,0 +1,314 @@
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Search, RefreshCw, Users, MessageSquare, Loader } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { DEMO_MODE } from '@/lib/demo-mode';
+
+interface WhatsAppGroup {
+  id: string;
+  group_id: string;
+  group_name: string;
+  monitoring: boolean;
+}
+
+interface WhatsAppAdvancedSettingsProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentInstance: any;
+}
+
+export function WhatsAppAdvancedSettings({ 
+  isOpen, 
+  onClose, 
+  currentInstance 
+}: WhatsAppAdvancedSettingsProps) {
+  const [groups, setGroups] = useState<WhatsAppGroup[]>([]);
+  const [filteredGroups, setFilteredGroups] = useState<WhatsAppGroup[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [fetchingGroups, setFetchingGroups] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && currentInstance) {
+      loadGroupsFromDatabase();
+    }
+  }, [isOpen, currentInstance]);
+
+  useEffect(() => {
+    // Filter groups based on search term
+    const filtered = groups.filter(group => 
+      group.group_name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredGroups(filtered);
+  }, [groups, searchTerm]);
+
+  const loadGroupsFromDatabase = async () => {
+    if (DEMO_MODE) {
+      // Demo data
+      const demoGroups = [
+        { id: '1', group_id: 'demo1', group_name: 'Grupo Demo 1', monitoring: true },
+        { id: '2', group_id: 'demo2', group_name: 'Grupo Demo 2', monitoring: false },
+        { id: '3', group_id: 'demo3', group_name: 'Grupo Demo 3', monitoring: true },
+      ];
+      setGroups(demoGroups);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.user) return;
+
+      const { data, error } = await supabase
+        .from('whatsapp_groups')
+        .select('id, group_id, group_name, monitoring')
+        .eq('user_id', session.session.user.id)
+        .order('group_name');
+
+      if (error) {
+        console.error('Error loading groups:', error);
+      } else {
+        setGroups(data || []);
+      }
+    } catch (error) {
+      console.error('Error loading groups:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAllGroupsFromAPI = async () => {
+    if (DEMO_MODE) {
+      // Simulate API fetch in demo mode
+      setFetchingGroups(true);
+      setTimeout(() => {
+        const newDemoGroups = [
+          { id: '4', group_id: 'demo4', group_name: 'Novo Grupo Demo 4', monitoring: true },
+          { id: '5', group_id: 'demo5', group_name: 'Novo Grupo Demo 5', monitoring: true },
+          ...groups
+        ];
+        setGroups(newDemoGroups);
+        setFetchingGroups(false);
+      }, 2000);
+      return;
+    }
+
+    if (!currentInstance?.instance_name) {
+      console.error('No instance name available');
+      return;
+    }
+
+    try {
+      setFetchingGroups(true);
+      console.log('🔄 Fetching groups for instance:', currentInstance.instance_name);
+
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.user) return;
+
+      // Call our Edge Function to fetch groups from Evolution API
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-fetch-groups`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.session.access_token}`
+        },
+        body: JSON.stringify({
+          instanceName: currentInstance.instance_name,
+          userId: session.session.user.id
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log('✅ Groups fetched successfully:', result.groups?.length || 0);
+        // Reload groups from database to show the updated list
+        await loadGroupsFromDatabase();
+      } else {
+        console.error('❌ Error fetching groups:', result.error);
+      }
+
+    } catch (error) {
+      console.error('Error fetching groups from API:', error);
+    } finally {
+      setFetchingGroups(false);
+    }
+  };
+
+  const toggleGroupMonitoring = async (groupId: string, currentMonitoring: boolean) => {
+    if (DEMO_MODE) {
+      // Update demo data
+      const updatedGroups = groups.map(group =>
+        group.id === groupId 
+          ? { ...group, monitoring: !currentMonitoring }
+          : group
+      );
+      setGroups(updatedGroups);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('whatsapp_groups')
+        .update({ monitoring: !currentMonitoring })
+        .eq('id', groupId);
+
+      if (error) {
+        console.error('Error updating group monitoring:', error);
+      } else {
+        // Update local state
+        const updatedGroups = groups.map(group =>
+          group.id === groupId 
+            ? { ...group, monitoring: !currentMonitoring }
+            : group
+        );
+        setGroups(updatedGroups);
+      }
+    } catch (error) {
+      console.error('Error updating group monitoring:', error);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-green-600" />
+            Configurações Avançadas - WhatsApp
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-4 flex-1">
+          {/* Search and Actions */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Buscar grupos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Button
+              onClick={fetchAllGroupsFromAPI}
+              disabled={fetchingGroups}
+              variant="outline"
+              className="shrink-0"
+            >
+              {fetchingGroups ? (
+                <>
+                  <Loader className="h-4 w-4 mr-2 animate-spin" />
+                  Buscando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Buscar Grupos
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Info Banner */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <MessageSquare className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <p className="text-blue-800 font-medium mb-1">
+                  Gerenciamento de Grupos WhatsApp
+                </p>
+                <p className="text-blue-600">
+                  Selecione quais grupos você deseja monitorar. Apenas grupos habilitados 
+                  aparecerão na gestão de grupos e terão suas atividades registradas.
+                </p>
+                {currentInstance?.instance_name && (
+                  <p className="text-blue-500 text-xs mt-2">
+                    <strong>Instância:</strong> {currentInstance.instance_name}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Groups List */}
+          <div className="flex-1 min-h-0">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader className="h-8 w-8 animate-spin text-gray-400" />
+                  <p className="text-gray-500 text-sm">Carregando grupos...</p>
+                </div>
+              </div>
+            ) : filteredGroups.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <Users className="h-12 w-12 mb-4 text-gray-300" />
+                <p className="text-lg mb-2">
+                  {searchTerm ? 'Nenhum grupo encontrado' : 'Nenhum grupo cadastrado'}
+                </p>
+                <p className="text-sm text-center max-w-md">
+                  {searchTerm 
+                    ? 'Tente ajustar o termo de busca ou busque novos grupos.'
+                    : 'Clique em "Buscar Grupos" para sincronizar os grupos da sua instância WhatsApp.'
+                  }
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-y-auto space-y-2 pr-2">
+                {filteredGroups.map((group) => (
+                  <div
+                    key={group.id}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-gray-900 truncate">
+                        {group.group_name}
+                      </h4>
+                      <p className="text-sm text-gray-500 truncate">
+                        ID: {group.group_id}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 ml-4">
+                      <span className="text-sm text-gray-600 whitespace-nowrap">
+                        {group.monitoring ? 'Monitorando' : 'Parado'}
+                      </span>
+                      <Switch
+                        checked={group.monitoring}
+                        onCheckedChange={() => toggleGroupMonitoring(group.id, group.monitoring)}
+                        className="shrink-0"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Statistics */}
+          {filteredGroups.length > 0 && (
+            <div className="border-t pt-4">
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>
+                  Total: {filteredGroups.length} grupo{filteredGroups.length !== 1 ? 's' : ''}
+                </span>
+                <span>
+                  Monitorando: {filteredGroups.filter(g => g.monitoring).length}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end pt-4 border-t">
+          <Button onClick={onClose} variant="outline">
+            Fechar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
