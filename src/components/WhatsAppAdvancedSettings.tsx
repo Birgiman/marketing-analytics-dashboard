@@ -35,14 +35,20 @@ export function WhatsAppAdvancedSettings({
   const [loading, setLoading] = useState(true); // Always start loading until sync completes
   const [fetchingGroups, setFetchingGroups] = useState(false);
   const [allGroupsEnabled, setAllGroupsEnabled] = useState(true); // Track if all groups are enabled
+  const [hasInitiallyFetched, setHasInitiallyFetched] = useState(false); // Cache control
 
   useEffect(() => {
     if (isOpen && currentInstance) {
-      // Always start with loading and fetch fresh data
       setLoading(true);
       loadGroupsFromDatabase().finally(() => {
-        // After loading from DB, fetch fresh data from API
-        fetchAllGroupsFromAPI();
+        // Only fetch from API if haven't fetched before (smart cache)
+        if (!hasInitiallyFetched) {
+          fetchAllGroupsFromAPI();
+        } else {
+          // Use cached data - much faster
+          console.log('✅ Using cached group data (faster)');
+          setLoading(false);
+        }
       });
     }
   }, [isOpen, currentInstance]);
@@ -157,6 +163,7 @@ export function WhatsAppAdvancedSettings({
     } finally {
       setFetchingGroups(false);
       setLoading(false); // Always turn off loading when fetch completes
+      setHasInitiallyFetched(true); // Mark as initially fetched for future cache use
     }
   };
 
@@ -236,8 +243,18 @@ export function WhatsAppAdvancedSettings({
     }
   };
 
+  // Block modal closing during loading
+  const handleModalChange = (open: boolean) => {
+    if (!open && (loading || fetchingGroups)) {
+      // Prevent closing during loading
+      console.log('⛔ Modal close blocked - sync in progress');
+      return;
+    }
+    onClose();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleModalChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -364,11 +381,20 @@ export function WhatsAppAdvancedSettings({
                         <span className="text-sm text-gray-600 whitespace-nowrap">
                           {group.monitoring ? 'Monitorando' : 'Parado'}
                         </span>
-                        <Switch
-                          checked={group.monitoring}
-                          onCheckedChange={() => toggleGroupMonitoring(group.id, group.monitoring)}
-                          className="shrink-0 data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-300 border-2 border-gray-400 data-[state=checked]:border-green-600"
-                        />
+                        <Button
+                          onClick={() => toggleGroupMonitoring(group.id, group.monitoring)}
+                          variant="outline"
+                          size="sm"
+                          disabled={loading || fetchingGroups}
+                          className={`shrink-0 w-8 h-8 p-0 hover:scale-110 transition-transform ${
+                            group.monitoring 
+                              ? 'text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200' 
+                              : 'text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200'
+                          }`}
+                          title={group.monitoring ? 'Desativar monitoramento' : 'Ativar monitoramento'}
+                        >
+                          {group.monitoring ? '❌' : '✅'}
+                        </Button>
                       </div>
                     </div>
                   );
@@ -394,9 +420,13 @@ export function WhatsAppAdvancedSettings({
           )}
         </div>
 
-        <div className="flex justify-end pt-4 border-t">
-          <Button onClick={onClose} variant="outline">
-            Fechar
+        <div className="flex justify-end pt-4 border-t mt-4 mb-2">
+          <Button 
+            onClick={onClose} 
+            variant="outline"
+            disabled={loading || fetchingGroups}
+          >
+            {loading || fetchingGroups ? 'Sincronizando...' : 'Fechar'}
           </Button>
         </div>
       </DialogContent>
