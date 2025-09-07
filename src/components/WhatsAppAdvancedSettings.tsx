@@ -38,6 +38,8 @@ export function WhatsAppAdvancedSettings({
   useEffect(() => {
     if (isOpen && currentInstance) {
       loadGroupsFromDatabase();
+      // Auto-sync groups when modal opens to ensure data is up to date
+      fetchAllGroupsFromAPI();
     }
   }, [isOpen, currentInstance]);
 
@@ -241,6 +243,11 @@ export function WhatsAppAdvancedSettings({
                 <p className="text-blue-600">
                   Selecione quais grupos você deseja monitorar. Apenas grupos habilitados 
                   aparecerão na gestão de grupos e terão suas atividades registradas.
+                  {fetchingGroups && (
+                    <span className="block mt-1 text-blue-500 font-medium">
+                      🔄 Sincronizando grupos automaticamente...
+                    </span>
+                  )}
                 </p>
                 {currentInstance?.instance_name && (
                   <p className="text-blue-500 text-xs mt-2">
@@ -274,7 +281,7 @@ export function WhatsAppAdvancedSettings({
                 </p>
               </div>
             ) : (
-              <div className="overflow-y-auto space-y-2 pr-2">
+              <div className="overflow-y-auto space-y-2 pr-2 max-h-96">
                 {filteredGroups.map((group) => {
                   console.log('🐛 Rendering group:', group);
                   return (

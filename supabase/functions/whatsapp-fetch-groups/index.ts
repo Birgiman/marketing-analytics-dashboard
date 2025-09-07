@@ -118,20 +118,51 @@ serve(async (req) => {
 
         console.log(`💾 Processing group: ${groupName} (${groupId})`)
 
-        // Upsert group into database with all the new fields
+        // Smart upsert: only update changed fields
+        // First check if group exists and get current values
+        const { data: existingGroup } = await supabase
+          .from('whatsapp_groups')
+          .select('group_name, group_size, group_owner, group_created_at, group_description, monitoring')
+          .eq('user_id', userId)
+          .eq('group_id', groupId)
+          .single()
+
+        const groupData = {
+          user_id: userId,
+          group_id: groupId,
+          group_name: groupName,
+          group_size: groupSize,
+          group_owner: groupOwner,
+          group_created_at: groupCreatedAt,
+          group_description: groupDescription,
+          updated_at: new Date().toISOString()
+        }
+
+        // If group is new, set monitoring to true by default
+        if (!existingGroup) {
+          groupData.monitoring = true
+          console.log(`📝 New group - will be monitored by default: ${groupName}`)
+        } else {
+          // For existing groups, preserve monitoring setting and only update if values changed
+          const hasChanges = 
+            existingGroup.group_name !== groupName ||
+            existingGroup.group_size !== groupSize ||
+            existingGroup.group_owner !== groupOwner ||
+            existingGroup.group_description !== groupDescription ||
+            (existingGroup.group_created_at ? new Date(existingGroup.group_created_at).toISOString() : null) !== groupCreatedAt
+
+          if (!hasChanges) {
+            console.log(`✨ No changes detected for group: ${groupName} - skipping update`)
+            processedGroups.push({ ...existingGroup, id: 'existing', group_id: groupId, group_name: groupName })
+            continue
+          }
+          console.log(`🔄 Changes detected for group: ${groupName} - updating`)
+        }
+
+        // Upsert with optimized data
         const { data: upsertedGroup, error: upsertError } = await supabase
           .from('whatsapp_groups')
-          .upsert({
-            user_id: userId,
-            group_id: groupId,
-            group_name: groupName,
-            group_size: groupSize,
-            group_owner: groupOwner,
-            group_created_at: groupCreatedAt,
-            group_description: groupDescription,
-            monitoring: true, // Default to monitoring enabled
-            updated_at: new Date().toISOString()
-          }, {
+          .upsert(groupData, {
             onConflict: 'user_id,group_id',
             ignoreDuplicates: false
           })
