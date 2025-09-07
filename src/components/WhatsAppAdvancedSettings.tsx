@@ -378,14 +378,16 @@ export function WhatsAppAdvancedSettings({
           </div>
 
           {/* Statistics */}
-          {filteredGroups.length > 0 && (
+          {(filteredGroups.length > 0 || loading || fetchingGroups) && (
             <div className="border-t pt-4">
-              <div className="flex justify-between text-sm text-gray-600">
+              <div className={`flex justify-between text-sm text-gray-600 ${
+                loading || fetchingGroups ? 'animate-pulse' : ''
+              }`}>
                 <span>
-                  Total: {filteredGroups.length} grupo{filteredGroups.length !== 1 ? 's' : ''}
+                  Total: {loading || fetchingGroups ? '...' : `${filteredGroups.length} grupo${filteredGroups.length !== 1 ? 's' : ''}`}
                 </span>
                 <span>
-                  Monitorando: {filteredGroups.filter(g => g.monitoring).length}
+                  Monitorando: {loading || fetchingGroups ? '...' : filteredGroups.filter(g => g.monitoring).length}
                 </span>
               </div>
             </div>
