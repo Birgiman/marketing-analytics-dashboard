@@ -9,6 +9,7 @@ const corsHeaders = {
 interface FetchGroupsRequest {
   instanceName: string;
   userId: string;
+  searchTerm?: string; // NEW: Optional search term for filtering
 }
 
 serve(async (req) => {
@@ -30,7 +31,7 @@ serve(async (req) => {
       )
     }
 
-    const { instanceName, userId }: FetchGroupsRequest = await req.json()
+    const { instanceName, userId, searchTerm }: FetchGroupsRequest = await req.json()
     
     if (!instanceName || !userId) {
       return new Response(
@@ -39,7 +40,7 @@ serve(async (req) => {
       )
     }
 
-    console.log(`🔍 Fetching groups for instance: ${instanceName}, userId: ${userId}`)
+    console.log(`🔍 Fetching groups for instance: ${instanceName}, userId: ${userId}${searchTerm ? `, searchTerm: "${searchTerm}"` : ''}`)
 
     // First, let's check what instances exist for this user
     const { data: userInstances, error: userInstancesError } = await supabase
@@ -128,8 +129,17 @@ serve(async (req) => {
       )
     }
 
+    // Add detailed logging for debugging Arthur's issue
+    console.log(`📊 API Response Analysis:`)
+    console.log(`- Total groups from API: ${groupsData.length}`)
+    console.log(`- Groups with size > 0: ${groupsData.filter(g => (g.size || 0) > 0).length}`)
+    console.log(`- Groups with size = 0: ${groupsData.filter(g => (g.size || 0) === 0).length}`)
+    console.log(`- Groups without subject: ${groupsData.filter(g => !g.subject).length}`)
+    console.log(`- Groups created in last 30 days: ${groupsData.filter(g => g.creation && (Date.now() - (g.creation * 1000)) < (30 * 24 * 60 * 60 * 1000)).length}`)
+
     // Process and save groups to database
     const processedGroups = []
+    const filteredOutGroups = []
     
     for (const group of groupsData) {
       try {
@@ -146,6 +156,35 @@ serve(async (req) => {
         if (!groupId) {
           console.warn('⚠️ Skipping group without ID:', group)
           continue
+        }
+
+        // NEW: Apply filters to reduce "phantom" groups
+        const shouldFilterOut = (
+          groupSize === 0 || // Groups with no participants
+          !group.subject || // Groups without names
+          group.subject.trim() === '' // Groups with empty names
+        );
+
+        if (shouldFilterOut) {
+          filteredOutGroups.push({
+            id: groupId,
+            name: groupName,
+            size: groupSize,
+            reason: groupSize === 0 ? 'zero_participants' : !group.subject ? 'no_name' : 'empty_name'
+          });
+          console.log(`🚫 Filtered out group: ${groupName} (${groupId}) - Reason: ${shouldFilterOut}`)
+          continue;
+        }
+
+        // NEW: Apply search term filter if provided
+        if (searchTerm && searchTerm.trim() !== '') {
+          const searchLower = searchTerm.toLowerCase().trim();
+          const groupNameLower = (group.subject || '').toLowerCase();
+          
+          if (!groupNameLower.includes(searchLower)) {
+            console.log(`🔍 Search filtered out group: ${groupName} (doesn't match "${searchTerm}")`)
+            continue; // Skip groups that don't match the search term
+          }
         }
 
         console.log(`💾 Processing group: ${groupName} (${groupId}) - ${groupSize} participants`)
@@ -202,7 +241,15 @@ serve(async (req) => {
           console.error(`❌ Error upserting group ${groupId}:`, upsertError)
         } else {
           console.log(`✅ Group processed: ${groupName}`)
-          processedGroups.push(upsertedGroup)
+          // Add additional data for frontend selection
+          const enrichedGroup = {
+            ...upsertedGroup,
+            group_participants: groupSize,
+            group_created_formatted: groupCreatedAt ? new Date(groupCreatedAt).toLocaleDateString('pt-BR') : null,
+            group_owner_formatted: groupOwner ? groupOwner.replace('@s.whatsapp.net', '') : null,
+            selectable: true // Flag for frontend checkbox logic
+          }
+          processedGroups.push(enrichedGroup)
         }
 
       } catch (error) {
@@ -211,6 +258,8 @@ serve(async (req) => {
     }
 
     console.log(`🎯 Successfully processed ${processedGroups.length} groups`)
+    console.log(`🚫 Filtered out ${filteredOutGroups.length} groups:`, 
+      filteredOutGroups.map(g => `${g.name} (${g.reason})`).slice(0, 10))
 
     return new Response(
       JSON.stringify({
@@ -218,7 +267,17 @@ serve(async (req) => {
         message: `Successfully processed ${processedGroups.length} groups`,
         groups: processedGroups,
         totalFromAPI: groupsData.length,
-        totalProcessed: processedGroups.length
+        totalProcessed: processedGroups.length,
+        totalFilteredOut: filteredOutGroups.length,
+        debug: {
+          filteredOut: filteredOutGroups.slice(0, 5), // Sample of filtered groups
+          analysis: {
+            totalGroups: groupsData.length,
+            activeGroups: groupsData.filter(g => (g.size || 0) > 0).length,
+            emptyGroups: groupsData.filter(g => (g.size || 0) === 0).length,
+            namedGroups: groupsData.filter(g => g.subject).length
+          }
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
