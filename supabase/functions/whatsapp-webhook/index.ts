@@ -189,26 +189,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
     
     console.log('🎯 Event type:', event);
-    console.log('📋 Full event data keys:', Object.keys(eventData));
-    console.log('🔍 Headers for event detection:', {
-      'x-evolution-event': req.headers.get('x-evolution-event'),
-      'x-event-type': req.headers.get('x-event-type'),
-      'x-webhook-event': req.headers.get('x-webhook-event')
-    });
     
-    // Log ALL events for complete debugging
-    console.log('🌟 COMPLETE EVENT LOG:', {
-      event: event,
-      instance: instance,
-      timestamp: new Date().toISOString(),
-      payload_structure: {
-        has_data: !!webhookData,
-        data_type: Array.isArray(webhookData) ? 'array' : typeof webhookData,
-        data_length: Array.isArray(webhookData) ? webhookData.length : undefined,
-        data_keys: webhookData ? Object.keys(Array.isArray(webhookData) ? webhookData[0] || {} : webhookData) : []
-      },
-      full_payload: JSON.stringify(eventData, null, 2)
-    });
+    // Log event for group-participants.update only
+    if (event === 'group-participants.update') {
+      console.log('📋 GROUP PARTICIPANTS EVENT:', {
+        event: event,
+        instance: instance,
+        data_keys: webhookData ? Object.keys(webhookData) : [],
+        group_id: webhookData?.id,
+        participants: webhookData?.participants,
+        action: webhookData?.action
+      });
+    }
     
     // Log specific events we're interested in
     const interestingEvents = [
@@ -226,7 +218,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       });
     }
     
-    // Special focus on CHATS_UPDATE since it's likely the right event for group name changes
+    /* 
+    // BACKUP: Special focus on CHATS_UPDATE (commented out - using GROUPS events now)
     if (event && event.toUpperCase() === 'CHATS_UPDATE') {
       console.log('🎯🎯🎯 CHATS_UPDATE EVENT DETECTED - This might be our GROUP NAME UPDATE!');
       console.log('📋 CHATS_UPDATE Full Analysis:', {
@@ -240,6 +233,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         complete_payload: JSON.stringify(eventData, null, 2)
       });
     }
+    */
     
     if (!webhookData) {
       console.error('❌ Missing data object in payload');
@@ -284,8 +278,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
           return null;
         }
         
-        // Use the api_token that was already fetched
-        if (!api_token) {
+        // Get API token and instance info from instance table
+        let configData = null;
+        if (checkParticipation) {
+          const { data: instanceConfig, error: configError } = await supabase
+            .from('whatsapp_instances')
+            .select('api_token, instance_phone')
+            .eq('instance_name', instanceName)
+            .single();
+
+          if (configError || !instanceConfig?.api_token) {
+            console.log('⚠️ Could not get API token for instance:', instanceName);
+            return null;
+          }
+          configData = instanceConfig;
+        }
+        
+        // Use the api_token that was already fetched or get from configData
+        const apiToken = configData?.api_token || api_token;
+        if (!apiToken) {
           console.log('⚠️ No API token available for instance:', instanceName);
           return null;
         }
@@ -300,7 +311,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': api_token
+            'apikey': apiToken
           }
         });
 
@@ -324,7 +335,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           }
 
           // Enhanced validation when checking participation
-          if (checkParticipation && targetGroup.participants) {
+          if (checkParticipation && targetGroup.participants && configData) {
             const instancePhone = configData.instance_phone;
             if (instancePhone) {
               // Check if instance phone is in the participants list
@@ -488,7 +499,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return { processed: false, reason: 'missing_required_fields', missing_fields: { group_id: !group_id, user_id: !user_id } };
       }
 
-      // SPECIAL HANDLING FOR CHATS.UPDATE - Validate if group name actually changed
+      /*
+      // BACKUP: SPECIAL HANDLING FOR CHATS.UPDATE (commented out - using GROUPS events now)
       if (eventType && eventType.toLowerCase().includes('chats.update')) {
         console.log('🎯 CHATS.UPDATE detected - checking if group name actually changed...');
         
@@ -546,8 +558,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
           group_name = `[Group Updated] ${group_id.substring(0, 15)}...`;
         }
       }
-      // For other events, validate group activity before processing
-      else if (!group_name && instance) {
+      */
+      // For other events, validate group activity before processing  
+      if (!group_name && instance) {
         console.log('🔄 No group name in payload, validating group activity...');
         const groupInfo = await fetchGroupInfoFromEvolutionAPI(group_id, instance, true);
         if (groupInfo?.subject) {
@@ -598,15 +611,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     // Handle different event types - Universal group event detection
     const groupRelatedEvents = [
-      'GROUP_UPDATE', 'GROUPS_UPDATE', 'GROUPS_UPSERT', 
-      'CHATS_UPDATE', 'CHATS_UPSERT', 'CHATS_SET'
+      'GROUP_UPDATE', 'GROUPS_UPDATE', 'GROUPS_UPSERT'
+      // 'CHATS_UPDATE', 'CHATS_UPSERT', 'CHATS_SET' // Commented out - using GROUPS events now
     ];
     
-    const isGroupEvent = event && (
+    const isGroupEvent = event && event !== 'group-participants.update' && (
       event.includes('groups') || 
       event.includes('group') || 
-      event.includes('chats') ||
-      event.includes('chat') ||
+      // event.includes('chats') ||    // Commented out - using GROUPS events now
+      // event.includes('chat') ||     // Commented out - using GROUPS events now
       groupRelatedEvents.some(e => event.toUpperCase() === e)
     );
     
@@ -717,42 +730,50 @@ Deno.serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log('👥 Processing GROUP_PARTICIPANTS_UPDATE event');
+    console.log('👥 Processing group-participants.update event');
     
     const group_id = webhookData.id;
-    const participant = webhookData.participants?.[0]; // Get first participant from array
+    const participants = webhookData.participants || [];
     const action = webhookData.action;
     
+    console.log('📊 Participant event details:', { 
+      group_id, 
+      action, 
+      participant_count: participants.length,
+      participants: participants
+    });
+    
     // Get group info including name and participant count
-    let group_name = group_id; // Default fallback
+    let group_name = null;
     let participant_count = null;
     
+    // Try to get group info from cache first
     if (user_id && group_id) {
-      console.log('🔍 Looking up group info from cache...');
       const { data: groupCache, error: groupCacheError } = await supabase
         .from('whatsapp_groups')
-        .select('group_name')
+        .select('group_name, participant_count')
         .eq('group_id', group_id)
         .eq('user_id', user_id)
         .maybeSingle();
       
-      if (groupCacheError) {
-        console.error('❌ Error fetching group info from cache:', groupCacheError);
-      } else if (groupCache?.group_name) {
+      if (!groupCacheError && groupCache) {
         group_name = groupCache.group_name;
-        console.log('✅ Found cached group info:', { name: group_name });
+        participant_count = groupCache.participant_count;
+        console.log('✅ Found cached group info:', { name: group_name, count: participant_count });
       }
-      
-      // Fetch fresh data from Evolution API with activity validation
-      if (instance) {
-        console.log('🔄 Fetching fresh group info with activity validation...');
-        const freshInfo = await fetchGroupInfoFromEvolutionAPI(group_id, instance, true);
-        if (freshInfo?.subject) {
-          group_name = freshInfo.subject;
-          participant_count = freshInfo.size || null;
-          console.log('✅ Fresh active group info:', { name: group_name, count: participant_count });
-          
-          // Update cache with fresh info
+    }
+    
+    // If no cached name or we need fresh data, fetch from Evolution API
+    if (!group_name && instance) {
+      console.log('🔄 Fetching group info from Evolution API...');
+      const freshInfo = await fetchGroupInfoFromEvolutionAPI(group_id, instance, true);
+      if (freshInfo?.subject) {
+        group_name = freshInfo.subject;
+        participant_count = freshInfo.size || null;
+        console.log('✅ Got group info from Evolution API:', { name: group_name, count: participant_count });
+        
+        // Update cache with fresh info
+        if (user_id) {
           const { error: updateError } = await supabase
             .from('whatsapp_groups')
             .upsert({
@@ -766,43 +787,46 @@ Deno.serve(async (req: Request): Promise<Response> => {
           if (updateError) {
             console.error('❌ Error updating group cache:', updateError);
           } else {
-            console.log('✅ Updated group cache with fresh data');
+            console.log('✅ Updated group cache');
           }
-        } else {
-          console.log('⚠️ Group is inactive or user not participant - skipping participant event');
-          return new Response(
-            JSON.stringify({ 
-              ok: true,
-              message: 'Group inactive or user not participant - event ignored',
-              group_id,
-              event_type: 'GROUP_PARTICIPANTS_UPDATE'
-            }),
-            { 
-              status: 200, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            }
-          );
         }
       } else {
-        console.log('⚠️ No instance available for Evolution API fetch');
+        console.log('⚠️ Group is inactive or user not participant, skipping processing');
+        return new Response(
+          JSON.stringify({ 
+            ok: true,
+            message: 'Group inactive or user not participant - event ignored',
+            group_id,
+            event_type: 'group-participants.update'
+          }),
+          { 
+            status: 200, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
       }
     }
     
+    // Use group ID as fallback name if still no name
+    if (!group_name) {
+      group_name = `Group ${group_id.substring(0, 12)}...`;
+      console.log('⚠️ Using fallback group name:', group_name);
+    }
+    
     // Validate required fields
-    if (!group_id || !participant || !action) {
+    if (!group_id || participants.length === 0 || !action) {
       const missingFields = [];
       if (!group_id) missingFields.push('group_id (data.id)');
-      if (!participant) missingFields.push('participant (data.participants[0])');
+      if (participants.length === 0) missingFields.push('participants (data.participants)');
       if (!action) missingFields.push('action (data.action)');
       
       console.error('❌ Missing required fields:', missingFields.join(', '));
-      console.log('Discarding insertion due to missing fields');
       
       return new Response(
         JSON.stringify({ 
           error: 'Missing required fields', 
           missing: missingFields,
-          received: eventData 
+          received_data: { group_id, participants, action }
         }),
         { 
           status: 400, 
@@ -819,7 +843,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
       normalizedAction = 'leave';
     } else {
       console.error('❌ Invalid action value:', action);
-      console.log('Expected "add" or "remove", got:', action);
       
       return new Response(
         JSON.stringify({ 
@@ -834,48 +857,73 @@ Deno.serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    // Prepare data for insertion with participant count
-    const insertData = {
-      id_grupo: group_id,
-      nome_grupo: group_name,
-      telefone: participant,
-      evento: normalizedAction,
-      quantidade_pessoas: participant_count, // Add participant count
-      user_id: user_id, // Use the found user_id from whatsapp_instances
-      created_at: new Date().toISOString()
-    };
+    // Process each participant in the event
+    const insertedRecords = [];
+    const currentTime = new Date().toISOString();
+    
+    console.log(`💾 Processing ${participants.length} participant(s) for ${normalizedAction} action`);
+    
+    for (const participant of participants) {
+      // Extract phone number from WhatsApp ID (e.g., "555181999999999@s.whatsapp.net" -> "5581999999999")
+      const extractPhoneNumber = (whatsappId: string): string => {
+        // Remove @s.whatsapp.net and @c.us suffixes
+        const phoneOnly = whatsappId.replace(/@(s\.whatsapp\.net|c\.us)$/, '');
+        
+        // Format: Country Code + Area Code + Number (e.g., "5581999999999")
+        // You can add more formatting here if needed
+        return phoneOnly;
+      };
 
-    console.log('💾 Inserting data into whatsapp_groups_log:', JSON.stringify(insertData, null, 2));
+      const phoneNumber = extractPhoneNumber(participant);
+      
+      const insertData = {
+        id_grupo: group_id,
+        group_name: group_name,
+        whatsapp_phone_id: participant,
+        phone_number: phoneNumber,
+        event: normalizedAction,
+        user_id: user_id,
+        created_at: currentTime
+      };
 
-    // Insert into whatsapp_groups_log table
-    const { data, error } = await supabase
-      .from('whatsapp_groups_log')
-      .insert([insertData])
-      .select();
+      console.log(`📝 Logging participant ${normalizedAction}:`, { 
+        participant, 
+        phone_number: phoneNumber,
+        group_name 
+      });
 
-    if (error) {
-      console.error('❌ Database insertion error:', error);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Database insertion failed', 
-          details: error.message 
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      // Insert into whatsapp_groups_log table
+      const { data, error } = await supabase
+        .from('whatsapp_groups_log')
+        .insert([insertData])
+        .select();
+
+      if (error) {
+        console.error('❌ Database insertion error for participant:', participant, error);
+        continue; // Continue processing other participants
+      }
+
+      if (data && data[0]) {
+        insertedRecords.push(data[0]);
+        console.log('✅ Successfully logged participant event:', data[0].id);
+      }
     }
 
-    console.log('✅ Successfully inserted data:', JSON.stringify(data, null, 2));
-    console.log('📝 Group participant event logged successfully');
+    console.log(`📊 Summary: ${insertedRecords.length}/${participants.length} participant events logged successfully`);
 
     // Return success response
     return new Response(
       JSON.stringify({ 
         ok: true,
-        message: 'Webhook processed successfully',
-        inserted_id: data?.[0]?.id
+        message: 'Group participant event(s) processed successfully',
+        summary: {
+          total_participants: participants.length,
+          successfully_logged: insertedRecords.length,
+          action: normalizedAction,
+          group_id,
+          group_name
+        },
+        inserted_records: insertedRecords.map(r => r.id)
       }),
       { 
         status: 200, 

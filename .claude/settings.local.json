@@ -17,7 +17,11 @@
       "Bash(scoop bucket add:*)",
       "Bash(powershell:*)",
       "Bash(npx:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(git reset:*)",
+      "Bash(npm run build:*)",
+      "WebFetch(domain:docs.evolution-api.com)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []
