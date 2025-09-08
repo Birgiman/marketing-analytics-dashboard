@@ -70,6 +70,7 @@ export default function SignUp() {
             first_name: formData.firstName,
             last_name: formData.lastName,
             phone: formData.phone,
+            email: formData.email,
             status: 'pending'
           });
 

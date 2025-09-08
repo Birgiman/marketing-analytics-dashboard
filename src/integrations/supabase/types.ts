@@ -300,6 +300,7 @@ export type Database = {
           email: string | null
           first_name: string
           id: string
+          is_admin: boolean
           last_name: string
           phone: string | null
           state: string | null
@@ -318,6 +319,7 @@ export type Database = {
           email?: string | null
           first_name: string
           id?: string
+          is_admin?: boolean
           last_name: string
           phone?: string | null
           state?: string | null
@@ -336,6 +338,7 @@ export type Database = {
           email?: string | null
           first_name?: string
           id?: string
+          is_admin?: boolean
           last_name?: string
           phone?: string | null
           state?: string | null

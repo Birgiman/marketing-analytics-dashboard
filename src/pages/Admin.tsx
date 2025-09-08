@@ -297,7 +297,7 @@ export default function Admin() {
                             <div className="flex items-center gap-3">
                               <div>
                                 <h3 className="font-semibold text-lg">{profile.first_name} {profile.last_name}</h3>
-                                <p className="text-primary text-sm">{profile.email}</p>
+                                <p className="text-primary text-sm">{profile.email || 'Email não informado'}</p>
                               </div>
                               {getStatusBadge(profile.status)}
                             </div>
