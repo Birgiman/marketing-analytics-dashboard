@@ -12,6 +12,7 @@ interface CreateLiveModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   currentInstance?: any;
+  onLiveCreated?: () => void;
 }
 
 interface GroupResult {
@@ -26,7 +27,7 @@ interface GroupResult {
   selectable: boolean;
 }
 
-export const CreateLiveModal = ({ open, onOpenChange, currentInstance }: CreateLiveModalProps) => {
+export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCreated }: CreateLiveModalProps) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedGroups, setSelectedGroups] = useState<GroupResult[]>([]);
   const [showGroupSelector, setShowGroupSelector] = useState(false);
@@ -92,6 +93,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance }: CreateL
       }));
 
       await createLiveWithGroups(liveData, groups);
+      onLiveCreated?.();
       handleClose();
     } catch (error) {
       console.error('Error creating live:', error);
