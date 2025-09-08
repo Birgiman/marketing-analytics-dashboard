@@ -18,7 +18,7 @@ export const SalesHeader = ({
   location = "Endereço"
 }: SalesHeaderProps) => {
   const [isAddressOpen, setIsAddressOpen] = useState(false);
-  const [userAddress, setUserAddress] = useState<{street: string; number: string} | null>(null);
+  const [userAddress, setUserAddress] = useState<{street: string; number: string; zipCode: string} | null>(null);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -26,7 +26,7 @@ export const SalesHeader = ({
       if (session?.user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('address, city, state')
+          .select('address, city, state, zip_code')
           .eq('user_id', session.user.id)
           .single();
 
@@ -35,7 +35,8 @@ export const SalesHeader = ({
           const addressParts = profile.address.split(',');
           const street = addressParts[0]?.trim() || profile.address;
           const number = addressParts[1]?.trim() || '';
-          setUserAddress({ street, number });
+          const zipCode = profile.zip_code || '';
+          setUserAddress({ street, number, zipCode });
         }
       }
     };
@@ -61,8 +62,8 @@ export const SalesHeader = ({
           <MapPin className="w-4 h-4" />
           {userAddress ? (
             <div className="flex flex-col">
-              <span className="text-xs">{userAddress.street}</span>
-              {userAddress.number && <span className="text-xs">{userAddress.number}</span>}
+              <span className="text-xs">{userAddress.street}{userAddress.number && `, ${userAddress.number}`}</span>
+              {userAddress.zipCode && <span className="text-xs text-muted-foreground/80">{userAddress.zipCode}</span>}
             </div>
           ) : (
             <span>{location}</span>
