@@ -73,7 +73,7 @@ export default function Admin() {
 
   const loadProfiles = async () => {
     try {
-      // Get profiles data
+      // Get profiles data only (we'll need to add email to profiles table)
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
@@ -81,22 +81,10 @@ export default function Admin() {
 
       if (profilesError) throw profilesError;
 
-      // Get auth users data for emails
-      const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
-      
-      // Combine profile and auth data
-      const enrichedProfiles = profilesData?.map(profile => {
-        const authUser = authData?.users?.find(user => user.id === profile.user_id);
-        return {
-          ...profile,
-          email: authUser?.email || 'Email não encontrado'
-        };
-      }) || [];
-
-      setProfiles(enrichedProfiles);
+      setProfiles(profilesData || []);
 
       // Calculate stats
-      const newStats = enrichedProfiles.reduce((acc, profile) => {
+      const newStats = (profilesData || []).reduce((acc, profile) => {
         acc[profile.status as keyof UserStats]++;
         return acc;
       }, { pending: 0, approved: 0, rejected: 0, disabled: 0 });
