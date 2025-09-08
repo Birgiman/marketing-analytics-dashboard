@@ -1,168 +1,143 @@
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Settings, Building2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
-interface AccountSettingsModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
-export const AccountSettingsModal = ({ open, onOpenChange }: AccountSettingsModalProps) => {
-  const [formData, setFormData] = useState({
-    companyName: 'LiveShop Tech',
-    companyInstagram: '@liveshoptech',
-    userName: 'João Silva',
-    email: 'joao@liveshoptech.com',
-    street: 'Rua das Flores, 123',
-    city: 'São Paulo',
-    state: 'SP',
-    postalCode: '01234-567'
+export default function AccountSettingsModal() {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+  
+  const [companyData, setCompanyData] = useState({
+    companyName: '',
+    companyInstagram: ''
   });
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  useEffect(() => {
+    if (open) {
+      fetchCompanyData();
+    }
+  }, [open]);
+
+  const fetchCompanyData = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('company_name, company_instagram')
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (profile) {
+        setCompanyData({
+          companyName: profile.company_name || '',
+          companyInstagram: profile.company_instagram || ''
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching company data:', error);
+    }
   };
 
-  const handleSave = () => {
-    // TODO: Implement save functionality
-    console.log('Saving settings:', formData);
-    onOpenChange(false);
-  };
+  const handleSaveCompanyData = async () => {
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
 
-  const handleCancel = () => {
-    onOpenChange(false);
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          company_name: companyData.companyName,
+          company_instagram: companyData.companyInstagram
+        })
+        .eq('user_id', session.user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Dados da empresa atualizados com sucesso!",
+      });
+      
+      setOpen(false);
+    } catch (error) {
+      console.error('Error updating company data:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar dados da empresa",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="sm" className="gap-2">
+          <Settings className="h-4 w-4" />
+          Configurações
+        </Button>
+      </DialogTrigger>
+      
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold">Configurações da Conta</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Building2 className="h-5 w-5" />
+            Configurações da Empresa
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Dados da Empresa */}
-          <section>
-            <h3 className="text-lg font-medium mb-4">Dados da Empresa</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Dados da Empresa</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="companyName">Nome da Empresa</Label>
                 <Input
                   id="companyName"
-                  value={formData.companyName}
-                  onChange={(e) => handleInputChange('companyName', e.target.value)}
+                  value={companyData.companyName}
+                  onChange={(e) => setCompanyData(prev => ({ ...prev, companyName: e.target.value }))}
+                  placeholder="Digite o nome da sua empresa"
                 />
               </div>
+              
               <div className="space-y-2">
                 <Label htmlFor="companyInstagram">Instagram da Empresa</Label>
                 <Input
                   id="companyInstagram"
-                  value={formData.companyInstagram}
-                  onChange={(e) => handleInputChange('companyInstagram', e.target.value)}
+                  value={companyData.companyInstagram}
+                  onChange={(e) => setCompanyData(prev => ({ ...prev, companyInstagram: e.target.value }))}
+                  placeholder="@suaempresa"
                 />
               </div>
-            </div>
-            
-            <div className="mt-4">
-              <Label>Faturamento Total com LiveShop</Label>
-              <div className="flex items-center gap-4 mt-2">
-                <div className="w-4 h-4 bg-primary rounded-full"></div>
-                <span className="text-sm font-medium">R$ 1,10M / 10M</span>
-                <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-                <span className="text-sm font-medium">11%</span>
-              </div>
-              <Progress value={11} className="mt-2" />
-              <p className="text-sm text-muted-foreground mt-1">Atualizado automaticamente</p>
-            </div>
-          </section>
+            </CardContent>
+          </Card>
 
-          {/* Dados Pessoais */}
-          <section>
-            <h3 className="text-lg font-medium mb-4">Dados Pessoais</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="userName">Nome do Usuário</Label>
-                <Input
-                  id="userName"
-                  value={formData.userName}
-                  onChange={(e) => handleInputChange('userName', e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">E-mail</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* Endereço */}
-          <section>
-            <h3 className="text-lg font-medium mb-4">Endereço</h3>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="street">Rua/Endereço</Label>
-                <Input
-                  id="street"
-                  value={formData.street}
-                  onChange={(e) => handleInputChange('street', e.target.value)}
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="city">Cidade</Label>
-                  <Input
-                    id="city"
-                    value={formData.city}
-                    onChange={(e) => handleInputChange('city', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="state">Estado</Label>
-                  <Input
-                    id="state"
-                    value={formData.state}
-                    onChange={(e) => handleInputChange('state', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="postalCode">CEP</Label>
-                  <Input
-                    id="postalCode"
-                    value={formData.postalCode}
-                    onChange={(e) => handleInputChange('postalCode', e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Actions */}
-          <div className="flex justify-between pt-4 border-t">
-            <Button
-              variant="default"
-              onClick={handleSave}
-              className="bg-slate-900 hover:bg-slate-800 text-white px-8"
-            >
-              Salvar Alterações
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={handleCancel}
-              className="text-muted-foreground"
-            >
+          <Separator />
+          
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setOpen(false)}>
               Cancelar
+            </Button>
+            <Button onClick={handleSaveCompanyData} disabled={loading}>
+              {loading ? 'Salvando...' : 'Salvar Alterações'}
             </Button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
   );
-};
+}
