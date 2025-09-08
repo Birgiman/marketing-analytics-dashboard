@@ -10,14 +10,54 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { CreateLiveModal } from '@/components/CreateLiveModal';
+import { ConfirmationModal } from '@/components/ConfirmationModal';
+import { useLives } from '@/hooks/useLives';
+import { useState } from 'react';
 
 interface LivesListModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   lives: any[];
+  currentInstance: any;
+  onLivesUpdated: () => void;
 }
 
-export const LivesListModal = ({ open, onOpenChange, lives }: LivesListModalProps) => {
+export const LivesListModal = ({ open, onOpenChange, lives, currentInstance, onLivesUpdated }: LivesListModalProps) => {
+  const { softDeleteLive, isLoading } = useLives()
+  const [editingLive, setEditingLive] = useState<any>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [liveToDelete, setLiveToDelete] = useState<any>(null)
+
+  const handleEditLive = (live: any) => {
+    setEditingLive(live)
+    setShowEditModal(true)
+  }
+
+  const handleDeleteLive = (live: any) => {
+    setLiveToDelete(live)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDeleteLive = async () => {
+    if (!liveToDelete) return
+
+    try {
+      await softDeleteLive(liveToDelete.id)
+      setShowDeleteModal(false)
+      setLiveToDelete(null)
+      onLivesUpdated()
+    } catch (error) {
+      console.error('Error deleting live:', error)
+    }
+  }
+
+  const handleLiveUpdated = () => {
+    setShowEditModal(false)
+    setEditingLive(null)
+    onLivesUpdated()
+  }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
@@ -66,12 +106,15 @@ export const LivesListModal = ({ open, onOpenChange, lives }: LivesListModalProp
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEditLive(live)}>
                           <Edit className="mr-2 h-4 w-4" />
                           Editar
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600">
+                        <DropdownMenuItem 
+                          className="text-red-600"
+                          onClick={() => handleDeleteLive(live)}
+                        >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Excluir
                         </DropdownMenuItem>
@@ -89,6 +132,36 @@ export const LivesListModal = ({ open, onOpenChange, lives }: LivesListModalProp
           )}
         </div>
       </DialogContent>
+
+      {/* Edit Live Modal */}
+      <CreateLiveModal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        currentInstance={currentInstance}
+        onLiveCreated={handleLiveUpdated}
+        editingLive={editingLive}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        open={showDeleteModal}
+        onOpenChange={setShowDeleteModal}
+        title="Confirmar Exclusão"
+        description={
+          liveToDelete 
+            ? `Você tem certeza que deseja excluir a live "${liveToDelete.name}" com ${liveToDelete.live_groups?.length || 0} grupo(s) e ${liveToDelete.live_groups?.reduce((sum: number, group: any) => sum + (group.group_size || 0), 0) || 0} pessoas?`
+            : 'Você tem certeza que deseja excluir esta live?'
+        }
+        onConfirm={confirmDeleteLive}
+        onCancel={() => {
+          setShowDeleteModal(false)
+          setLiveToDelete(null)
+        }}
+        isLoading={isLoading}
+        confirmText="Sim, Excluir"
+        cancelText="Cancelar"
+        variant="destructive"
+      />
     </Dialog>
   );
 };

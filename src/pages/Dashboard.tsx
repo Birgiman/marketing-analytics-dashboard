@@ -294,6 +294,20 @@ export default function Dashboard() {
         open={isLivesListOpen} 
         onOpenChange={setIsLivesListOpen}
         lives={lives}
+        currentInstance={currentInstance}
+        onLivesUpdated={() => {
+          const checkAuth = async () => {
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+              if (session?.user) {
+                await loadStats(session.user.id);
+              }
+            } catch (error) {
+              console.error("Error reloading stats:", error);
+            }
+          };
+          checkAuth();
+        }}
       />
     </div>
   );

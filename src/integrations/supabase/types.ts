@@ -56,6 +56,114 @@ export type Database = {
         }
         Relationships: []
       }
+      deleted_live_groups: {
+        Row: {
+          created_at: string
+          deleted_at: string
+          group_id: string
+          group_name: string
+          group_size: number | null
+          id: string
+          monitoring: boolean | null
+          original_live_group_id: string
+          original_live_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at: string
+          deleted_at?: string
+          group_id: string
+          group_name: string
+          group_size?: number | null
+          id?: string
+          monitoring?: boolean | null
+          original_live_group_id: string
+          original_live_id: string
+          updated_at: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string
+          group_id?: string
+          group_name?: string
+          group_size?: number | null
+          id?: string
+          monitoring?: boolean | null
+          original_live_group_id?: string
+          original_live_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      deleted_lives: {
+        Row: {
+          ad_budget: number | null
+          captacao_start: string | null
+          created_at: string
+          current_viewers: number | null
+          deleted_at: string
+          id: string
+          leads_goal: number | null
+          live_date: string | null
+          name: string
+          original_live_id: string
+          participants: number | null
+          peak_viewers: number | null
+          revenue: number | null
+          sales: number | null
+          sales_goal: number | null
+          ta_rolando_end: string | null
+          ta_rolando_start: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ad_budget?: number | null
+          captacao_start?: string | null
+          created_at: string
+          current_viewers?: number | null
+          deleted_at?: string
+          id?: string
+          leads_goal?: number | null
+          live_date?: string | null
+          name: string
+          original_live_id: string
+          participants?: number | null
+          peak_viewers?: number | null
+          revenue?: number | null
+          sales?: number | null
+          sales_goal?: number | null
+          ta_rolando_end?: string | null
+          ta_rolando_start?: string | null
+          updated_at: string
+          user_id: string
+        }
+        Update: {
+          ad_budget?: number | null
+          captacao_start?: string | null
+          created_at?: string
+          current_viewers?: number | null
+          deleted_at?: string
+          id?: string
+          leads_goal?: number | null
+          live_date?: string | null
+          name?: string
+          original_live_id?: string
+          participants?: number | null
+          peak_viewers?: number | null
+          revenue?: number | null
+          sales?: number | null
+          sales_goal?: number | null
+          ta_rolando_end?: string | null
+          ta_rolando_start?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       live_groups: {
         Row: {
           created_at: string

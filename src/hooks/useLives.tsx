@@ -129,8 +129,207 @@ export function useLives() {
     }
   }
 
+  const updateLiveWithGroups = async (liveId: string, liveData: LiveData, groups: LiveGroup[]) => {
+    try {
+      setIsLoading(true)
+
+      const { data: session } = await supabase.auth.getSession()
+      if (!session.session?.user) {
+        throw new Error('Usuário não autenticado')
+      }
+
+      // Update the live
+      const { error: liveError } = await supabase
+        .from('lives')
+        .update({
+          name: liveData.name,
+          live_date: liveData.live_date || null,
+          captacao_start: liveData.captacao_start || null,
+          ta_rolando_start: liveData.ta_rolando_start || null,
+          ta_rolando_end: liveData.ta_rolando_end || null,
+          sales_goal: liveData.sales_goal || 0,
+          leads_goal: liveData.leads_goal || 0,
+          ad_budget: liveData.ad_budget || 0
+        })
+        .eq('id', liveId)
+        .eq('user_id', session.session.user.id)
+
+      if (liveError) {
+        console.error('Error updating live:', liveError)
+        throw new Error(`Erro ao atualizar live: ${liveError.message}`)
+      }
+
+      // Delete existing live_groups and recreate them
+      const { error: deleteGroupsError } = await supabase
+        .from('live_groups')
+        .delete()
+        .eq('live_id', liveId)
+
+      if (deleteGroupsError) {
+        console.error('Error deleting existing live groups:', deleteGroupsError)
+        throw new Error(`Erro ao atualizar grupos: ${deleteGroupsError.message}`)
+      }
+
+      // Create new live_groups entries
+      if (groups.length > 0) {
+        const liveGroups = groups.map(group => ({
+          live_id: liveId,
+          user_id: session.session.user.id,
+          group_id: group.group_id,
+          group_name: group.group_name,
+          group_size: group.group_size,
+          monitoring: true
+        }))
+
+        const { error: groupsError } = await supabase
+          .from('live_groups')
+          .insert(liveGroups)
+
+        if (groupsError) {
+          console.error('Error creating updated live groups:', groupsError)
+          throw new Error(`Erro ao atualizar grupos: ${groupsError.message}`)
+        }
+      }
+
+      toast({
+        title: "✅ Live atualizada com sucesso!",
+        description: `Live "${liveData.name}" foi atualizada com ${groups.length} grupo(s).`
+      })
+
+      return true
+
+    } catch (error) {
+      console.error('Error in updateLiveWithGroups:', error)
+      toast({
+        title: "❌ Erro ao atualizar live",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive"
+      })
+      throw error
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const softDeleteLive = async (liveId: string) => {
+    try {
+      setIsLoading(true)
+
+      const { data: session } = await supabase.auth.getSession()
+      if (!session.session?.user) {
+        throw new Error('Usuário não autenticado')
+      }
+
+      // Get the live and its groups before moving to deleted tables
+      const { data: liveData, error: fetchLiveError } = await supabase
+        .from('lives')
+        .select(`
+          *,
+          live_groups (*)
+        `)
+        .eq('id', liveId)
+        .eq('user_id', session.session.user.id)
+        .single()
+
+      if (fetchLiveError || !liveData) {
+        throw new Error('Live não encontrada')
+      }
+
+      // Insert into deleted_lives table
+      const { error: insertDeletedLiveError } = await supabase
+        .from('deleted_lives')
+        .insert({
+          original_live_id: liveData.id,
+          user_id: liveData.user_id,
+          name: liveData.name,
+          live_date: liveData.live_date,
+          captacao_start: liveData.captacao_start,
+          ta_rolando_start: liveData.ta_rolando_start,
+          ta_rolando_end: liveData.ta_rolando_end,
+          sales_goal: liveData.sales_goal,
+          leads_goal: liveData.leads_goal,
+          ad_budget: liveData.ad_budget,
+          participants: liveData.participants,
+          sales: liveData.sales,
+          revenue: liveData.revenue,
+          current_viewers: liveData.current_viewers,
+          peak_viewers: liveData.peak_viewers,
+          created_at: liveData.created_at,
+          updated_at: liveData.updated_at
+        })
+
+      if (insertDeletedLiveError) {
+        throw new Error('Erro ao mover live para lixeira')
+      }
+
+      // Insert live groups into deleted_live_groups table
+      if (liveData.live_groups && liveData.live_groups.length > 0) {
+        const deletedGroups = liveData.live_groups.map((group: any) => ({
+          original_live_group_id: group.id,
+          original_live_id: liveData.id,
+          user_id: session.session.user.id,
+          group_id: group.group_id,
+          group_name: group.group_name,
+          group_size: group.group_size,
+          monitoring: group.monitoring,
+          created_at: group.created_at,
+          updated_at: group.updated_at
+        }))
+
+        const { error: insertDeletedGroupsError } = await supabase
+          .from('deleted_live_groups')
+          .insert(deletedGroups)
+
+        if (insertDeletedGroupsError) {
+          throw new Error('Erro ao mover grupos para lixeira')
+        }
+
+        // Delete live groups from live_groups table
+        const { error: deleteGroupsError } = await supabase
+          .from('live_groups')
+          .delete()
+          .eq('live_id', liveId)
+
+        if (deleteGroupsError) {
+          throw new Error('Erro ao remover grupos da live')
+        }
+      }
+
+      // Finally, delete the live from lives table
+      const { error: deleteLiveError } = await supabase
+        .from('lives')
+        .delete()
+        .eq('id', liveId)
+        .eq('user_id', session.session.user.id)
+
+      if (deleteLiveError) {
+        throw new Error('Erro ao excluir live')
+      }
+
+      toast({
+        title: "✅ Live excluída com sucesso!",
+        description: `Live "${liveData.name}" foi movida para a lixeira.`
+      })
+
+      return true
+
+    } catch (error) {
+      console.error('Error in softDeleteLive:', error)
+      toast({
+        title: "❌ Erro ao excluir live",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive"
+      })
+      throw error
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return {
     createLiveWithGroups,
+    updateLiveWithGroups,
+    softDeleteLive,
     fetchUserLives,
     isLoading
   }

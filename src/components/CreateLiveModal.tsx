@@ -13,6 +13,7 @@ interface CreateLiveModalProps {
   onOpenChange: (open: boolean) => void;
   currentInstance?: any;
   onLiveCreated?: () => void;
+  editingLive?: any;
 }
 
 interface GroupResult {
@@ -27,7 +28,7 @@ interface GroupResult {
   selectable: boolean;
 }
 
-export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCreated }: CreateLiveModalProps) => {
+export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCreated, editingLive }: CreateLiveModalProps) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedGroups, setSelectedGroups] = useState<GroupResult[]>([]);
   const [showGroupSelector, setShowGroupSelector] = useState(false);
