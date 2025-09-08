@@ -1,4 +1,6 @@
+// @ts-ignore
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+// @ts-ignore  
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -12,7 +14,7 @@ interface FetchGroupsRequest {
   searchTerm?: string; // NEW: Optional search term for filtering
 }
 
-serve(async (req) => {
+serve(async (req: any) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -20,7 +22,9 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(
+      // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
+      // @ts-ignore
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
@@ -49,7 +53,7 @@ serve(async (req) => {
       .eq('user_id', userId)
 
     console.log(`👤 Found ${userInstances?.length || 0} instances for user ${userId}:`, 
-      userInstances?.map(i => ({ name: i.instance_name, hasToken: !!i.api_token })))
+      userInstances?.map((i: any) => ({ name: i.instance_name, hasToken: !!i.api_token })))
 
     // Get Evolution API credentials from user's stored instance
     const { data: instanceData, error: instanceError } = await supabase
@@ -79,7 +83,7 @@ serve(async (req) => {
           debug: {
             instanceName,
             userId,
-            availableInstances: userInstances?.map(i => i.instance_name) || [],
+            availableInstances: userInstances?.map((i: any) => i.instance_name) || [],
             instanceError: instanceError?.message || 'No error'
           }
         }),
@@ -91,6 +95,7 @@ serve(async (req) => {
     const instancePhone = null // Column doesn't exist yet, will be added later
 
     // Get Evolution API URL from environment variable
+    // @ts-ignore
     const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'https://evolution-api-2-3-0-production-6d75.up.railway.app'
     const cleanApiUrl = evolutionApiUrl.replace(/\/$/, '')
     
@@ -209,7 +214,7 @@ serve(async (req) => {
 
         // If group is new, set monitoring to true by default
         if (!existingGroup) {
-          groupData.monitoring = true
+          (groupData as any).monitoring = true
           console.log(`📝 New group - will be monitored by default: ${groupName}`)
         } else {
           // For existing groups, preserve monitoring setting and only update if values changed
@@ -288,7 +293,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: (error as Error).message 
       }),
       { 
         status: 500, 

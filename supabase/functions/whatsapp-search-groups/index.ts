@@ -1,4 +1,6 @@
+// @ts-ignore
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+// @ts-ignore  
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -24,7 +26,7 @@ interface GroupResult {
   selectable: boolean;
 }
 
-serve(async (req) => {
+serve(async (req: any) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -32,7 +34,9 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(
+      // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
+      // @ts-ignore
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
@@ -83,6 +87,7 @@ serve(async (req) => {
     const apiKey = instanceData.api_token
 
     // Get Evolution API URL from environment variable
+    // @ts-ignore
     const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'https://evolution-api-2-3-0-production-6d75.up.railway.app'
     const cleanApiUrl = evolutionApiUrl.replace(/\/$/, '')
     
@@ -152,12 +157,12 @@ serve(async (req) => {
           group_name: groupName,
           group_size: groupSize,
           group_owner: groupOwner,
-          group_created_at: groupCreatedAt,
+          group_created_at: groupCreatedAt || undefined,
           group_created_formatted: groupCreatedAt 
             ? new Date(groupCreatedAt).toLocaleDateString('pt-BR')
             : 'N/A',
           group_owner_formatted: groupOwner 
-            ? groupOwner.replace('@s.whatsapp.net', '').replace(/\d+/g, match => 
+            ? groupOwner.replace('@s.whatsapp.net', '').replace(/\d+/g, (match: string) => 
                 match.replace(/(\d{2})(\d{2})(\d{4,5})(\d{4})/, '($1) $2 $3-$4')
               )
             : 'N/A',
@@ -194,7 +199,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: (error as Error).message 
       }),
       { 
         status: 500, 
