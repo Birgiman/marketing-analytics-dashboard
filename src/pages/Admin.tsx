@@ -42,6 +42,7 @@ export default function Admin() {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [profiles, setProfiles] = useState<ProfileWithAuth[]>([]);
+  const [activeFilter, setActiveFilter] = useState<'pending' | 'approved' | 'rejected' | 'disabled'>('pending');
   const [stats, setStats] = useState<UserStats>({
     pending: 0,
     approved: 0,
@@ -169,7 +170,21 @@ export default function Admin() {
     });
   };
 
-  const pendingUsers = profiles.filter(p => p.status === 'pending');
+  const filteredUsers = profiles.filter(p => p.status === activeFilter);
+  
+  const getFilterTitle = () => {
+    switch (activeFilter) {
+      case 'pending': return 'Usuários Pendentes de Aprovação';
+      case 'approved': return 'Usuários Aprovados';
+      case 'rejected': return 'Usuários Rejeitados';
+      case 'disabled': return 'Usuários Desabilitados';
+      default: return 'Usuários';
+    }
+  };
+
+  const handleFilterClick = (filter: 'pending' | 'approved' | 'rejected' | 'disabled') => {
+    setActiveFilter(filter);
+  };
 
   if (loading) {
     return (
@@ -205,7 +220,10 @@ export default function Admin() {
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card>
+            <Card 
+              className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'pending' ? 'ring-2 ring-orange-500' : ''}`}
+              onClick={() => handleFilterClick('pending')}
+            >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
                 <Clock className="h-4 w-4 text-orange-500" />
@@ -215,7 +233,10 @@ export default function Admin() {
               </CardContent>
             </Card>
             
-            <Card>
+            <Card 
+              className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'approved' ? 'ring-2 ring-green-500' : ''}`}
+              onClick={() => handleFilterClick('approved')}
+            >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Aprovados</CardTitle>
                 <UserCheck className="h-4 w-4 text-green-500" />
@@ -225,7 +246,10 @@ export default function Admin() {
               </CardContent>
             </Card>
             
-            <Card>
+            <Card 
+              className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'rejected' ? 'ring-2 ring-red-600' : ''}`}
+              onClick={() => handleFilterClick('rejected')}
+            >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Rejeitados</CardTitle>
                 <XCircle className="h-4 w-4 text-red-600" />
@@ -235,7 +259,10 @@ export default function Admin() {
               </CardContent>
             </Card>
             
-            <Card>
+            <Card 
+              className={`cursor-pointer transition-all hover:shadow-md ${activeFilter === 'disabled' ? 'ring-2 ring-gray-500' : ''}`}
+              onClick={() => handleFilterClick('disabled')}
+            >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Desabilitados</CardTitle>
                 <UserMinus className="h-4 w-4 text-gray-500" />
@@ -246,65 +273,83 @@ export default function Admin() {
             </Card>
           </div>
 
-          {/* Pending Users Section */}
+          {/* Users Section */}
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Usuários Pendentes de Aprovação</h2>
+            <h2 className="text-xl font-semibold">{getFilterTitle()}</h2>
             
             <div className="space-y-4">
-              {pendingUsers.length === 0 ? (
+              {filteredUsers.length === 0 ? (
                 <Card>
                   <CardContent className="p-6 text-center">
-                    <p className="text-muted-foreground">Nenhum usuário pendente de aprovação</p>
+                    <p className="text-muted-foreground">Nenhum usuário encontrado para este filtro</p>
                   </CardContent>
                 </Card>
               ) : (
-                pendingUsers.map((profile) => (
-                  <Card key={profile.id}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-3">
-                            <div>
-                              <h3 className="font-semibold text-lg">{profile.first_name} {profile.last_name}</h3>
-                              <p className="text-primary text-sm">{profile.email}</p>
+                filteredUsers.map((profile) => {
+                  const getStatusBadge = (status: string) => {
+                    switch (status) {
+                      case 'pending':
+                        return <Badge variant="secondary" className="text-orange-600 bg-orange-50">Pendente</Badge>;
+                      case 'approved':
+                        return <Badge variant="secondary" className="text-green-600 bg-green-50">Aprovado</Badge>;
+                      case 'rejected':
+                        return <Badge variant="secondary" className="text-red-600 bg-red-50">Rejeitado</Badge>;
+                      case 'disabled':
+                        return <Badge variant="secondary" className="text-gray-600 bg-gray-50">Desabilitado</Badge>;
+                      default:
+                        return <Badge variant="secondary">{status}</Badge>;
+                    }
+                  };
+
+                  return (
+                    <Card key={profile.id}>
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                              <div>
+                                <h3 className="font-semibold text-lg">{profile.first_name} {profile.last_name}</h3>
+                                <p className="text-primary text-sm">{profile.email}</p>
+                              </div>
+                              {getStatusBadge(profile.status)}
                             </div>
-                            <Badge variant="secondary" className="text-orange-600 bg-orange-50">
-                              Pendente
-                            </Badge>
+                            <div className="grid grid-cols-2 gap-8 text-sm text-muted-foreground">
+                              <div>
+                                <span className="font-medium">Telefone:</span>
+                                <div className="text-primary">{profile.phone || 'Não informado'}</div>
+                              </div>
+                              <div>
+                                <span className="font-medium">Data de cadastro:</span>
+                                <div>{new Date(profile.created_at).toLocaleString('pt-BR')}</div>
+                              </div>
+                            </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-8 text-sm text-muted-foreground">
-                            <div>
-                              <span className="font-medium">Telefone:</span>
-                              <div className="text-primary">{profile.phone || 'Não informado'}</div>
+                          
+                          {/* Show action buttons only for pending users */}
+                          {profile.status === 'pending' && (
+                            <div className="flex gap-2">
+                              <Button 
+                                onClick={() => handleApprove(profile.user_id, `${profile.first_name} ${profile.last_name}`)}
+                                className="bg-slate-900 hover:bg-slate-800 text-white gap-2"
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                                Aprovar
+                              </Button>
+                              <Button 
+                                onClick={() => handleReject(profile.user_id, `${profile.first_name} ${profile.last_name}`)}
+                                variant="destructive"
+                                className="gap-2"
+                              >
+                                <XCircle className="h-4 w-4" />
+                                Recusar
+                              </Button>
                             </div>
-                            <div>
-                              <span className="font-medium">Data de cadastro:</span>
-                              <div>{new Date(profile.created_at).toLocaleString('pt-BR')}</div>
-                            </div>
-                          </div>
+                          )}
                         </div>
-                        
-                        <div className="flex gap-2">
-                          <Button 
-                            onClick={() => handleApprove(profile.user_id, `${profile.first_name} ${profile.last_name}`)}
-                            className="bg-slate-900 hover:bg-slate-800 text-white gap-2"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                            Aprovar
-                          </Button>
-                          <Button 
-                            onClick={() => handleReject(profile.user_id, `${profile.first_name} ${profile.last_name}`)}
-                            variant="destructive"
-                            className="gap-2"
-                          >
-                            <XCircle className="h-4 w-4" />
-                            Recusar
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
+                      </CardContent>
+                    </Card>
+                  );
+                })
               )}
             </div>
           </div>
