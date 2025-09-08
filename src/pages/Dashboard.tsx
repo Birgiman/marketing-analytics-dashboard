@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SalesHeader } from "@/components/SalesHeader";
 import { CreateLiveModal } from "@/components/CreateLiveModal";
+import { useWhatsAppInstances } from "@/hooks/useWhatsAppInstances";
 
 interface DashboardStats {
   totalLives: number;
@@ -20,6 +21,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [isCreateLiveOpen, setIsCreateLiveOpen] = useState(false);
+  const { currentInstance } = useWhatsAppInstances();
   const [stats, setStats] = useState<DashboardStats>({
     totalLives: 0,
     totalParticipants: 0,
@@ -201,7 +203,8 @@ export default function Dashboard() {
       {/* Create Live Modal */}
       <CreateLiveModal 
         open={isCreateLiveOpen} 
-        onOpenChange={setIsCreateLiveOpen} 
+        onOpenChange={setIsCreateLiveOpen}
+        currentInstance={currentInstance}
       />
     </div>
   );

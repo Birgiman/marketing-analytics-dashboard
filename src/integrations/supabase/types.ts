@@ -56,50 +56,103 @@ export type Database = {
         }
         Relationships: []
       }
+      live_groups: {
+        Row: {
+          created_at: string
+          group_id: string
+          group_name: string
+          group_size: number | null
+          id: string
+          live_id: string
+          monitoring: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          group_name: string
+          group_size?: number | null
+          id?: string
+          live_id: string
+          monitoring?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          group_name?: string
+          group_size?: number | null
+          id?: string
+          live_id?: string
+          monitoring?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_groups_live_id_fkey"
+            columns: ["live_id"]
+            isOneToOne: false
+            referencedRelation: "lives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lives: {
         Row: {
+          ad_budget: number | null
           captacao_start: string | null
           created_at: string
           current_viewers: number | null
           id: string
+          leads_goal: number | null
           live_date: string | null
           name: string
           participants: number | null
           peak_viewers: number | null
           revenue: number | null
           sales: number | null
+          sales_goal: number | null
           ta_rolando_end: string | null
           ta_rolando_start: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          ad_budget?: number | null
           captacao_start?: string | null
           created_at?: string
           current_viewers?: number | null
           id?: string
+          leads_goal?: number | null
           live_date?: string | null
           name: string
           participants?: number | null
           peak_viewers?: number | null
           revenue?: number | null
           sales?: number | null
+          sales_goal?: number | null
           ta_rolando_end?: string | null
           ta_rolando_start?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          ad_budget?: number | null
           captacao_start?: string | null
           created_at?: string
           current_viewers?: number | null
           id?: string
+          leads_goal?: number | null
           live_date?: string | null
           name?: string
           participants?: number | null
           peak_viewers?: number | null
           revenue?: number | null
           sales?: number | null
+          sales_goal?: number | null
           ta_rolando_end?: string | null
           ta_rolando_start?: string | null
           updated_at?: string
@@ -197,25 +250,40 @@ export type Database = {
       whatsapp_groups: {
         Row: {
           created_at: string
+          group_created_at: string | null
           group_id: string
           group_name: string
+          group_owner: string | null
+          group_size: number | null
           id: string
+          monitoring: boolean | null
+          participant_count: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          group_created_at?: string | null
           group_id: string
           group_name: string
+          group_owner?: string | null
+          group_size?: number | null
           id?: string
+          monitoring?: boolean | null
+          participant_count?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          group_created_at?: string | null
           group_id?: string
           group_name?: string
+          group_owner?: string | null
+          group_size?: number | null
           id?: string
+          monitoring?: boolean | null
+          participant_count?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -224,30 +292,33 @@ export type Database = {
       whatsapp_groups_log: {
         Row: {
           created_at: string
-          evento: string | null
+          event: string | null
+          group_name: string | null
           id: string
           id_grupo: string | null
-          nome_grupo: string | null
-          telefone: string | null
+          phone_number: string | null
           user_id: string | null
+          whatsapp_phone_id: string | null
         }
         Insert: {
           created_at?: string
-          evento?: string | null
+          event?: string | null
+          group_name?: string | null
           id?: string
           id_grupo?: string | null
-          nome_grupo?: string | null
-          telefone?: string | null
+          phone_number?: string | null
           user_id?: string | null
+          whatsapp_phone_id?: string | null
         }
         Update: {
           created_at?: string
-          evento?: string | null
+          event?: string | null
+          group_name?: string | null
           id?: string
           id_grupo?: string | null
-          nome_grupo?: string | null
-          telefone?: string | null
+          phone_number?: string | null
           user_id?: string | null
+          whatsapp_phone_id?: string | null
         }
         Relationships: []
       }

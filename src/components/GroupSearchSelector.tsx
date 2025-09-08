@@ -89,12 +89,12 @@ export function GroupSearchSelector({
 
       console.log(`🔍 Searching for groups with term: "${searchTerm}"`);
 
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-search-groups`, {
+      const response = await fetch(`https://gsdmasbgrglbvlpuhidv.supabase.co/functions/v1/whatsapp-search-groups`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.session.access_token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzZG1hc2JncmdsYnZscHVoaWR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwMDkwMTMsImV4cCI6MjA3MjU4NTAxM30.hrL3tWvdZKrsDwNf_yG2kawqYcA6nnV89CW9nEkH93s'
         },
         body: JSON.stringify({
           instanceName: currentInstance.instance_name,
