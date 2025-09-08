@@ -42,7 +42,7 @@ export default function SignUp() {
     }
 
     try {
-      // Sign up the user
+      // Sign up the user with display name synchronized
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -51,7 +51,9 @@ export default function SignUp() {
           data: {
             first_name: formData.firstName,
             last_name: formData.lastName,
-            phone: formData.phone
+            phone: formData.phone,
+            full_name: `${formData.firstName} ${formData.lastName}`.trim(),
+            display_name: `${formData.firstName} ${formData.lastName}`.trim()
           }
         }
       });
