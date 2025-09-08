@@ -255,20 +255,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    // Find user_id from whatsapp_instances table using instance name
-    console.log('🔍 Searching for user_id using instance:', instance);
+    // Find user_id and api_token from whatsapp_instances table using instance name
+    console.log('🔍 Searching for user_id and api_token using instance:', instance);
     const { data: instanceData, error: instanceError } = await supabase
       .from('whatsapp_instances')
-      .select('user_id')
+      .select('user_id, api_token')
       .eq('instance_name', instance)
       .single();
 
     if (instanceError) {
-      console.error('❌ Error finding user_id:', instanceError);
+      console.error('❌ Error finding user_id and api_token:', instanceError);
     }
 
     const user_id = instanceData?.user_id || null;
-    console.log('👤 Found user_id:', user_id);
+    const api_token = instanceData?.api_token || null;
+    console.log('👤 Found user_id:', user_id, 'has_token:', !!api_token);
 
     // Helper function to fetch group info from Evolution API
     const fetchGroupInfoFromEvolutionAPI = async (groupId: string, instanceName: string, checkParticipation: boolean = false) => {
@@ -283,15 +284,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
           return null;
         }
         
-        // Get API token and instance info from instance table
-        const { data: configData, error: configError } = await supabase
-          .from('whatsapp_instances')
-          .select('api_token, instance_phone')
-          .eq('instance_name', instanceName)
-          .single();
-
-        if (configError || !configData?.api_token) {
-          console.log('⚠️ Could not get API token for instance:', instanceName);
+        // Use the api_token that was already fetched
+        if (!api_token) {
+          console.log('⚠️ No API token available for instance:', instanceName);
           return null;
         }
 
@@ -305,7 +300,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': configData.api_token
+            'apikey': api_token
           }
         });
 
@@ -736,7 +731,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       console.log('🔍 Looking up group info from cache...');
       const { data: groupCache, error: groupCacheError } = await supabase
         .from('whatsapp_groups')
-        .select('group_name, participant_count')
+        .select('group_name')
         .eq('group_id', group_id)
         .eq('user_id', user_id)
         .maybeSingle();
@@ -745,8 +740,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         console.error('❌ Error fetching group info from cache:', groupCacheError);
       } else if (groupCache?.group_name) {
         group_name = groupCache.group_name;
-        participant_count = groupCache.participant_count;
-        console.log('✅ Found cached group info:', { name: group_name, count: participant_count });
+        console.log('✅ Found cached group info:', { name: group_name });
       }
       
       // Fetch fresh data from Evolution API with activity validation
