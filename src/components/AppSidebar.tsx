@@ -87,11 +87,11 @@ export function AppSidebar() {
         
         if (profileData && profileData.first_name) {
           const fullName = `${profileData.first_name} ${profileData.last_name || ""}`.trim();
-          setUserName(fullName.toUpperCase());
+          setUserName(fullName);
         } else if (user.user_metadata?.full_name) {
-          setUserName(user.user_metadata.full_name.toUpperCase());
+          setUserName(user.user_metadata.full_name);
         } else {
-          setUserName(user.email?.split("@")[0].toUpperCase() || "USUÁRIO");
+          setUserName(user.email?.split("@")[0] || "USUÁRIO");
         }
       }
     };

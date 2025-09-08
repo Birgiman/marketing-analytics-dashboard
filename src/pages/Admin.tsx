@@ -73,7 +73,7 @@ export default function Admin() {
 
   const loadProfiles = async () => {
     try {
-      // Get profiles data only (we'll need to add email to profiles table)
+      // Get profiles data
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
