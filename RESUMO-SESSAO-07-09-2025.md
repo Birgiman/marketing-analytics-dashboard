@@ -172,6 +172,48 @@ https://gsdmasbgrglbvlpuhidv.supabase.co/functions/v1/list-active-groups?instanc
 - created_at (timestamp)
 ```
 
+## 🔄 **ATUALIZAÇÕES ADICIONAIS IMPLEMENTADAS**
+
+### **✅ Problema de Execução Duplicada Resolvido**
+
+**Situação identificada:**
+- Função `fetchAllGroupsFromAPI` executava 2x: auto-fetch (1s após login) + abertura do modal
+- Demora de ~12 segundos causava cliques múltiplos no botão
+- Execuções simultâneas geravam conflitos
+
+**Solução implementada:**
+- **Lock duplo**: Estado (`isFetchingFromAPI`) + Tempo (10s mínimo entre calls)
+- **Estados visuais**: "Aguardando..." vs "Atualizando..."
+- **Logs informativos**: Tentativas duplicadas são logadas e ignoradas
+- **Commit**: `429d8a1` - Prevent duplicate execution for group fetching
+
+### **✅ Descoberta: Evolution API Já Filtra Grupos Ativos**
+
+**Conclusão após testes:**
+- Evolution API retorna **18 grupos naturalmente** (sem grupos inativos)
+- **Não precisamos** de filtros complexos - a API já filtra por padrão
+- Removido código desnecessário de validação de participação
+- **Performance otimizada** automaticamente
+
+### **✅ Remoção do Campo `group_description`**
+
+**Correções realizadas:**
+- Removido campo da interface `WhatsAppGroup`
+- Corrigido query SQL no frontend
+- Removido exibição da descrição na UI
+- Função `whatsapp-fetch-groups` limpa e otimizada
+- **Commit**: `18070a4` - Remove group_description column dependencies
+
+## 📋 **PRÓXIMOS PASSOS ATUAIS**
+
+1. ✅ **Deploy das functions**: Concluído
+2. ✅ **Configuração Evolution API**: Aguardando configuração na Realways
+3. ✅ **Teste grupos ativos**: 18 grupos funcionando perfeitamente
+4. ✅ **Sistema anti-duplicação**: Implementado e testado
+5. 🔄 **ATUAL**: Verificar monitoramento de entrada/saída de grupos
+6. 🔄 **ATUAL**: Testar eventos GROUP_PARTICIPANTS_UPDATE na prática
+
 ---
 *Resumo criado em: 07/09/2025*
-*Status: Código implementado, aguardando deploy + configuração Realways*
+*Última atualização: 07/09/2025 - Sistema anti-duplicação + limpeza de código*
+*Status: Sistema funcionando, testando monitoramento de grupos*
