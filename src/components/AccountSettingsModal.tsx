@@ -9,7 +9,7 @@ import { Settings, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-export default function AccountSettingsModal() {
+export const AccountSettingsModal = () => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -140,4 +140,4 @@ export default function AccountSettingsModal() {
       </DialogContent>
     </Dialog>
   );
-}
+};

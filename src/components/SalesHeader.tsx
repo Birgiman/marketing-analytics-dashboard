@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { MapPin, Settings } from 'lucide-react';
-import AccountSettingsModal from './AccountSettingsModal';
+import { AccountSettingsModal } from './AccountSettingsModal';
 import { AddressModal } from './AddressModal';
 
 interface SalesHeaderProps {
