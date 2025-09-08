@@ -609,6 +609,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }
     };
 
+
     // Handle different event types - Universal group event detection
     const groupRelatedEvents = [
       'GROUP_UPDATE', 'GROUPS_UPDATE', 'GROUPS_UPSERT'
