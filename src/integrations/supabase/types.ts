@@ -297,6 +297,7 @@ export type Database = {
           company_name: string | null
           country: string | null
           created_at: string
+          email: string | null
           first_name: string
           id: string
           last_name: string
@@ -314,6 +315,7 @@ export type Database = {
           company_name?: string | null
           country?: string | null
           created_at?: string
+          email?: string | null
           first_name: string
           id?: string
           last_name: string
@@ -331,6 +333,7 @@ export type Database = {
           company_name?: string | null
           country?: string | null
           created_at?: string
+          email?: string | null
           first_name?: string
           id?: string
           last_name?: string
