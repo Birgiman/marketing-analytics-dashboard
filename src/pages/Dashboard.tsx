@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SalesHeader } from "@/components/SalesHeader";
 import { CreateLiveModal } from "@/components/CreateLiveModal";
+import { LivesListModal } from "@/components/LivesListModal";
 import { useWhatsAppInstances } from "@/hooks/useWhatsAppInstances";
 import { useLives } from "@/hooks/useLives";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +33,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [isCreateLiveOpen, setIsCreateLiveOpen] = useState(false);
+  const [isLivesListOpen, setIsLivesListOpen] = useState(false);
   const [lives, setLives] = useState<any[]>([]);
   const { currentInstance } = useWhatsAppInstances();
   const { fetchUserLives } = useLives();
@@ -125,7 +127,7 @@ export default function Dashboard() {
       {/* Stats Grid */}
       <div className="p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
+          <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setIsLivesListOpen(true)}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Lives</CardTitle>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
@@ -285,6 +287,13 @@ export default function Dashboard() {
           };
           checkAuth();
         }}
+      />
+
+      {/* Lives List Modal */}
+      <LivesListModal 
+        open={isLivesListOpen} 
+        onOpenChange={setIsLivesListOpen}
+        lives={lives}
       />
     </div>
   );
