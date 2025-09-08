@@ -16,6 +16,8 @@ import Calculator from "./pages/Calculator";
 import Admin from "./pages/Admin";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
+import PendingApproval from "./pages/auth/PendingApproval";
+import AccountDisabled from "./pages/auth/AccountDisabled";
 import NotFound from "./pages/NotFound";
 import SupabaseConfig from "./pages/admin/SupabaseConfig";
 import { CreateTestUser } from "./components/CreateTestUser";
@@ -33,6 +35,8 @@ function AppContent() {
         <Route path="/" element={<SignIn />} />
         <Route path="/auth/signin" element={<SignIn />} />
         <Route path="/auth/signup" element={<SignUp />} />
+        <Route path="/auth/pending-approval" element={<PendingApproval />} />
+        <Route path="/auth/account-disabled" element={<AccountDisabled />} />
         <Route path="/auth/seed-test-user" element={<SeedTestUser />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -62,21 +62,23 @@ export default function SignUp() {
       }
 
       if (data?.user) {
-        // Create profile
+        // Create profile with pending status
         const { error: profileError } = await supabase
           .from('profiles')
           .insert({
             user_id: data.user.id,
             first_name: formData.firstName,
             last_name: formData.lastName,
-            phone: formData.phone
+            phone: formData.phone,
+            status: 'pending'
           });
 
         if (profileError) {
           console.error('Error creating profile:', profileError);
         }
 
-        navigate('/auth/signin?message=Account created successfully');
+        // Redirect to pending approval page
+        navigate('/auth/pending-approval');
       }
     } catch (error: any) {
       setError(error.message || 'Erro ao criar conta');
@@ -89,15 +91,15 @@ export default function SignUp() {
     <>
       <title>Cadastro - Live Shop Analytics</title>
 
-      <main className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <main className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
           <div>
-            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            <h2 className="mt-6 text-center text-3xl font-extrabold text-foreground">
               Crie sua conta
             </h2>
-            <p className="mt-2 text-center text-sm text-gray-600">
+            <p className="mt-2 text-center text-sm text-muted-foreground">
               Ou{' '}
-              <Link to="/auth/signin" className="font-medium text-primary-600 hover:text-primary-500">
+              <Link to="/auth/signin" className="font-medium text-primary hover:text-primary/80">
                 faça login se já tem uma conta
               </Link>
             </p>
@@ -115,7 +117,7 @@ export default function SignUp() {
                     name="firstName"
                     type="text"
                     required
-                    className="relative block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:z-10 focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
+                    className="relative block w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-foreground placeholder-muted-foreground focus:z-10 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:text-sm"
                     placeholder="Nome"
                     value={formData.firstName}
                     onChange={handleChange}
@@ -131,7 +133,7 @@ export default function SignUp() {
                     name="lastName"
                     type="text"
                     required
-                    className="relative block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:z-10 focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
+                    className="relative block w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-foreground placeholder-muted-foreground focus:z-10 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:text-sm"
                     placeholder="Sobrenome"
                     value={formData.lastName}
                     onChange={handleChange}
@@ -149,7 +151,7 @@ export default function SignUp() {
                   type="email"
                   autoComplete="email"
                   required
-                  className="relative block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:z-10 focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
+                  className="relative block w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-foreground placeholder-muted-foreground focus:z-10 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:text-sm"
                   placeholder="Email"
                   value={formData.email}
                   onChange={handleChange}
@@ -164,7 +166,7 @@ export default function SignUp() {
                   id="phone"
                   name="phone"
                   type="tel"
-                  className="relative block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:z-10 focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
+                  className="relative block w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-foreground placeholder-muted-foreground focus:z-10 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:text-sm"
                   placeholder="Telefone (opcional)"
                   value={formData.phone}
                   onChange={handleChange}
@@ -181,7 +183,7 @@ export default function SignUp() {
                   type="password"
                   autoComplete="new-password"
                   required
-                  className="relative block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:z-10 focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
+                  className="relative block w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-foreground placeholder-muted-foreground focus:z-10 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:text-sm"
                   placeholder="Senha (mínimo 6 caracteres)"
                   value={formData.password}
                   onChange={handleChange}
@@ -198,7 +200,7 @@ export default function SignUp() {
                   type="password"
                   autoComplete="new-password"
                   required
-                  className="relative block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:z-10 focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
+                  className="relative block w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-foreground placeholder-muted-foreground focus:z-10 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:text-sm"
                   placeholder="Confirmar senha"
                   value={formData.confirmPassword}
                   onChange={handleChange}
@@ -207,8 +209,8 @@ export default function SignUp() {
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-sm text-red-600">{error}</p>
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                <p className="text-sm text-destructive">{error}</p>
               </div>
             )}
 
@@ -216,14 +218,14 @@ export default function SignUp() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2"
+                className="group relative w-full flex justify-center py-2 px-4"
               >
                 {loading ? 'Criando conta...' : 'Criar conta'}
               </Button>
             </div>
 
             <div className="text-center">
-              <Link to="/" className="text-sm text-primary-600 hover:text-primary-500">
+              <Link to="/" className="text-sm text-primary hover:text-primary/80">
                 Voltar ao início
               </Link>
             </div>

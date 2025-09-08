@@ -16,57 +16,38 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { SalesHeader } from "@/components/SalesHeader";
 import { DemoBanner } from "@/components/DemoBanner";
+import { useToast } from "@/hooks/use-toast";
 
-interface PendingUser {
+interface ProfileWithAuth {
   id: string;
-  name: string;
-  email: string;
-  phone: string;
-  registrationDate: string;
-  status: 'pendente' | 'aprovado' | 'recusado';
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  phone?: string;
+  status: 'pending' | 'approved' | 'rejected' | 'disabled';
+  created_at: string;
+  email?: string;
+}
+
+interface UserStats {
+  pending: number;
+  approved: number;
+  rejected: number;
+  disabled: number;
 }
 
 export default function Admin() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // Mock data for pending users
-  const [pendingUsers] = useState<PendingUser[]>([
-    {
-      id: "1",
-      name: "Diana Maria",
-      email: "dianamariademaria@gmail.com",
-      phone: "47999520104",
-      registrationDate: "01/09/2025 18:59",
-      status: "pendente"
-    },
-    {
-      id: "2", 
-      name: "Arthur Santos",
-      email: "arthursantos@evargoeducacao.com.br",
-      phone: "81984942056",
-      registrationDate: "01/09/2025 18:46",
-      status: "pendente"
-    },
-    {
-      id: "3",
-      name: "Arthur Santos",
-      email: "arthurgabriellbsantos@hotmail.com", 
-      phone: "81984942056",
-      registrationDate: "01/09/2025 18:45",
-      status: "pendente"
-    }
-  ]);
-
-  // Mock stats data
-  const stats = {
-    pendentes: 3,
-    ativos: 1,
-    bloqueados: 0,
-    rejeitados: 0,
-    desativados: 1
-  };
+  const [profiles, setProfiles] = useState<ProfileWithAuth[]>([]);
+  const [stats, setStats] = useState<UserStats>({
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    disabled: 0
+  });
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -77,6 +58,7 @@ export default function Admin() {
           return;
         }
         setUserId(session.user.id);
+        await loadProfiles();
       } catch (error) {
         console.error('Error checking auth:', error);
         navigate('/auth/signin'); 
@@ -88,20 +70,106 @@ export default function Admin() {
     checkAuth();
   }, [navigate]);
 
-  const handleApprove = (userId: string) => {
-    console.log('Approving user:', userId);
-    // TODO: Implement approve user logic
+  const loadProfiles = async () => {
+    try {
+      // Get profiles data
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (profilesError) throw profilesError;
+
+      // Get auth users data for emails
+      const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
+      
+      // Combine profile and auth data
+      const enrichedProfiles = profilesData?.map(profile => {
+        const authUser = authData?.users?.find(user => user.id === profile.user_id);
+        return {
+          ...profile,
+          email: authUser?.email || 'Email não encontrado'
+        };
+      }) || [];
+
+      setProfiles(enrichedProfiles);
+
+      // Calculate stats
+      const newStats = enrichedProfiles.reduce((acc, profile) => {
+        acc[profile.status as keyof UserStats]++;
+        return acc;
+      }, { pending: 0, approved: 0, rejected: 0, disabled: 0 });
+
+      setStats(newStats);
+    } catch (error) {
+      console.error('Error loading profiles:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar dados dos usuários",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleReject = (userId: string) => {
-    console.log('Rejecting user:', userId);
-    // TODO: Implement reject user logic
+  const handleApprove = async (profileUserId: string, userName: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ status: 'approved' })
+        .eq('user_id', profileUserId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Usuário aprovado",
+        description: `${userName} foi aprovado com sucesso`,
+      });
+
+      await loadProfiles();
+    } catch (error) {
+      console.error('Error approving user:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao aprovar usuário",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleReject = async (profileUserId: string, userName: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ status: 'rejected' })
+        .eq('user_id', profileUserId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Usuário rejeitado",
+        description: `${userName} foi rejeitado`,
+      });
+
+      await loadProfiles();
+    } catch (error) {
+      console.error('Error rejecting user:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao rejeitar usuário",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleRefresh = () => {
-    console.log('Refreshing data...');
-    // TODO: Implement data refresh logic
+    loadProfiles();
+    toast({
+      title: "Dados atualizados",
+      description: "Lista de usuários foi atualizada",
+    });
   };
+
+  const pendingUsers = profiles.filter(p => p.status === 'pending');
 
   if (loading) {
     return (
@@ -136,34 +204,24 @@ export default function Admin() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
                 <Clock className="h-4 w-4 text-orange-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.pendentes}</div>
+                <div className="text-2xl font-bold">{stats.pending}</div>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Ativos</CardTitle>
+                <CardTitle className="text-sm font-medium">Aprovados</CardTitle>
                 <UserCheck className="h-4 w-4 text-green-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.ativos}</div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Bloqueados</CardTitle>
-                <UserX className="h-4 w-4 text-red-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.bloqueados}</div>
+                <div className="text-2xl font-bold">{stats.approved}</div>
               </CardContent>
             </Card>
             
@@ -173,17 +231,17 @@ export default function Admin() {
                 <XCircle className="h-4 w-4 text-red-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.rejeitados}</div>
+                <div className="text-2xl font-bold">{stats.rejected}</div>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Desativados</CardTitle>
+                <CardTitle className="text-sm font-medium">Desabilitados</CardTitle>
                 <UserMinus className="h-4 w-4 text-gray-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.desativados}</div>
+                <div className="text-2xl font-bold">{stats.disabled}</div>
               </CardContent>
             </Card>
           </div>
@@ -193,53 +251,61 @@ export default function Admin() {
             <h2 className="text-xl font-semibold">Usuários Pendentes de Aprovação</h2>
             
             <div className="space-y-4">
-              {pendingUsers.map((user) => (
-                <Card key={user.id}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                          <div>
-                            <h3 className="font-semibold text-lg">{user.name}</h3>
-                            <p className="text-blue-600 text-sm">{user.email}</p>
-                          </div>
-                          <Badge variant="secondary" className="text-orange-600 bg-orange-50">
-                            Pendente
-                          </Badge>
-                        </div>
-                        <div className="grid grid-cols-2 gap-8 text-sm text-muted-foreground">
-                          <div>
-                            <span className="font-medium">Telefone:</span>
-                            <div className="text-blue-600">{user.phone}</div>
-                          </div>
-                          <div>
-                            <span className="font-medium">Data de cadastro:</span>
-                            <div>{user.registrationDate}</div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <Button 
-                          onClick={() => handleApprove(user.id)}
-                          className="bg-slate-900 hover:bg-slate-800 text-white gap-2"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                          Aprovar
-                        </Button>
-                        <Button 
-                          onClick={() => handleReject(user.id)}
-                          variant="destructive"
-                          className="gap-2"
-                        >
-                          <XCircle className="h-4 w-4" />
-                          Recusar
-                        </Button>
-                      </div>
-                    </div>
+              {pendingUsers.length === 0 ? (
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <p className="text-muted-foreground">Nenhum usuário pendente de aprovação</p>
                   </CardContent>
                 </Card>
-              ))}
+              ) : (
+                pendingUsers.map((profile) => (
+                  <Card key={profile.id}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3">
+                            <div>
+                              <h3 className="font-semibold text-lg">{profile.first_name} {profile.last_name}</h3>
+                              <p className="text-primary text-sm">{profile.email}</p>
+                            </div>
+                            <Badge variant="secondary" className="text-orange-600 bg-orange-50">
+                              Pendente
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-8 text-sm text-muted-foreground">
+                            <div>
+                              <span className="font-medium">Telefone:</span>
+                              <div className="text-primary">{profile.phone || 'Não informado'}</div>
+                            </div>
+                            <div>
+                              <span className="font-medium">Data de cadastro:</span>
+                              <div>{new Date(profile.created_at).toLocaleString('pt-BR')}</div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <Button 
+                            onClick={() => handleApprove(profile.user_id, `${profile.first_name} ${profile.last_name}`)}
+                            className="bg-slate-900 hover:bg-slate-800 text-white gap-2"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            Aprovar
+                          </Button>
+                          <Button 
+                            onClick={() => handleReject(profile.user_id, `${profile.first_name} ${profile.last_name}`)}
+                            variant="destructive"
+                            className="gap-2"
+                          >
+                            <XCircle className="h-4 w-4" />
+                            Recusar
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           </div>
         </div>
