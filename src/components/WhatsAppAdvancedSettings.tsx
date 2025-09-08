@@ -35,6 +35,8 @@ export function WhatsAppAdvancedSettings({
   const [fetchingGroups, setFetchingGroups] = useState(false);
   const [allGroupsEnabled, setAllGroupsEnabled] = useState(true); // Track if all groups are enabled
   const [hasInitiallyFetched, setHasInitiallyFetched] = useState(false); // Cache control
+  const [isFetchingFromAPI, setIsFetchingFromAPI] = useState(false); // Prevent duplicate API calls
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0); // Track last fetch time
 
   useEffect(() => {
     if (isOpen && currentInstance) {
@@ -100,9 +102,24 @@ export function WhatsAppAdvancedSettings({
   };
 
   const fetchAllGroupsFromAPI = async () => {
+    // Prevent duplicate executions with time-based and state-based locks
+    const now = Date.now();
+    const MINIMUM_INTERVAL = 10000; // 10 seconds minimum between calls
+    
+    if (isFetchingFromAPI) {
+      console.log('⏳ API fetch already in progress - ignoring duplicate call');
+      return;
+    }
+    
+    if (now - lastFetchTime < MINIMUM_INTERVAL) {
+      console.log(`⏳ Too soon since last fetch (${Math.round((now - lastFetchTime) / 1000)}s ago) - ignoring duplicate call`);
+      return;
+    }
+
     if (DEMO_MODE) {
       // Simulate API fetch in demo mode
       setFetchingGroups(true);
+      setIsFetchingFromAPI(true);
       setTimeout(() => {
         const newDemoGroups = [
           { id: '4', group_id: 'demo4', group_name: 'Novo Grupo Demo 4', monitoring: true },
@@ -111,6 +128,8 @@ export function WhatsAppAdvancedSettings({
         ];
         setGroups(newDemoGroups);
         setFetchingGroups(false);
+        setIsFetchingFromAPI(false);
+        setLastFetchTime(Date.now());
       }, 2000);
       return;
     }
@@ -122,6 +141,8 @@ export function WhatsAppAdvancedSettings({
 
     try {
       setFetchingGroups(true);
+      setIsFetchingFromAPI(true);
+      setLastFetchTime(now);
       console.log('🔄 Fetching groups for instance:', currentInstance.instance_name);
 
       const { data: session } = await supabase.auth.getSession();
@@ -161,6 +182,7 @@ export function WhatsAppAdvancedSettings({
       console.error('Error fetching groups from API:', error);
     } finally {
       setFetchingGroups(false);
+      setIsFetchingFromAPI(false); // Release the lock
       setLoading(false); // Always turn off loading when fetch completes
       setHasInitiallyFetched(true); // Mark as initially fetched for future cache use
     }
@@ -276,14 +298,14 @@ export function WhatsAppAdvancedSettings({
             </div>
             <Button
               onClick={fetchAllGroupsFromAPI}
-              disabled={fetchingGroups}
+              disabled={fetchingGroups || isFetchingFromAPI}
               variant="outline"
               className="shrink-0"
             >
-              {fetchingGroups ? (
+              {fetchingGroups || isFetchingFromAPI ? (
                 <>
                   <Loader className="h-4 w-4 mr-2 animate-spin" />
-                  Atualizando...
+                  {isFetchingFromAPI ? 'Aguardando...' : 'Atualizando...'}
                 </>
               ) : (
                 <>
