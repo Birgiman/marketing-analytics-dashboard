@@ -2,12 +2,14 @@ import { Button } from '@/components/ui/button';
 import { DemoBanner } from '@/components/DemoBanner';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
 import { WhatsAppAdvancedSettingsWrapper } from '@/components/WhatsAppAdvancedSettingsWrapper';
+import { MetaAdsConnection } from '@/components/MetaAdsConnection';
 import { useWhatsAppConnection } from '@/hooks/useWhatsAppConnection';
+import { useMetaAds } from '@/hooks/useMetaAds';
 import { supabase } from '@/integrations/supabase/client';
 import { DEMO_MODE } from '@/lib/demo-mode';
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { MessageSquare, Facebook, BarChart3, Settings } from 'lucide-react';
+import { MessageSquare, Facebook, BarChart3, Settings, Instagram } from 'lucide-react';
 
 export default function Integrations() {
   const navigate = useNavigate();
@@ -15,6 +17,7 @@ export default function Integrations() {
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrAttempts, setQrAttempts] = useState(0);
   const [qrCountdown, setQrCountdown] = useState(50);
+  const [showMetaAdsModal, setShowMetaAdsModal] = useState(false);
 
   const {
     currentInstance,
@@ -28,6 +31,11 @@ export default function Integrations() {
     generateQR,
     refreshInstances
   } = useWhatsAppConnection();
+
+  const { 
+    isConnected: metaAdsConnected,
+    data: metaAdsData 
+  } = useMetaAds();
 
   useEffect(() => {
     // Check if user is authenticated
@@ -294,9 +302,15 @@ export default function Integrations() {
                 </div>
                 <div className="flex-1">
                   <h3 className="text-xl font-semibold text-gray-900">Meta Ads</h3>
-                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                    Em breve
-                  </span>
+                  <div className="flex items-center mt-1">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      metaAdsConnected 
+                        ? 'bg-green-100 text-green-600' 
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {metaAdsConnected ? 'Conectado' : 'Desconectado'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -304,8 +318,23 @@ export default function Integrations() {
                 Sincronize dados de campanhas do Facebook e Instagram Ads para análise unificada
               </p>
 
-              <Button disabled variant="outline" className="w-full">
-                Em desenvolvimento
+              {metaAdsConnected && metaAdsData.accounts.length > 0 && (
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-600">
+                    <strong>Contas conectadas:</strong> {metaAdsData.accounts.length}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>Campanhas:</strong> {metaAdsData.campaigns.length}
+                  </p>
+                </div>
+              )}
+
+              <Button 
+                onClick={() => setShowMetaAdsModal(true)} 
+                variant={metaAdsConnected ? "outline" : "default"} 
+                className="w-full"
+              >
+                {metaAdsConnected ? 'Gerenciar Meta Ads' : 'Conectar Meta Ads'}
               </Button>
             </div>
 
@@ -383,6 +412,12 @@ export default function Integrations() {
             </div>
           </div>
         )}
+
+        {/* Meta Ads Connection Modal */}
+        <MetaAdsConnection 
+          isOpen={showMetaAdsModal}
+          onClose={() => setShowMetaAdsModal(false)}
+        />
 
         {/* Advanced Settings Component - Isolated for future use */}
         <WhatsAppAdvancedSettingsWrapper currentInstance={currentInstance} />
