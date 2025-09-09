@@ -149,8 +149,8 @@ export function AppSidebar() {
 
   const getNavClassName = ({ isActive }: { isActive: boolean }) =>
     isActive 
-      ? "bg-primary text-primary-foreground font-medium shadow-sm border border-primary/20" 
-      : "text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground transition-all duration-200 hover:shadow-sm";
+      ? "bg-muted/70 text-sidebar-foreground font-medium border border-border/60" 
+      : "text-sidebar-foreground hover:bg-muted/40 hover:border hover:border-border/40 transition-all duration-200";
 
   return (
     <Sidebar className="border-r border-sidebar-border">
