@@ -268,17 +268,16 @@ const [lives, setLives] = useState<any[]>([]);
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                         <DropdownMenuContent align="end" className="bg-white border shadow-md">
-                           <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                           <DropdownMenuItem onClick={() => handleEditLive(live)}>
+                          <DropdownMenuContent align="end" className="bg-white border shadow-md">
+                            <DropdownMenuItem onClick={() => handleEditLive(live)} className="hover:bg-gray-100 cursor-pointer">
                              <Edit className="mr-2 h-4 w-4" />
                              Editar
                            </DropdownMenuItem>
                            <DropdownMenuSeparator />
-                           <DropdownMenuItem 
-                             className="text-red-600"
-                             onClick={() => handleDeleteLive(live)}
-                           >
+                            <DropdownMenuItem 
+                              className="text-red-600 hover:bg-gray-100 cursor-pointer"
+                              onClick={() => handleDeleteLive(live)}
+                            >
                              <Trash2 className="mr-2 h-4 w-4" />
                              Excluir
                            </DropdownMenuItem>
