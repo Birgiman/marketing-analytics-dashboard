@@ -68,7 +68,7 @@ export const LivesListModal = ({ open, onOpenChange, lives, currentInstance, onL
         <div className="space-y-4">
           {lives.length > 0 ? (
             <div className="border rounded-lg">
-              <div className="grid grid-cols-7 gap-4 p-4 bg-muted/50 border-b">
+              <div className="grid grid-cols-7 gap-4 p-4 bg-white border-b">
                 <div className="text-sm font-medium">Nome da Live</div>
                 <div className="text-sm font-medium">Data</div>
                 <div className="text-sm font-medium">Status</div>

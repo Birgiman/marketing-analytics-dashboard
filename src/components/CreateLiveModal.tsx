@@ -266,6 +266,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                   Cancelar
                 </Button>
                 <Button 
+                  variant="primary"
                   onClick={handleNextStep}
                   className="flex-1"
                   disabled={!formData.liveName.trim()}
@@ -347,6 +348,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                   Voltar
                 </Button>
                 <Button 
+                  variant="primary"
                   onClick={handleCreate}
                   className="flex-1"
                   disabled={isLoading || selectedGroups.length === 0}

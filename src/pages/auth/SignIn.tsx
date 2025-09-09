@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { PasswordInput } from '@/components/ui/password-input';
 import { supabase } from '@/integrations/supabase/client';
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
@@ -113,10 +114,9 @@ export default function SignIn() {
                 <label htmlFor="password" className="sr-only">
                   Senha
                 </label>
-                <input
+                <PasswordInput
                   id="password"
                   name="password"
-                  type="password"
                   autoComplete="current-password"
                   required
                   className="relative block w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-foreground placeholder-muted-foreground focus:z-10 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:text-sm"
@@ -137,16 +137,11 @@ export default function SignIn() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="group relative w-full flex justify-center py-2 px-4"
+                variant="primary"
+                className="w-full"
               >
                 {loading ? 'Entrando...' : 'Entrar'}
               </Button>
-            </div>
-
-            <div className="text-center">
-              <Link to="/" className="text-sm text-primary hover:text-primary/80">
-                Voltar ao início
-              </Link>
             </div>
           </form>
         </div>

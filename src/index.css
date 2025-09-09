@@ -17,7 +17,7 @@
   --muted-foreground: 240 3.8% 46.1%;
   --accent: 240 4.8% 95.9%;
   --accent-foreground: 240 5.9% 10%;
-  --destructive: 0 84.2% 60.2%;
+  --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 98%;
   --border: 240 5.9% 90%;
   --input: 240 5.9% 90%;
@@ -49,7 +49,7 @@
   --muted-foreground: 240 5% 64.9%;
   --accent: 240 3.7% 15.9%;
   --accent-foreground: 0 0% 98%;
-  --destructive: 0 62.8% 30.6%;
+  --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 98%;
   --border: 240 3.7% 15.9%;
   --input: 240 3.7% 15.9%;
@@ -72,6 +72,95 @@
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 focus:bg-primary/90 
+           inline-flex items-center justify-center gap-2 whitespace-nowrap 
+           rounded-lg text-sm font-medium transition-colors 
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 
+           disabled:pointer-events-none disabled:opacity-50
+           h-10 px-4 py-2 shadow-sm;
+  }
+  
+  .btn-secondary {
+    @apply bg-primary/50 text-primary-foreground hover:bg-primary/60 focus:bg-primary/60
+           inline-flex items-center justify-center gap-2 whitespace-nowrap 
+           rounded-lg text-sm font-medium transition-colors 
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 
+           disabled:pointer-events-none disabled:opacity-50
+           h-10 px-4 py-2;
+  }
+  
+  .btn-tertiary {
+    @apply bg-primary/30 text-primary hover:bg-primary/40 focus:bg-primary/40
+           inline-flex items-center justify-center gap-2 whitespace-nowrap 
+           rounded-lg text-sm font-medium transition-colors 
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 
+           disabled:pointer-events-none disabled:opacity-50
+           h-10 px-4 py-2;
+  }
+  
+  .btn-danger {
+    @apply bg-red-600 text-white hover:bg-red-700 focus:bg-red-700
+           inline-flex items-center justify-center gap-2 whitespace-nowrap 
+           rounded-lg text-sm font-medium transition-colors 
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 
+           disabled:pointer-events-none disabled:opacity-50
+           h-10 px-4 py-2 shadow-sm border border-red-600;
+  }
+}
+
+/* Força aplicação das cores dos botões para sobrescrever qualquer conflito */
+.bg-destructive {
+  background-color: hsl(0 72% 51%) !important;
+}
+
+.text-destructive-foreground {
+  color: hsl(0 0% 98%) !important;
+}
+
+.hover\:bg-destructive\/90:hover {
+  background-color: hsl(0 72% 45%) !important;
+}
+
+/* Garante que os botões danger tenham cores visíveis */
+[class*="bg-red-600"] {
+  background-color: #dc2626 !important;
+  color: white !important;
+  border-color: #dc2626 !important;
+}
+
+[class*="hover:bg-red-700"]:hover {
+  background-color: #b91c1c !important;
+}
+
+/* Força aplicação das cores dos botões primary - azul naval */
+.bg-primary {
+  background-color: #1e3a8a !important; /* Azul naval escuro */
+  color: white !important;
+}
+
+.text-primary-foreground {
+  color: white !important;
+}
+
+.hover\:bg-primary\/90:hover {
+  background-color: #1d4ed8 !important; /* Azul mais claro no hover */
+}
+
+/* Garante que todos os botões primary tenham visual sólido */
+.bg-primary, [class*="bg-primary"] {
+  background-color: #1e3a8a !important;
+  color: white !important;
+  border: 1px solid #1e3a8a !important;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05) !important;
+}
+
+.bg-primary:hover, [class*="bg-primary"]:hover {
+  background-color: #1d4ed8 !important;
+  border-color: #1d4ed8 !important;
 }
 
 @layer utilities {

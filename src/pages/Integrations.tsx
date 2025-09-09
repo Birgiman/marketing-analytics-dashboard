@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { DemoBanner } from '@/components/DemoBanner';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
-import { WhatsAppAdvancedSettings } from '@/components/WhatsAppAdvancedSettings';
+import { WhatsAppAdvancedSettingsWrapper } from '@/components/WhatsAppAdvancedSettingsWrapper';
 import { useWhatsAppConnection } from '@/hooks/useWhatsAppConnection';
 import { supabase } from '@/integrations/supabase/client';
 import { DEMO_MODE } from '@/lib/demo-mode';
@@ -13,7 +13,6 @@ export default function Integrations() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [showQRModal, setShowQRModal] = useState(false);
-  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [qrAttempts, setQrAttempts] = useState(0);
   const [qrCountdown, setQrCountdown] = useState(50);
 
@@ -264,13 +263,6 @@ export default function Integrations() {
                       >
                         {isLoading ? 'Desconectando...' : 'Desconectar WhatsApp'}
                       </Button>
-                      <Button 
-                        onClick={() => setShowAdvancedSettings(true)} 
-                        variant="outline" 
-                        className="w-full"
-                      >
-                        Configurações Avançadas
-                      </Button>
                     </div>
                   ) : (
                     <Button 
@@ -392,12 +384,8 @@ export default function Integrations() {
           </div>
         )}
 
-        {/* Advanced Settings Modal */}
-        <WhatsAppAdvancedSettings
-          isOpen={showAdvancedSettings}
-          onClose={() => setShowAdvancedSettings(false)}
-          currentInstance={currentInstance}
-        />
+        {/* Advanced Settings Component - Isolated for future use */}
+        <WhatsAppAdvancedSettingsWrapper currentInstance={currentInstance} />
       </main>
     </>
   );

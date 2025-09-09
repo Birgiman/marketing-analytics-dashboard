@@ -325,7 +325,7 @@ export default function Profile() {
                   placeholder="Seu telefone"
                 />
               </div>
-              <Button onClick={updateProfile} disabled={loading} className="w-full">
+              <Button variant="primary" onClick={updateProfile} disabled={loading} className="w-full">
                 {loading ? 'Atualizando...' : 'Atualizar Informações Pessoais'}
               </Button>
             </CardContent>
@@ -358,7 +358,7 @@ export default function Profile() {
                   placeholder="@suaempresa"
                 />
               </div>
-              <Button onClick={updateProfile} disabled={loading} className="w-full">
+              <Button variant="primary" onClick={updateProfile} disabled={loading} className="w-full">
                 {loading ? 'Atualizando...' : 'Atualizar Dados da Empresa'}
               </Button>
             </CardContent>
@@ -422,7 +422,7 @@ export default function Profile() {
                   />
                 </div>
               </div>
-              <Button onClick={updateProfile} disabled={loading} className="w-full">
+              <Button variant="primary" onClick={updateProfile} disabled={loading} className="w-full">
                 {loading ? 'Atualizando...' : 'Atualizar Endereço'}
               </Button>
             </CardContent>
@@ -474,7 +474,7 @@ export default function Profile() {
                   </Button>
                 </div>
               </div>
-              <Button onClick={updateEmail} disabled={loading} className="w-full">
+              <Button variant="primary" onClick={updateEmail} disabled={loading} className="w-full">
                 {loading ? 'Atualizando...' : 'Atualizar E-mail'}
               </Button>
             </CardContent>
@@ -549,7 +549,7 @@ export default function Profile() {
                   </Button>
                 </div>
               </div>
-              <Button onClick={updatePassword} disabled={loading} className="w-full">
+              <Button variant="primary" onClick={updatePassword} disabled={loading} className="w-full">
                 {loading ? 'Atualizando...' : 'Atualizar Senha'}
               </Button>
             </CardContent>

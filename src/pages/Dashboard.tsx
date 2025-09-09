@@ -21,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ConfirmationModal } from "@/components/ConfirmationModal";
 
 interface DashboardStats {
   totalLives: number;
@@ -37,6 +38,8 @@ export default function Dashboard() {
 const [lives, setLives] = useState<any[]>([]);
   const [editingLive, setEditingLive] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [liveToDelete, setLiveToDelete] = useState<any>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const { currentInstance } = useWhatsAppInstances();
   const { fetchUserLives, softDeleteLive } = useLives();
   const [stats, setStats] = useState<DashboardStats>({
@@ -84,14 +87,21 @@ const [lives, setLives] = useState<any[]>([]);
     setShowEditModal(true);
   };
 
-  const handleDeleteLive = async (live: any) => {
-    if (confirm(`Tem certeza que deseja excluir a live "${live.name}"?`)) {
+  const handleDeleteLive = (live: any) => {
+    setLiveToDelete(live);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteLive = async () => {
+    if (liveToDelete) {
       try {
-        await softDeleteLive(live.id);
+        await softDeleteLive(liveToDelete.id);
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           await loadStats(session.user.id);
         }
+        setShowDeleteModal(false);
+        setLiveToDelete(null);
       } catch (error) {
         console.error('Error deleting live:', error);
       }
@@ -201,7 +211,7 @@ const [lives, setLives] = useState<any[]>([]);
                 <CardTitle className="text-xl">Suas Lives</CardTitle>
                 <p className="text-sm text-muted-foreground">Gerencie e analise todas as suas transmissões</p>
               </div>
-              <Button className="gap-2" onClick={() => setIsCreateLiveOpen(true)}>
+              <Button variant="primary" className="gap-2" onClick={() => setIsCreateLiveOpen(true)}>
                 <Plus className="w-4 h-4" />
                 Nova Live
               </Button>
@@ -220,7 +230,7 @@ const [lives, setLives] = useState<any[]>([]);
 
             {/* Table Headers */}
             <div className="border rounded-lg">
-              <div className="grid grid-cols-7 gap-4 p-4 bg-muted/50 border-b">
+              <div className="grid grid-cols-7 gap-4 p-4 bg-white border-b">
                 <div className="text-sm font-medium">Nome da Live</div>
                 <div className="text-sm font-medium">Data</div>
                 <div className="text-sm font-medium">Status</div>
@@ -282,7 +292,7 @@ const [lives, setLives] = useState<any[]>([]);
                 <div className="flex flex-col items-center justify-center py-16">
                   <Video className="w-12 h-12 text-muted-foreground mb-4" />
                   <p className="text-muted-foreground mb-4">Você ainda não possui lives cadastradas</p>
-                  <Button onClick={() => setIsCreateLiveOpen(true)}>
+                  <Button variant="primary" onClick={() => setIsCreateLiveOpen(true)}>
                     <Plus className="w-4 h-4 mr-2" />
                     Criar sua primeira live
                   </Button>
@@ -355,6 +365,22 @@ const [lives, setLives] = useState<any[]>([]);
           };
           checkAuth();
         }}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal 
+        open={showDeleteModal} 
+        onOpenChange={setShowDeleteModal}
+        title="Confirmar Exclusão"
+        description={liveToDelete ? `Tem certeza que deseja excluir a live "${liveToDelete.name}"? Esta ação não pode ser desfeita.` : ""}
+        onConfirm={confirmDeleteLive}
+        onCancel={() => {
+          setShowDeleteModal(false);
+          setLiveToDelete(null);
+        }}
+        confirmText="Sim, excluir"
+        cancelText="Cancelar"
+        variant="destructive"
       />
     </div>
   );

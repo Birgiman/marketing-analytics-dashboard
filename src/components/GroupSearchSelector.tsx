@@ -294,24 +294,24 @@ export function GroupSearchSelector({
           </div>
 
           {/* Actions */}
-          <div className="flex justify-between items-center pt-4 border-t">
+          <div className="flex justify-between items-center pt-4 border-t gap-3">
             <Button 
               onClick={handleClose}
               variant="outline"
+              className="flex-shrink-0"
             >
               Cancelar
             </Button>
             
-            <div className="flex gap-2">
-              {selectedGroups.size > 0 && (
-                <Button
-                  onClick={handleConfirmSelection}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  Adicionar {selectedGroups.size} grupo{selectedGroups.size !== 1 ? 's' : ''} selecionado{selectedGroups.size !== 1 ? 's' : ''}
-                </Button>
-              )}
-            </div>
+            {selectedGroups.size > 0 && (
+              <Button
+                onClick={handleConfirmSelection}
+                variant="primary"
+                className="flex-shrink-0"
+              >
+                Adicionar {selectedGroups.size} grupo{selectedGroups.size !== 1 ? 's' : ''} selecionado{selectedGroups.size !== 1 ? 's' : ''}
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>

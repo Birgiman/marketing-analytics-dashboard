@@ -110,7 +110,7 @@ export default function Lives() {
                 Gerencie e monitore suas transmissões ao vivo
               </p>
             </div>
-            <Button className="flex items-center gap-2">
+            <Button variant="primary" className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
               Nova Live
             </Button>
@@ -186,7 +186,7 @@ export default function Lives() {
                 <p className="text-gray-600 mb-4">
                   Crie sua primeira live para começar a transmitir
                 </p>
-                <Button>
+                <Button variant="primary">
                   <Plus className="h-4 w-4 mr-2" />
                   Criar Primera Live
                 </Button>
