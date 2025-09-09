@@ -22,7 +22,8 @@
       "Bash(npm run build:*)",
       "WebFetch(domain:docs.evolution-api.com)",
       "WebFetch(domain:github.com)",
-      "Bash(npm run lint)"
+      "Bash(npm run lint)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []
