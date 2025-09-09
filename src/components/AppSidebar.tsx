@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Users, 
@@ -73,6 +73,7 @@ const adminItems = [
 export function AppSidebar() {
   const { open, isMobile } = useSidebar();
   const navigate = useNavigate();
+  const location = useLocation();
   const [userName, setUserName] = useState("");
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
   
@@ -147,10 +148,12 @@ export function AppSidebar() {
     navigate("/auth/signin");
   };
 
-  const getNavClassName = ({ isActive }: { isActive: boolean }) =>
-    isActive 
-      ? "bg-muted/70 text-sidebar-foreground font-medium border border-border/60" 
-      : "text-sidebar-foreground hover:bg-muted/40 hover:border hover:border-border/40 transition-all duration-200";
+  const isActivePage = (url: string) => location.pathname === url;
+
+  const getNavClassName = (url: string) =>
+    isActivePage(url)
+      ? "bg-muted/70 text-sidebar-foreground font-medium border border-border/60 rounded-md" 
+      : "text-sidebar-foreground hover:bg-muted/40 hover:border hover:border-border/40 transition-all duration-200 rounded-md";
 
   return (
     <Sidebar className="border-r border-sidebar-border">
@@ -187,7 +190,7 @@ export function AppSidebar() {
               {mainMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                     <NavLink to={item.url} end className={getNavClassName}>
+                     <NavLink to={item.url} end className={getNavClassName(item.url)}>
                        <item.icon className="w-4 h-4" />
                        <span>{item.title}</span>
                      </NavLink>
@@ -209,7 +212,7 @@ export function AppSidebar() {
               {adminItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                     <NavLink to={item.url} end className={getNavClassName}>
+                     <NavLink to={item.url} end className={getNavClassName(item.url)}>
                        <item.icon className="w-4 h-4" />
                        <span>{item.title}</span>
                      </NavLink>
