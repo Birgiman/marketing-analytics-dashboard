@@ -34,9 +34,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [isCreateLiveOpen, setIsCreateLiveOpen] = useState(false);
   const [isLivesListOpen, setIsLivesListOpen] = useState(false);
-  const [lives, setLives] = useState<any[]>([]);
+const [lives, setLives] = useState<any[]>([]);
+  const [editingLive, setEditingLive] = useState<any>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
   const { currentInstance } = useWhatsAppInstances();
-  const { fetchUserLives } = useLives();
+  const { fetchUserLives, softDeleteLive } = useLives();
   const [stats, setStats] = useState<DashboardStats>({
     totalLives: 0,
     totalParticipants: 0,
@@ -76,6 +78,25 @@ export default function Dashboard() {
 
     checkAuth();
   }, [navigate]);
+
+  const handleEditLive = (live: any) => {
+    setEditingLive(live);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteLive = async (live: any) => {
+    if (confirm(`Tem certeza que deseja excluir a live "${live.name}"?`)) {
+      try {
+        await softDeleteLive(live.id);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          await loadStats(session.user.id);
+        }
+      } catch (error) {
+        console.error('Error deleting live:', error);
+      }
+    }
+  };
 
   const loadStats = async (userId: string) => {
     try {
@@ -237,18 +258,21 @@ export default function Dashboard() {
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                          <DropdownMenuItem>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
+                         <DropdownMenuContent align="end" className="bg-background border shadow-md">
+                           <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                           <DropdownMenuItem onClick={() => handleEditLive(live)}>
+                             <Edit className="mr-2 h-4 w-4" />
+                             Editar
+                           </DropdownMenuItem>
+                           <DropdownMenuSeparator />
+                           <DropdownMenuItem 
+                             className="text-red-600"
+                             onClick={() => handleDeleteLive(live)}
+                           >
+                             <Trash2 className="mr-2 h-4 w-4" />
+                             Excluir
+                           </DropdownMenuItem>
+                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
                   </div>
@@ -275,6 +299,29 @@ export default function Dashboard() {
         onOpenChange={setIsCreateLiveOpen}
         currentInstance={currentInstance}
         onLiveCreated={() => {
+          const checkAuth = async () => {
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+              if (session?.user) {
+                await loadStats(session.user.id);
+              }
+            } catch (error) {
+              console.error("Error reloading stats:", error);
+            }
+          };
+          checkAuth();
+        }}
+      />
+
+      {/* Edit Live Modal */}
+      <CreateLiveModal 
+        open={showEditModal} 
+        onOpenChange={setShowEditModal}
+        currentInstance={currentInstance}
+        editingLive={editingLive}
+        onLiveCreated={() => {
+          setShowEditModal(false);
+          setEditingLive(null);
           const checkAuth = async () => {
             try {
               const { data: { session } } = await supabase.auth.getSession();

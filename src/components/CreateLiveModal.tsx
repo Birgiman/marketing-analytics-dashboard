@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,7 +32,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedGroups, setSelectedGroups] = useState<GroupResult[]>([]);
   const [showGroupSelector, setShowGroupSelector] = useState(false);
-  const { createLiveWithGroups, isLoading } = useLives();
+  const { createLiveWithGroups, updateLiveWithGroups, isLoading } = useLives();
   
   const [formData, setFormData] = useState({
     liveName: '',
@@ -43,6 +43,34 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
     leadsTarget: '',
     adsBudget: ''
   });
+
+  // Populate form when editing
+  useEffect(() => {
+    if (editingLive && open) {
+      setFormData({
+        liveName: editingLive.name || '',
+        captureStart: editingLive.captacao_start ? new Date(editingLive.captacao_start).toISOString().slice(0, 16) : '',
+        liveStart: editingLive.ta_rolando_start ? new Date(editingLive.ta_rolando_start).toISOString().slice(0, 16) : '',
+        liveEnd: editingLive.ta_rolando_end ? new Date(editingLive.ta_rolando_end).toISOString().slice(0, 16) : '',
+        salesTarget: editingLive.sales_goal?.toString() || '',
+        leadsTarget: editingLive.leads_goal?.toString() || '',
+        adsBudget: editingLive.ad_budget?.toString() || ''
+      });
+      
+      // Set selected groups if editing
+      if (editingLive.live_groups) {
+        const groups = editingLive.live_groups.map((group: any) => ({
+          id: group.id,
+          group_id: group.group_id,
+          group_name: group.group_name,
+          group_size: group.group_size,
+          selectable: true,
+          group_created_formatted: 'N/A'
+        }));
+        setSelectedGroups(groups);
+      }
+    }
+  }, [editingLive, open]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -93,11 +121,16 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         group_size: group.group_size
       }));
 
-      await createLiveWithGroups(liveData, groups);
+      if (editingLive) {
+        await updateLiveWithGroups(editingLive.id, liveData, groups);
+      } else {
+        await createLiveWithGroups(liveData, groups);
+      }
+      
       onLiveCreated?.();
       handleClose();
     } catch (error) {
-      console.error('Error creating live:', error);
+      console.error('Error creating/updating live:', error);
     }
   };
 
@@ -122,7 +155,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-center">
-              {currentStep === 1 ? 'Vamos criar sua LiveShop! 🛍️' : 'Adicionar Grupos WhatsApp 📱'}
+              {editingLive ? 'Editar LiveShop 🛍️' : (currentStep === 1 ? 'Vamos criar sua LiveShop! 🛍️' : 'Adicionar Grupos WhatsApp 📱')}
             </DialogTitle>
             <div className="text-center text-sm text-muted-foreground">
               Etapa {currentStep} de 2
@@ -318,7 +351,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                   className="flex-1"
                   disabled={isLoading || selectedGroups.length === 0}
                 >
-                  {isLoading ? 'Criando...' : 'Criar LiveShop'}
+                  {isLoading ? (editingLive ? 'Salvando...' : 'Criando...') : (editingLive ? 'Salvar Alterações' : 'Criar LiveShop')}
                 </Button>
               </div>
             </div>
