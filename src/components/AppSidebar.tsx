@@ -106,7 +106,7 @@ export function AppSidebar() {
   // Buscar foto do perfil WhatsApp quando a instância estiver conectada
   useEffect(() => {
     const fetchWhatsAppProfilePicture = async () => {
-      if (currentInstance?.instance_name && currentInstance.connection_status === 'connected') {
+      if (currentInstance?.instance_name && currentInstance.status === 'connected') {
         try {
           const { data: session } = await supabase.auth.getSession();
           if (!session.session?.user) return;
@@ -140,7 +140,7 @@ export function AppSidebar() {
     };
 
     fetchWhatsAppProfilePicture();
-  }, [currentInstance?.instance_name, currentInstance?.connection_status]);
+  }, [currentInstance?.instance_name, currentInstance?.status]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -149,8 +149,8 @@ export function AppSidebar() {
 
   const getNavClassName = ({ isActive }: { isActive: boolean }) =>
     isActive 
-      ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
-      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
+      ? "bg-primary text-primary-foreground font-medium shadow-sm border border-primary/20" 
+      : "text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground transition-all duration-200 hover:shadow-sm";
 
   return (
     <Sidebar className="border-r border-sidebar-border">
