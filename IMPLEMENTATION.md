@@ -75,6 +75,12 @@ Evolution API (WhatsApp)
 ├── QR Code generation  
 ├── Status polling
 └── Message handling
+
+Facebook Marketing API (Meta Ads)
+├── Token-based authentication
+├── Campaign data sync
+├── Insights collection
+└── Multi-account support
 ```
 
 ## 📁 Estrutura de Arquivos
@@ -86,10 +92,12 @@ liveshop-analytics-rebuilt/
 │   │   ├── ui/
 │   │   │   ├── button.tsx
 │   │   │   └── progress.tsx
-│   │   └── QRCodeDisplay.tsx
+│   │   ├── QRCodeDisplay.tsx
+│   │   └── MetaAdsConnection.tsx
 │   ├── hooks/
 │   │   ├── useToast.ts
-│   │   └── useWhatsAppConnection.tsx
+│   │   ├── useWhatsAppConnection.tsx
+│   │   └── useMetaAds.tsx
 │   ├── lib/
 │   │   └── supabase.ts
 │   ├── pages/
@@ -103,11 +111,15 @@ liveshop-analytics-rebuilt/
 │   │   ├── _app.tsx
 │   │   └── index.tsx
 │   ├── services/
-│   │   └── whatsappService.ts
+│   │   ├── whatsappService.ts
+│   │   └── metaAdsService.ts
 │   ├── styles/
 │   │   └── globals.css
 │   └── types/
 │       └── index.ts
+├── docs/
+│   ├── META_ADS_INTEGRATION.md
+│   └── WHATSAPP_INTEGRATION.md
 ├── public/
 ├── next.config.js
 ├── tailwind.config.js
@@ -164,12 +176,17 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 - **Painel Admin**: Sistema de aprovação de usuários
 - **Modais e Componentes**: Interface rica com modais funcionais
 
-### 🚧 Parcialmente Implementado
-- **Meta Ads Integration**: Estrutura criada, API não conectada
-- **Analytics Avançado**: Interface básica, gráficos pendentes  
-- **Sistema de Lives**: Estrutura de dados, interface pendente
+### ✅ Recém Implementado (Janeiro 2025)
+- **Meta Ads Integration**: Sistema completo com Facebook Marketing API v18.0
+- **Analytics Avançado**: Interface rica com métricas detalhadas  
+- **Sistema de Documentação**: Docs organizadas por funcionalidade
 
-### ✅ Recém Adicionado (Janeiro 2025)
+### 🚧 Em Desenvolvimento
+- **Sistema de Lives**: Estrutura de dados, interface pendente
+- **Exportação de Relatórios**: CSV/Excel de dados analytics
+- **Notificações Push**: Alertas de performance e eventos
+
+### ✅ Funcionalidades Completas (Janeiro 2025)
 - **Tabelas Supabase Completas**: Todos os esquemas do projeto antigo implementados
 - **Sistema de Pesquisas**: Tabela `pesquisa` com dados JSON
 - **Logs WhatsApp Avançados**: Logs de deleção e atividades detalhadas
@@ -179,6 +196,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 - **Vendas por Público**: Analytics detalhado com filtros e métricas por grupos
 - **Modal de Endereço**: Sistema de gerenciamento de endereços de entrega
 - **Painel Administrativo**: Interface completa para aprovação/rejeição de usuários
+- **Meta Ads System**: Integração completa com Facebook Marketing API v18.0
+- **Documentação Técnica**: Docs separadas por funcionalidade (WhatsApp, Meta Ads)
 
 ### 📋 Próximas Funcionalidades
 - Páginas de gerenciamento de lives
