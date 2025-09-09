@@ -187,7 +187,7 @@ export function AppSidebar() {
               {mainMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                     <NavLink to={item.url} className={getNavClassName}>
+                     <NavLink to={item.url} end className={getNavClassName}>
                        <item.icon className="w-4 h-4" />
                        <span>{item.title}</span>
                      </NavLink>
@@ -209,7 +209,7 @@ export function AppSidebar() {
               {adminItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                     <NavLink to={item.url} className={getNavClassName}>
+                     <NavLink to={item.url} end className={getNavClassName}>
                        <item.icon className="w-4 h-4" />
                        <span>{item.title}</span>
                      </NavLink>
