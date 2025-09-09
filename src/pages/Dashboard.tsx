@@ -268,7 +268,7 @@ const [lives, setLives] = useState<any[]>([]);
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                         <DropdownMenuContent align="end" className="bg-background border shadow-md">
+                         <DropdownMenuContent align="end" className="bg-white border shadow-md">
                            <DropdownMenuLabel>Ações</DropdownMenuLabel>
                            <DropdownMenuItem onClick={() => handleEditLive(live)}>
                              <Edit className="mr-2 h-4 w-4" />
