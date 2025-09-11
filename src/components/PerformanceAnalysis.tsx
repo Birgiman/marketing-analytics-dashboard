@@ -1,46 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, AlertTriangle, BarChart3 } from "lucide-react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
+import { BarChart3, AlertTriangle } from "lucide-react";
 
 interface PerformanceAnalysisProps {
   className?: string;
 }
 
 const PerformanceAnalysis = ({ className }: PerformanceAnalysisProps) => {
-  // Dados de exemplo para o gráfico de barras
-  const performanceData = [
-    {
-      metric: "CPL Meta",
-      valor: 15.50,
-      meta: 20.00,
-      status: "positivo"
-    },
-    {
-      metric: "CPL Líquido",
-      valor: 18.20,
-      meta: 25.00,
-      status: "positivo"
-    },
-    {
-      metric: "Taxa Retenção",
-      valor: 75,
-      meta: 70,
-      status: "positivo"
-    },
-    {
-      metric: "Conversão",
-      valor: 3.2,
-      meta: 2.5,
-      status: "positivo"
-    },
-    {
-      metric: "Engajamento",
-      valor: 62,
-      meta: 65,
-      status: "atencao"
-    }
-  ];
-
   return (
     <Card className={className}>
       <CardHeader>
@@ -48,81 +13,81 @@ const PerformanceAnalysis = ({ className }: PerformanceAnalysisProps) => {
           <BarChart3 className="h-5 w-5" />
           Análise de Performance
         </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Resumo da evolução das campanhas baseado em dados
+        </p>
       </CardHeader>
       <CardContent>
-        {/* Gráfico de Barras */}
-        <div className="mb-6">
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={performanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis 
-                dataKey="metric" 
-                stroke="hsl(var(--muted-foreground))" 
-                fontSize={12}
-                angle={-45}
-                textAnchor="end"
-                height={80}
-              />
-              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: "hsl(var(--background))", 
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "6px"
-                }}
-              />
-              <Bar 
-                dataKey="valor" 
-                fill="hsl(var(--primary))" 
-                name="Atual"
-                radius={[2, 2, 0, 0]}
-              />
-              <Bar 
-                dataKey="meta" 
-                fill="hsl(var(--muted))" 
-                name="Meta"
-                radius={[2, 2, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Coluna Esquerda - Planejado vs Executado */}
+          <div>
+            <h3 className="font-medium mb-4">📊 Planejado vs Executado</h3>
+            
+            {/* CPL Líquido */}
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-sm font-medium">CPL Líquido</span>
+                <span className="text-sm font-bold">R$ 3,91</span>
+              </div>
+              <div className="text-xs text-red-600 mb-2 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                +91,1% da meta (R$ 3,00)
+                <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium">
+                  Acima da meta
+                </span>
+              </div>
+            </div>
 
-        {/* Análise por Cards */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="p-4 border rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="h-4 w-4 text-green-600" />
-              <span className="text-sm font-medium text-green-600">Pontos Positivos</span>
+            {/* Pessoas no Grupo */}
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium">Pessoas no Grupo</span>
+                <span className="text-sm font-bold">2.202 / 8.330</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="bg-blue-600 h-2 rounded-full" style={{ width: "26.4%" }}></div>
+              </div>
+              <span className="text-xs text-muted-foreground">26,4% da meta</span>
             </div>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• CPL dentro da meta estabelecida</li>
-              <li>• Alta taxa de retenção (75%)</li>
-              <li>• Conversão acima do esperado</li>
-            </ul>
+
+            {/* Investimento */}
+            <div className="mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium">Investimento</span>
+                <span className="text-sm font-bold">R$ 8.612,19 / R$ 25.000,00</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="bg-green-600 h-2 rounded-full" style={{ width: "34.4%" }}></div>
+              </div>
+              <span className="text-xs text-muted-foreground">34,4% do orçamento</span>
+            </div>
           </div>
-          
-          <div className="p-4 border rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-4 w-4 text-yellow-600" />
-              <span className="text-sm font-medium text-yellow-600">Pontos de Atenção</span>
+
+          {/* Coluna Direita - Projeção com Verba Restante */}
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+            <h3 className="font-medium mb-4 text-blue-900">💍 Projeção com Verba Restante</h3>
+            
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-blue-700">Verba restante:</span>
+                <span className="font-bold text-blue-900">R$ 16.387,81</span>
+              </div>
+              
+              <div className="flex justify-between">
+                <span className="text-blue-700">CPL atual:</span>
+                <span className="font-bold text-blue-900">R$ 3,91</span>
+              </div>
+              
+              <div className="flex justify-between">
+                <span className="text-blue-700">Déficit/Superávit:</span>
+                <span className="font-bold text-red-600">-1.938 pessoas</span>
+              </div>
+              
+              <div className="flex justify-between pt-2 border-t border-blue-300">
+                <span className="text-blue-700">Total final estimado:</span>
+                <span className="font-bold text-blue-900">6.392 leads</span>
+              </div>
             </div>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• Engajamento abaixo da meta</li>
-              <li>• Variação no CPL por campanha</li>
-              <li>• Monitorar qualidade do tráfego</li>
-            </ul>
-          </div>
-          
-          <div className="p-4 border rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingDown className="h-4 w-4 text-red-600" />
-              <span className="text-sm font-medium text-red-600">Oportunidades</span>
-            </div>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• Otimizar criativos para engajamento</li>
-              <li>• Testar novos públicos</li>
-              <li>• Melhorar qualificação de leads</li>
-            </ul>
           </div>
         </div>
       </CardContent>
