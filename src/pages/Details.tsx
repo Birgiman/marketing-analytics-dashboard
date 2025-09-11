@@ -1,3 +1,4 @@
+import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Users, DollarSign, Target, Activity } from "lucide-react";
 import PerformanceAnalysis from "@/components/PerformanceAnalysis";
@@ -185,6 +186,7 @@ const Details = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Header />
       <div className="container mx-auto p-6 space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">

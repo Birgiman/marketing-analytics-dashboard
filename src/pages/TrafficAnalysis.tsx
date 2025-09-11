@@ -3,6 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
+import Header from "@/components/Header";
+import { toast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { Activity, TrendingUp, TrendingDown, BarChart3, Eye, Users, DollarSign, Target, TrendingUp as ProjectionIcon, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Filter } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";

@@ -7,11 +7,12 @@ import { useState, useRef, useEffect } from "react";
 import { UserPlus, UserMinus, Users, TrendingUp, ShoppingCart, Target, BarChart3, Search, ArrowUpDown, ArrowUp, ArrowDown, Download, Database, Upload, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import Header from "@/components/Header";
 
 interface GroupData {
   id: string;
   group_name: string;
-  event: 'ENTROU' | 'SAIU';
+  event: 'join' | 'leave';
   created_at: string;
   user_id: string;
 }
@@ -90,7 +91,7 @@ const SalesByGroup = () => {
         const transformedGroups: GroupData[] = (groupsResult || []).map(item => ({
           id: item.id,
           group_name: item.group_name || 'Grupo Desconhecido',
-          event: item.event === 'join' ? 'ENTROU' : 'SAIU',
+          event: item.event === 'join' ? 'join' : 'leave',
           created_at: item.created_at,
           user_id: item.user_id || ''
         }));
@@ -130,12 +131,11 @@ const SalesByGroup = () => {
   // Generate demo data
   const generateDemoGroupsData = (): GroupData[] => {
     const groups = ['Grupo VIP ⭐', 'Grupo Premium ❤️', 'Grupo Exclusivo ⭐', 'Grupo Gold ❤️'];
-    const events: ('ENTROU' | 'SAIU')[] = ['ENTROU', 'SAIU'];
     
     return Array.from({ length: 200 }, (_, i) => ({
       id: `demo-group-${i}`,
       group_name: groups[Math.floor(Math.random() * groups.length)],
-      event: Math.random() > 0.3 ? 'ENTROU' : 'SAIU', // 70% entrada, 30% saída
+      event: Math.random() > 0.3 ? 'join' : 'leave' as 'join' | 'leave', // 70% entrada, 30% saída
       created_at: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
       user_id: `user-${i}`
     }));
@@ -160,8 +160,8 @@ const SalesByGroup = () => {
   }, []);
 
   // Calculate real group statistics
-  const entrou = groupsData.filter(item => item.event === 'ENTROU').length;
-  const saiu = groupsData.filter(item => item.event === 'SAIU').length;
+  const entrou = groupsData.filter(item => item.event === 'join').length;
+  const saiu = groupsData.filter(item => item.event === 'leave').length;
   const leadsAtivos = entrou - saiu;
 
   // Group data by group name
@@ -174,9 +174,9 @@ const SalesByGroup = () => {
         ativos: 0
       };
     }
-    if (item.event === 'ENTROU') {
+    if (item.event === 'join') {
       acc[item.group_name].entradas++;
-    } else if (item.event === 'SAIU') {
+    } else if (item.event === 'leave') {
       acc[item.group_name].saidas++;
     }
     acc[item.group_name].ativos = acc[item.group_name].entradas - acc[item.group_name].saidas;
@@ -267,8 +267,8 @@ const SalesByGroup = () => {
     const trafficInvestment = campaignData.reduce((sum, item) => sum + (item.amount_spent || 0), 0);
     const trafficCPL = trafficLeads > 0 ? trafficInvestment / trafficLeads : 0;
 
-    const groupEntradas = groupData.filter(item => item.event === 'ENTROU').length;
-    const groupSaidas = groupData.filter(item => item.event === 'SAIU').length;
+    const groupEntradas = groupData.filter(item => item.event === 'join').length;
+    const groupSaidas = groupData.filter(item => item.event === 'leave').length;
     const groupAtivos = groupEntradas - groupSaidas;
 
     return {
@@ -370,475 +370,481 @@ const SalesByGroup = () => {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="space-y-6">
-          {[1, 2, 3].map(i => (
-            <Card key={i}>
-              <CardHeader>
-                <div className="h-6 bg-muted animate-pulse rounded"></div>
-                <div className="h-4 bg-muted animate-pulse rounded w-2/3"></div>
-              </CardHeader>
-              <CardContent>
-                <div className="h-32 bg-muted animate-pulse rounded"></div>
-              </CardContent>
-            </Card>
-          ))}
+      <div>
+        <Header />
+        <div className="container mx-auto p-6">
+          <div className="space-y-6">
+            {[1, 2, 3].map(i => (
+              <Card key={i}>
+                <CardHeader>
+                  <div className="h-6 bg-muted animate-pulse rounded"></div>
+                  <div className="h-4 bg-muted animate-pulse rounded w-2/3"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-32 bg-muted animate-pulse rounded"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-8">
-      {/* Overview Geral */}
-      <div className="grid gap-6 md:grid-cols-5">
+    <div>
+      <Header />
+      <div className="container mx-auto p-6 space-y-8">
+        {/* Overview Geral */}
+        <div className="grid gap-6 md:grid-cols-5">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Entrou no Grupo</CardTitle>
+              <UserPlus className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{entrou.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Saiu do Grupo</CardTitle>
+              <UserMinus className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{saiu.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Leads Ativos</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{leadsAtivos.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Vendas</CardTitle>
+              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{salesData.length || subtotals.sales}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Venda Média p/ Grupo</CardTitle>
+              <Target className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                R$ {salesData.length > 0 
+                  ? Math.round(salesData.reduce((acc, sale) => acc + sale.valor, 0) / salesData.length)
+                  : Math.round(averageTicketTotal)
+                }
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Tabela Unificada de Públicos */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Entrou no Grupo</CardTitle>
-            <UserPlus className="h-4 w-4 text-muted-foreground" />
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              Correlação de Públicos
+            </CardTitle>
+            <CardDescription>
+              Configure públicos e visualize a correlação entre campanhas de tráfego e grupos
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{entrou.toLocaleString()}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Saiu do Grupo</CardTitle>
-            <UserMinus className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{saiu.toLocaleString()}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Leads Ativos</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{leadsAtivos.toLocaleString()}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Vendas</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{salesData.length || subtotals.sales}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Venda Média p/ Grupo</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              R$ {salesData.length > 0 
-                ? Math.round(salesData.reduce((acc, sale) => acc + sale.valor, 0) / salesData.length)
-                : Math.round(averageTicketTotal)
-              }
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tabela Unificada de Públicos */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
-            Correlação de Públicos
-          </CardTitle>
-          <CardDescription>
-            Configure públicos e visualize a correlação entre campanhas de tráfego e grupos
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-3 font-medium">Público</th>
-                  <th className="text-left p-3 font-medium">Termo Campanha</th>
-                  <th className="text-center p-3 font-medium">Emoji Grupo</th>
-                  <th className="text-center p-3 font-medium">Leads Tráfego</th>
-                  <th className="text-center p-3 font-medium">Investimento</th>
-                  <th className="text-center p-3 font-medium">CPL Meta</th>
-                  <th className="text-center p-3 font-medium">Entrou Grupo</th>
-                  <th className="text-center p-3 font-medium">Saiu Grupo</th>
-                  <th className="text-center p-3 font-medium">Ativos Grupo</th>
-                  <th className="text-center p-3 font-medium">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {correlationData.map((row) => (
-                  <tr key={row.id} className="border-b hover:bg-muted/50">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-3 font-medium">Público</th>
+                    <th className="text-left p-3 font-medium">Termo Campanha</th>
+                    <th className="text-center p-3 font-medium">Emoji Grupo</th>
+                    <th className="text-center p-3 font-medium">Leads Tráfego</th>
+                    <th className="text-center p-3 font-medium">Investimento</th>
+                    <th className="text-center p-3 font-medium">CPL Meta</th>
+                    <th className="text-center p-3 font-medium">Entrou Grupo</th>
+                    <th className="text-center p-3 font-medium">Saiu Grupo</th>
+                    <th className="text-center p-3 font-medium">Ativos Grupo</th>
+                    <th className="text-center p-3 font-medium">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {correlationData.map((row) => (
+                    <tr key={row.id} className="border-b hover:bg-muted/50">
+                      <td className="p-3">
+                        <Badge variant="secondary">{row.audienceName}</Badge>
+                      </td>
+                      <td className="p-3 text-sm">
+                        <code className="bg-muted px-2 py-1 rounded">{row.campaignTerm}</code>
+                      </td>
+                      <td className="p-3 text-center text-lg">
+                        {row.groupEmoji}
+                      </td>
+                      <td className="p-3 text-center font-medium">
+                        {row.trafficLeads.toLocaleString()}
+                      </td>
+                      <td className="p-3 text-center font-medium">
+                        R$ {row.trafficInvestment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="p-3 text-center font-medium">
+                        R$ {row.trafficCPL.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="p-3 text-center font-medium text-green-600">
+                        {row.groupEntradas.toLocaleString()}
+                      </td>
+                      <td className="p-3 text-center font-medium text-red-600">
+                        {row.groupSaidas.toLocaleString()}
+                      </td>
+                      <td className="p-3 text-center font-medium text-blue-600">
+                        {row.groupAtivos.toLocaleString()}
+                      </td>
+                      <td className="p-3 text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeAudience(row.id)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  {/* Add new audience row */}
+                  <tr className="border-b bg-muted/30">
                     <td className="p-3">
-                      <Badge variant="secondary">{row.audienceName}</Badge>
+                      <Input
+                        placeholder="Nome do público"
+                        value={newAudience.name}
+                        onChange={(e) => setNewAudience({ ...newAudience, name: e.target.value })}
+                        className="h-8"
+                      />
                     </td>
-                    <td className="p-3 text-sm">
-                      <code className="bg-muted px-2 py-1 rounded">{row.campaignTerm}</code>
+                    <td className="p-3">
+                      <Input
+                        placeholder="termo"
+                        value={newAudience.campaignTerm}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\s+/g, '');
+                          setNewAudience({ ...newAudience, campaignTerm: value });
+                        }}
+                        className="h-8"
+                      />
                     </td>
-                    <td className="p-3 text-center text-lg">
-                      {row.groupEmoji}
+                    <td className="p-3">
+                      <Input
+                        placeholder="emoji"
+                        value={newAudience.groupEmoji}
+                        onChange={(e) => setNewAudience({ ...newAudience, groupEmoji: e.target.value })}
+                        className="h-8 text-center"
+                      />
                     </td>
-                    <td className="p-3 text-center font-medium">
-                      {row.trafficLeads.toLocaleString()}
-                    </td>
-                    <td className="p-3 text-center font-medium">
-                      R$ {row.trafficInvestment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="p-3 text-center font-medium">
-                      R$ {row.trafficCPL.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="p-3 text-center font-medium text-green-600">
-                      {row.groupEntradas.toLocaleString()}
-                    </td>
-                    <td className="p-3 text-center font-medium text-red-600">
-                      {row.groupSaidas.toLocaleString()}
-                    </td>
-                    <td className="p-3 text-center font-medium text-blue-600">
-                      {row.groupAtivos.toLocaleString()}
-                    </td>
+                    <td className="p-3 text-center text-muted-foreground">-</td>
+                    <td className="p-3 text-center text-muted-foreground">-</td>
+                    <td className="p-3 text-center text-muted-foreground">-</td>
+                    <td className="p-3 text-center text-muted-foreground">-</td>
+                    <td className="p-3 text-center text-muted-foreground">-</td>
+                    <td className="p-3 text-center text-muted-foreground">-</td>
                     <td className="p-3 text-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeAudience(row.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
+                      <Button onClick={addAudience} size="sm" className="h-8">
+                        <Plus className="h-4 w-4" />
                       </Button>
                     </td>
                   </tr>
-                ))}
-                {/* Add new audience row */}
-                <tr className="border-b bg-muted/30">
-                  <td className="p-3">
-                    <Input
-                      placeholder="Nome do público"
-                      value={newAudience.name}
-                      onChange={(e) => setNewAudience({ ...newAudience, name: e.target.value })}
-                      className="h-8"
-                    />
-                  </td>
-                  <td className="p-3">
-                    <Input
-                      placeholder="termo"
-                      value={newAudience.campaignTerm}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\s+/g, '');
-                        setNewAudience({ ...newAudience, campaignTerm: value });
-                      }}
-                      className="h-8"
-                    />
-                  </td>
-                  <td className="p-3">
-                    <Input
-                      placeholder="emoji"
-                      value={newAudience.groupEmoji}
-                      onChange={(e) => setNewAudience({ ...newAudience, groupEmoji: e.target.value })}
-                      className="h-8 text-center"
-                    />
-                  </td>
-                  <td className="p-3 text-center text-muted-foreground">-</td>
-                  <td className="p-3 text-center text-muted-foreground">-</td>
-                  <td className="p-3 text-center text-muted-foreground">-</td>
-                  <td className="p-3 text-center text-muted-foreground">-</td>
-                  <td className="p-3 text-center text-muted-foreground">-</td>
-                  <td className="p-3 text-center text-muted-foreground">-</td>
-                  <td className="p-3 text-center">
-                    <Button onClick={addAudience} size="sm" className="h-8">
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tabela Principal de Grupos */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Dados por Público
-              </CardTitle>
-              <CardDescription>
-                Visualize e filtre os dados de todos os grupos e campanhas
-              </CardDescription>
+                </tbody>
+              </table>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Filtros de Busca */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome do grupo..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={publicoFilter} onValueChange={setPublicoFilter}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Filtrar por público" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os públicos</SelectItem>
-                <SelectItem value="quente">Público Quente</SelectItem>
-                <SelectItem value="frio">Público Frio</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Tabela */}
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-3 font-medium">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('name')}
-                      className="h-auto p-0 font-medium flex items-center gap-1"
-                    >
-                      <div>Grupo</div>
-                      {getSortIcon('name')}
-                    </Button>
-                  </th>
-                  <th className="text-left p-3 font-medium">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('campaign')}
-                      className="h-auto p-0 font-medium flex items-center gap-1"
-                    >
-                      <div>Público</div>
-                      {getSortIcon('campaign')}
-                    </Button>
-                  </th>
-                  <th className="text-center p-3 font-medium">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('entered')}
-                      className="h-auto p-0 font-medium flex flex-col items-center gap-1"
-                    >
-                      <div className="text-center">
-                        <div>Entrou no Grupo</div>
-                        <div className="text-xs text-muted-foreground font-normal">
-                          Total: {subtotals.entered.toLocaleString()}
+        {/* Tabela Principal de Grupos */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Dados por Público
+                </CardTitle>
+                <CardDescription>
+                  Visualize e filtre os dados de todos os grupos e campanhas
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Filtros de Busca */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome do grupo..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={publicoFilter} onValueChange={setPublicoFilter}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Filtrar por público" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os públicos</SelectItem>
+                  <SelectItem value="quente">Público Quente</SelectItem>
+                  <SelectItem value="frio">Público Frio</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Tabela */}
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-3 font-medium">
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleSort('name')}
+                        className="h-auto p-0 font-medium flex items-center gap-1"
+                      >
+                        <div>Grupo</div>
+                        {getSortIcon('name')}
+                      </Button>
+                    </th>
+                    <th className="text-left p-3 font-medium">
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleSort('campaign')}
+                        className="h-auto p-0 font-medium flex items-center gap-1"
+                      >
+                        <div>Público</div>
+                        {getSortIcon('campaign')}
+                      </Button>
+                    </th>
+                    <th className="text-center p-3 font-medium">
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleSort('entered')}
+                        className="h-auto p-0 font-medium flex flex-col items-center gap-1"
+                      >
+                        <div className="text-center">
+                          <div>Entrou no Grupo</div>
+                          <div className="text-xs text-muted-foreground font-normal">
+                            Total: {subtotals.entered.toLocaleString()}
+                          </div>
                         </div>
-                      </div>
-                      {getSortIcon('entered')}
-                    </Button>
-                  </th>
-                  <th className="text-center p-3 font-medium">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('left')}
-                      className="h-auto p-0 font-medium flex flex-col items-center gap-1"
-                    >
-                      <div className="text-center">
-                        <div>Saiu do Grupo</div>
-                        <div className="text-xs text-muted-foreground font-normal">
-                          Total: {subtotals.left.toLocaleString()}
+                        {getSortIcon('entered')}
+                      </Button>
+                    </th>
+                    <th className="text-center p-3 font-medium">
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleSort('left')}
+                        className="h-auto p-0 font-medium flex flex-col items-center gap-1"
+                      >
+                        <div className="text-center">
+                          <div>Saiu do Grupo</div>
+                          <div className="text-xs text-muted-foreground font-normal">
+                            Total: {subtotals.left.toLocaleString()}
+                          </div>
                         </div>
-                      </div>
-                      {getSortIcon('left')}
-                    </Button>
-                  </th>
-                  <th className="text-center p-3 font-medium">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('active')}
-                      className="h-auto p-0 font-medium flex flex-col items-center gap-1"
-                    >
-                      <div className="text-center">
-                        <div>Leads Ativos</div>
-                        <div className="text-xs text-muted-foreground font-normal">
-                          Total: {subtotals.active.toLocaleString()}
+                        {getSortIcon('left')}
+                      </Button>
+                    </th>
+                    <th className="text-center p-3 font-medium">
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleSort('active')}
+                        className="h-auto p-0 font-medium flex flex-col items-center gap-1"
+                      >
+                        <div className="text-center">
+                          <div>Leads Ativos</div>
+                          <div className="text-xs text-muted-foreground font-normal">
+                            Total: {subtotals.active.toLocaleString()}
+                          </div>
                         </div>
-                      </div>
-                      {getSortIcon('active')}
-                    </Button>
-                  </th>
-                  <th className="text-center p-3 font-medium">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('sales')}
-                      className="h-auto p-0 font-medium flex flex-col items-center gap-1"
-                    >
-                      <div className="text-center">
-                        <div>Vendas por Grupo</div>
-                        <div className="text-xs text-muted-foreground font-normal">
-                          Total: {subtotals.sales}
+                        {getSortIcon('active')}
+                      </Button>
+                    </th>
+                    <th className="text-center p-3 font-medium">
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleSort('sales')}
+                        className="h-auto p-0 font-medium flex flex-col items-center gap-1"
+                      >
+                        <div className="text-center">
+                          <div>Vendas por Grupo</div>
+                          <div className="text-xs text-muted-foreground font-normal">
+                            Total: {subtotals.sales}
+                          </div>
                         </div>
-                      </div>
-                      {getSortIcon('sales')}
-                    </Button>
-                  </th>
-                  <th className="text-center p-3 font-medium">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('revenue')}
-                      className="h-auto p-0 font-medium flex flex-col items-center gap-1"
-                    >
-                      <div className="text-center">
-                        <div>Faturamento</div>
-                        <div className="text-xs text-muted-foreground font-normal">
-                          Total: R$ {subtotals.revenue.toLocaleString()}
+                        {getSortIcon('sales')}
+                      </Button>
+                    </th>
+                    <th className="text-center p-3 font-medium">
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleSort('revenue')}
+                        className="h-auto p-0 font-medium flex flex-col items-center gap-1"
+                      >
+                        <div className="text-center">
+                          <div>Faturamento</div>
+                          <div className="text-xs text-muted-foreground font-normal">
+                            Total: R$ {subtotals.revenue.toLocaleString()}
+                          </div>
                         </div>
-                      </div>
-                      {getSortIcon('revenue')}
-                    </Button>
-                  </th>
-                  <th className="text-center p-3 font-medium">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('averageTicket')}
-                      className="h-auto p-0 font-medium flex flex-col items-center gap-1"
-                    >
-                      <div className="text-center">
-                        <div>Ticket Médio</div>
-                        <div className="text-xs text-muted-foreground font-normal">
-                          Média: R$ {Math.round(averageTicketTotal)}
+                        {getSortIcon('revenue')}
+                      </Button>
+                    </th>
+                    <th className="text-center p-3 font-medium">
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleSort('averageTicket')}
+                        className="h-auto p-0 font-medium flex flex-col items-center gap-1"
+                      >
+                        <div className="text-center">
+                          <div>Ticket Médio</div>
+                          <div className="text-xs text-muted-foreground font-normal">
+                            Média: R$ {Math.round(averageTicketTotal)}
+                          </div>
                         </div>
-                      </div>
-                      {getSortIcon('averageTicket')}
-                    </Button>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAndSortedData.map((group) => (
-                  <tr key={group.id} className="border-b hover:bg-muted/50">
-                    <td className="p-3 font-medium">{group.name}</td>
-                    <td className="p-3">
-                      <Badge variant="outline">{group.campaign || 'N/A'}</Badge>
-                    </td>
-                    <td className="text-center p-3">{group.entered}</td>
-                    <td className="text-center p-3">{group.left}</td>
-                    <td className="text-center p-3">{group.active}</td>
-                    <td className="text-center p-3">
-                      <Badge variant="default">{group.sales} vendas</Badge>
-                    </td>
-                    <td className="text-center p-3 font-medium">
-                      R$ {group.revenue.toLocaleString()}
-                    </td>
-                    <td className="text-center p-3 font-medium">
-                      R$ {group.averageTicket}
-                    </td>
+                        {getSortIcon('averageTicket')}
+                      </Button>
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {filteredAndSortedData.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              Nenhum grupo encontrado com os filtros aplicados.
+                </thead>
+                <tbody>
+                  {filteredAndSortedData.map((group) => (
+                    <tr key={group.id} className="border-b hover:bg-muted/50">
+                      <td className="p-3 font-medium">{group.name}</td>
+                      <td className="p-3">
+                        <Badge variant="outline">{group.campaign || 'N/A'}</Badge>
+                      </td>
+                      <td className="text-center p-3">{group.entered}</td>
+                      <td className="text-center p-3">{group.left}</td>
+                      <td className="text-center p-3">{group.active}</td>
+                      <td className="text-center p-3">
+                        <Badge variant="default">{group.sales} vendas</Badge>
+                      </td>
+                      <td className="text-center p-3 font-medium">
+                        R$ {group.revenue.toLocaleString()}
+                      </td>
+                      <td className="text-center p-3 font-medium">
+                        R$ {group.averageTicket}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Seção de Upload de Dados de Vendas */}
-      <div className="border rounded-lg p-4 bg-muted/20">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Database className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Dados de Vendas</span>
-            {salesData.length > 0 && (
-              <Badge variant="secondary" className="text-xs">
-                {salesData.length} vendas
-              </Badge>
+            {filteredAndSortedData.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                Nenhum grupo encontrado com os filtros aplicados.
+              </div>
             )}
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              className="text-xs flex items-center gap-1"
-            >
-              <Upload className="h-3 w-3" />
-              Importar CSV
-            </Button>
-            {salesData.length > 0 && (
+          </CardContent>
+        </Card>
+
+        {/* Seção de Upload de Dados de Vendas */}
+        <div className="border rounded-lg p-4 bg-muted/20">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Database className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Dados de Vendas</span>
+              {salesData.length > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {salesData.length} vendas
+                </Badge>
+              )}
+            </div>
+            <div className="flex gap-2">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={clearSalesData}
-                className="text-xs"
+                onClick={() => fileInputRef.current?.click()}
+                className="text-xs flex items-center gap-1"
               >
-                Limpar
+                <Upload className="h-3 w-3" />
+                Importar CSV
               </Button>
-            )}
+              {salesData.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearSalesData}
+                  className="text-xs"
+                >
+                  Limpar
+                </Button>
+              )}
+            </div>
           </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            onChange={handleSalesUpload}
+            className="hidden"
+          />
+
+          {uploadStatus && (
+            <div
+              className={`text-xs mb-2 ${
+                uploadStatus.includes('✅')
+                  ? 'text-green-600'
+                  : uploadStatus.includes('Erro')
+                  ? 'text-red-600'
+                  : 'text-blue-600'
+              }`}
+            >
+              {uploadStatus}
+            </div>
+          )}
+
+          {salesData.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Importe um arquivo CSV (DATA_HORA, TELEFONE, NOME, VALOR) para cruzar com os dados dos leads
+            </p>
+          ) : (
+            <div className="grid grid-cols-3 gap-4 text-xs">
+              <div>
+                <span className="text-muted-foreground">Vendas:</span>
+                <span className="ml-1 font-medium">{salesData.length}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Total:</span>
+                <span className="ml-1 font-medium">
+                  R$ {salesData.reduce((acc, sale) => acc + sale.valor, 0).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2
+                  })}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Ticket Médio:</span>
+                <span className="ml-1 font-medium">
+                  R$ {(salesData.reduce((acc, sale) => acc + sale.valor, 0) / salesData.length).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2
+                  })}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv"
-          onChange={handleSalesUpload}
-          className="hidden"
-        />
-
-        {uploadStatus && (
-          <div
-            className={`text-xs mb-2 ${
-              uploadStatus.includes('✅')
-                ? 'text-green-600'
-                : uploadStatus.includes('Erro')
-                ? 'text-red-600'
-                : 'text-blue-600'
-            }`}
-          >
-            {uploadStatus}
-          </div>
-        )}
-
-        {salesData.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            Importe um arquivo CSV (DATA_HORA, TELEFONE, NOME, VALOR) para cruzar com os dados dos leads
-          </p>
-        ) : (
-          <div className="grid grid-cols-3 gap-4 text-xs">
-            <div>
-              <span className="text-muted-foreground">Vendas:</span>
-              <span className="ml-1 font-medium">{salesData.length}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Total:</span>
-              <span className="ml-1 font-medium">
-                R$ {salesData.reduce((acc, sale) => acc + sale.valor, 0).toLocaleString('pt-BR', {
-                  minimumFractionDigits: 2
-                })}
-              </span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Ticket Médio:</span>
-              <span className="ml-1 font-medium">
-                R$ {(salesData.reduce((acc, sale) => acc + sale.valor, 0) / salesData.length).toLocaleString('pt-BR', {
-                  minimumFractionDigits: 2
-                })}
-              </span>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { MessageSquare, MapPin, Heart, Package, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import Header from "@/components/Header";
 
 interface SurveyData {
   id: string;
@@ -152,7 +153,9 @@ const ResearchInsights = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-8">
+    <div>
+      <Header />
+      <div className="container mx-auto p-6 space-y-8">
       {/* Overview da Pesquisa */}
       <Card>
         <CardHeader>
@@ -468,6 +471,7 @@ const ResearchInsights = () => {
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };
