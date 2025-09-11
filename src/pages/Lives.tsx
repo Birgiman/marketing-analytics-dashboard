@@ -7,7 +7,7 @@ import { DEMO_MODE } from '@/lib/demo-mode';
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Live } from '@/types';
-import { Plus, Play, Users, TrendingUp, Calendar, Clock } from 'lucide-react';
+import { Plus, Play, Users, TrendingUp, Calendar, Clock, Eye, Edit, Trash2 } from 'lucide-react';
 
 export default function Lives() {
   const navigate = useNavigate();
@@ -222,11 +222,17 @@ export default function Lives() {
                       </div>
                       
                       <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => navigate(`/details?live=${live.id}`)}>
+                          <Eye className="h-4 w-4 mr-1" />
+                          Ver
+                        </Button>
                         <Button variant="outline" size="sm">
+                          <Edit className="h-4 w-4 mr-1" />
                           Editar
                         </Button>
                         <Button variant="outline" size="sm">
-                          Ver Dados
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Excluir
                         </Button>
                       </div>
                     </div>

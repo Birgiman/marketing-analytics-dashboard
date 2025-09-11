@@ -14,6 +14,7 @@ import Leads from "./pages/Leads";
 import Profile from "./pages/Profile";
 import Calculator from "./pages/Calculator";
 import Admin from "./pages/Admin";
+import Details from "./pages/Details";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import PendingApproval from "./pages/auth/PendingApproval";
@@ -52,6 +53,7 @@ function AppContent() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/lives" element={<Lives />} />
+            <Route path="/details" element={<Details />} />
             <Route path="/calculator" element={<Calculator />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/groups" element={<Groups />} />
