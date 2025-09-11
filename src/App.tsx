@@ -16,6 +16,7 @@ import Calculator from "./pages/Calculator";
 import Admin from "./pages/Admin";
 import Details from "./pages/Details";
 import TrafficAnalysis from "./pages/TrafficAnalysis";
+import ResearchInsights from "./pages/ResearchInsights";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import PendingApproval from "./pages/auth/PendingApproval";
@@ -56,6 +57,7 @@ function AppContent() {
             <Route path="/lives" element={<Lives />} />
             <Route path="/details" element={<Details />} />
             <Route path="/traffic-analysis" element={<TrafficAnalysis />} />
+            <Route path="/research-insights" element={<ResearchInsights />} />
             <Route path="/calculator" element={<Calculator />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/groups" element={<Groups />} />
