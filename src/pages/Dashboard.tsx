@@ -12,7 +12,7 @@ import { LivesListModal } from "@/components/LivesListModal";
 import { useWhatsAppInstances } from "@/hooks/useWhatsAppInstances";
 import { useLives } from "@/hooks/useLives";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -269,6 +269,11 @@ const [lives, setLives] = useState<any[]>([]);
                           </Button>
                         </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="bg-white border shadow-md">
+                            <DropdownMenuItem onClick={() => navigate(`/details?live=${live.id}`)} className="hover:bg-gray-100 cursor-pointer">
+                             <Eye className="mr-2 h-4 w-4" />
+                             Ver
+                           </DropdownMenuItem>
+                           <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => handleEditLive(live)} className="hover:bg-gray-100 cursor-pointer">
                              <Edit className="mr-2 h-4 w-4" />
                              Editar
