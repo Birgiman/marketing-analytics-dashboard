@@ -2,7 +2,7 @@
 
 ## 🎯 Visão Geral
 
-A integração Meta Ads permite conectar contas do Facebook Business Manager para importar dados de campanhas publicitárias, proporcionando análises unificadas de desempenho e métricas de conversão.
+A integração Meta Ads permite conectar contas do Facebook Business Manager de forma simplificada, validando tokens e preparando o sistema para futuras vinculações de campanhas com Lives. Esta versão refatorada foca em **validação de token** e **conexão básica**, deixando as operações pesadas de dados para quando realmente necessário.
 
 ## 🔧 Configuração e Setup
 
@@ -14,9 +14,10 @@ A integração Meta Ads permite conectar contas do Facebook Business Manager par
    - Business Manager configurado (opcional para testes)
 
 2. **Token de Acesso Meta**
-   - Permissões: `ads_read`, `ads_management`
-   - Escopo: Acesso às contas de anúncios
-   - Duração: Long-lived token recomendado
+   - **Tipo**: User Token (não Page Token)
+   - **Permissões**: `ads_read`, `ads_management`
+   - **Escopo**: Acesso às contas de anúncios do Business Manager
+   - **API Version**: v23.0 (auto-upgrade de v18.0)
 
 ### Como Obter Token de Acesso
 
@@ -52,96 +53,134 @@ A integração Meta Ads permite conectar contas do Facebook Business Manager par
 - Configure permissões para todas as contas necessárias
 - Implemente sistema de refresh automático
 
-## 🏗️ Arquitetura Técnica
+## 🏗️ Arquitetura Técnica (Refatorada)
 
 ### Componentes Principais
 
 ```typescript
-src/services/metaAdsService.ts     // Cliente API Facebook Marketing
-src/hooks/useMetaAds.tsx          // Hook React para estado
-src/components/MetaAdsConnection.tsx // Interface conexão
+// NOVA ARQUITETURA MODULAR
+src/services/metaTokenService.ts   // Validação e gestão de tokens
+src/utils/metaApi.ts              // Funções reutilizáveis da API
+src/hooks/useMetaIntegration.tsx  // Hook simplificado de conexão
+src/components/MetaAdsConnection.tsx // Interface minimalista
+
+// DEPRECATED (mantido para referência)
+src/services/metaAdsService.ts    // Sistema antigo complexo
+src/hooks/useMetaAds.tsx         // Hook antigo pesado
 ```
 
-### Estrutura de Dados
+### Estrutura de Dados (Simplificada)
 
-#### Tabelas Supabase
+#### Tabela Principal
 
-1. **`meta_ad_accounts`** - Contas Meta conectadas
-2. **`meta_campaigns`** - Campanhas publicitárias
-3. **`meta_ad_sets`** - Conjuntos de anúncios
-4. **`meta_ads`** - Anúncios individuais
-5. **`meta_insights`** - Métricas e resultados
-6. **`meta_sync_logs`** - Logs de sincronização
-
+**`meta_integrations`** - Conexões Meta simplificadas
 ```sql
--- Aplicar schema completo
--- Execute o arquivo: meta_ads_schema.sql no Supabase Dashboard
+CREATE TABLE meta_integrations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  access_token TEXT NOT NULL,           -- Token de acesso (criptografar em produção)
+  is_active BOOLEAN DEFAULT true,       -- Status da conexão
+  account_count INTEGER DEFAULT 0,      -- Número de contas acessíveis
+  connected_at TIMESTAMPTZ DEFAULT now(),
+  last_validated_at TIMESTAMPTZ,        -- Última validação do token
+  created_at TIMESTAMPTZ DEFAULT now()
+);
 ```
 
-### Fluxo de Integração
+#### Dados de Campanhas (Sob Demanda)
+As tabelas `meta_campaigns`, `meta_insights`, etc. serão populadas apenas quando:
+- Usuario vincular campanha específica a uma Live
+- Sistema executar sincronização programada
+- Usuário solicitar dados específicos
+
+> **Benefício**: Sem erro UUID, performance melhor, dados organizados
+
+### Fluxo de Integração (Novo)
 
 ```mermaid
 graph TD
     A[Token Input] → B[Validar Token]
-    B → C[Buscar Contas]
-    C → D[Salvar no Supabase]
-    D → E[Sync Campanhas]
-    E → F[Sync Insights]
-    F → G[Exibir Dashboard]
+    B → C[Verificar Acesso]
+    C → D[Salvar Integração]
+    D → E[Mostrar Status Conectado]
+    E → F[Usar em Lives/Campanhas]
+    
+    style A fill:#e1f5fe
+    style E fill:#c8e6c9
+    style F fill:#fff3e0
 ```
 
-## 🚀 Como Usar
+**Diferenças do Fluxo Antigo:**
+- ❌ Não salva campanhas automaticamente
+- ❌ Não faz sync pesado na conexão inicial  
+- ✅ Apenas valida token + conta contas
+- ✅ Armazena conexão simples
+- ✅ Deixa dados pesados para quando necessário
+
+## 🚀 Como Usar (Novo Fluxo)
 
 ### 1. Conectar Conta Meta
 
 1. Acesse página "Integrações"
 2. Clique "Conectar Meta Ads"
-3. Cole seu access token
-4. Sistema validará e importará contas
+3. Cole seu **User Token** (não Page Token)
+4. Sistema valida e mostra status "Conectado"
 
-### 2. Sincronização de Dados
+### 2. Uso das Funções da API
 
 ```typescript
-// Automática a cada 5 minutos
-const { syncData } = useMetaAds();
+// NOVA FORMA: Usar utilitários modulares
+import { fetchCampaigns, fetchAdAccounts } from '@/utils/metaApi';
 
-// Manual por conta específica
-await syncData('act_1234567890');
+// Buscar campanhas quando necessário (ex: ao vincular Live)
+const campaigns = await fetchCampaigns('act_123456', userToken);
 
-// Sync completo de todas as contas
-await syncData();
+// Buscar contas quando necessário
+const accounts = await fetchAdAccounts(userToken);
+
+// Validação simples de conexão
+const { validateConnection } = useMetaIntegration();
+await validateConnection();
 ```
 
-### 3. Visualização no Dashboard
+### 3. Próximos Passos Após Conexão
 
-- **Métricas gerais**: Investimento, impressões, leads
-- **Performance por campanha**: ROI, CPL, CTR
-- **Histórico temporal**: Gráficos de evolução
+- **Vincular Campanhas**: Use em "Lives" para conectar campanhas específicas
+- **Analytics Sob Demanda**: Dados carregados apenas quando solicitado
+- **Performance Otimizada**: Sem dados desnecessários na memória
 
-## 📊 Dados Coletados
+## 📊 Dados Disponíveis (Sob Demanda)
 
-### Campanhas
-- Nome, status, objetivo
-- Budget diário/total
-- Datas de início/fim
-- Performance geral
+Com a nova arquitetura, os dados são buscados apenas quando necessário:
 
-### Ad Sets
-- Segmentação (idade, gênero, localização)
-- Interesses e comportamentos
-- Estratégias de lance
+### Via `metaApi.ts`
+```typescript
+// Campanhas
+interface MetaCampaign {
+  id: string;
+  name: string;
+  status: string;
+  objective: string;
+  daily_budget?: string;
+  lifetime_budget?: string;
+  // ... outros campos
+}
 
-### Anúncios
-- Criativos (imagens, vídeos, textos)
-- Links de destino
-- Performance individual
+// Insights
+interface MetaInsight {
+  impressions: string;
+  clicks: string;
+  spend: string;
+  reach: string;
+  frequency: string;
+  // ... métricas completas
+}
+```
 
-### Insights/Métricas
-- **Alcance**: Impressões, reach, frequência
-- **Engajamento**: Cliques, CTR
-- **Investimento**: Spend, CPM, CPC
-- **Conversões**: Leads, cost per lead
-- **Vídeo**: Views, completion rate
+### Benefícios
+- **Performance**: Apenas dados necessários
+- **Flexibilidade**: Reutilizável em diferentes contextos
+- **Manutenibilidade**: Funções isoladas e testáveis
 
 ## 🔐 Segurança
 
@@ -157,87 +196,127 @@ await syncData();
 - Retry com backoff exponencial
 - Logs detalhados de erros
 
-## 🛠️ API Reference
+## 🛠️ API Reference (Nova Arquitetura)
 
-### MetaAdsService
+### MetaTokenService
 
 ```typescript
-class MetaAdsService {
-  // Validar e salvar token
-  async validateAndSaveToken(token: string, userId: string)
+class MetaTokenService {
+  // Validar token sem salvar dados pesados
+  async validateToken(accessToken: string): Promise<MetaTokenValidation>
   
-  // Buscar campanhas
-  async fetchCampaigns(accountId: string, token: string, userId: string)
+  // Salvar integração simples
+  async saveIntegration(userId: string, accessToken: string, validation: MetaTokenValidation)
   
-  // Buscar insights
-  async fetchInsights(campaignIds: string[], token: string, userId: string)
+  // Buscar integração do usuário
+  async getUserIntegration(userId: string): Promise<MetaIntegration | null>
   
-  // Sincronização completa
-  async fullSync(userId: string, accountId?: string)
+  // Desconectar
+  async disconnectIntegration(userId: string): Promise<void>
   
-  // Dados do usuário
-  async getUserData(userId: string)
+  // Re-validar token existente
+  async revalidateIntegration(integration: MetaIntegration): Promise<boolean>
 }
 ```
 
-### useMetaAds Hook
+### Funções Utilitárias (metaApi.ts)
+
+```typescript
+// Buscar contas de anúncios
+export async function fetchAdAccounts(accessToken: string): Promise<MetaAdAccount[]>
+
+// Buscar campanhas
+export async function fetchCampaigns(adAccountId: string, accessToken: string, options?): Promise<MetaCampaign[]>
+
+// Buscar insights
+export async function fetchCampaignInsights(campaignIds: string[], accessToken: string, options?): Promise<MetaInsight[]>
+
+// Helpers
+export function extractLeads(actions): number
+export function extractConversions(actions): number
+export function formatMetaCurrency(cents): number
+```
+
+### useMetaIntegration Hook (Novo)
 
 ```typescript
 const {
-  data,           // Dados das contas, campanhas, insights
-  isLoading,      // Estado de carregamento
-  isConnected,    // Status da conexão
-  isSyncing,      // Estado de sincronização
-  error,          // Mensagens de erro
-  lastSyncAt,     // Timestamp da última sync
-  connectAccount, // Conectar nova conta
-  disconnectAccount, // Desconectar conta
-  syncData,       // Sincronizar dados
-  refreshData     // Atualizar dados locais
-} = useMetaAds();
+  integration,        // Integração ativa ou null
+  isLoading,         // Estado de carregamento
+  isConnected,       // Status da conexão
+  isValidating,      // Estado de validação
+  error,             // Mensagens de erro
+  connectWithToken,  // Conectar com token
+  disconnect,        // Desconectar
+  validateConnection, // Re-validar token
+  clearError         // Limpar erros
+} = useMetaIntegration();
 ```
+
+**Diferenças:**
+- ❌ Sem dados pesados (`campaigns`, `insights`)
+- ❌ Sem sync automática
+- ✅ Foco apenas na conexão
+- ✅ Validação de token
+- ✅ Status simples e claro
 
 ## 🚨 Troubleshooting
 
-### Problemas Comuns
+### Problemas Comuns (Atualizados)
 
-1. **Token Inválido**
+1. **Token é Page Token (não User Token)**
    ```
-   Erro: "Token inválido ou expirado"
-   Solução: Gerar novo token no Facebook Developer
-   ```
-
-2. **Sem Contas de Anúncios**
-   ```
-   Erro: "Nenhuma conta encontrada"
-   Solução: Verificar permissões ads_read no token
+   Erro: "(#100) Tried accessing nonexisting field (adaccounts) on node type (Page)"
+   Solução: Solicitar User Token do Facebook Business Manager
    ```
 
-3. **Rate Limit Excedido**
+2. **Token Sem Permissões**
    ```
-   Erro: "API rate limit exceeded"
-   Solução: Aguardar ou implementar delay maior
-   ```
-
-4. **Dados Não Sincronizam**
-   ```
-   Verificar: Logs na tabela meta_sync_logs
-   Debug: Console do navegador para erros
+   Erro: "Não foi possível acessar contas de anúncios"
+   Solução: Token deve ter `ads_read` e `ads_management`
    ```
 
-### Logs de Debug
+3. **API Version Deprecated**
+   ```
+   Warning: "auto-upgraded to v23.0 as v18.0 has been deprecated"
+   Status: ✅ Já corrigido - usando v23.0
+   ```
+
+4. **Erro UUID em Campanhas**
+   ```
+   Erro: "22P02: invalid input syntax for type uuid"
+   Status: ✅ Corrigido - IDs do Meta ficam apenas em funções utilitárias
+   ```
+
+### Logs de Debug (Simplificados)
 
 ```sql
--- Verificar sincronizações recentes
-SELECT * FROM meta_sync_logs 
+-- Verificar integração do usuário
+SELECT * FROM meta_integrations 
 WHERE user_id = 'your-user-id' 
-ORDER BY created_at DESC 
-LIMIT 10;
+AND is_active = true;
 
--- Status das contas
-SELECT account_name, is_active, last_sync_at 
-FROM meta_ad_accounts 
+-- Verificar última validação
+SELECT 
+  account_count,
+  connected_at,
+  last_validated_at,
+  is_active
+FROM meta_integrations 
 WHERE user_id = 'your-user-id';
+```
+
+**Debug no Console:**
+```javascript
+// Testar token diretamente
+fetch('https://graph.facebook.com/v23.0/me?access_token=SEU_TOKEN')
+  .then(r => r.json())
+  .then(console.log);
+
+// Testar acesso a contas
+fetch('https://graph.facebook.com/v23.0/me/adaccounts?fields=id,name&access_token=SEU_TOKEN')
+  .then(r => r.json())
+  .then(console.log);
 ```
 
 ## 📈 Métricas de Performance
@@ -254,24 +333,64 @@ WHERE user_id = 'your-user-id';
 - CPL variável por nicho
 - Frequência ideal: 1-3x
 
-## 🔄 Atualizações Futuras
+## 🔄 Atualizações Implementadas (Janeiro 2025)
 
-### Próximas Funcionalidades
-- [ ] Webhooks para sync em tempo real
-- [ ] Filtros avançados por período/status
+### ✅ Melhorias da Refatoração
+- [x] **Arquitetura Simplificada**: Token-only integration
+- [x] **API v23.0**: Upgrade automático para versão mais recente
+- [x] **Funções Modulares**: `metaApi.ts` reutilizável
+- [x] **Performance**: Sem dados desnecessários na inicialização
+- [x] **Fix UUID**: Correção do erro 22P02 com IDs do Meta
+- [x] **UX Melhor**: Interface focada em conexão simples
+
+### 🚧 Próximas Funcionalidades
+- [ ] Vincular campanhas específicas às Lives
+- [ ] Dashboard de métricas sob demanda
 - [ ] Exportação de dados (CSV/Excel)
 - [ ] Alertas de performance
-- [ ] Análise de criativos por IA
-- [ ] Comparação com dados WhatsApp
+- [ ] Análise de criativos
+- [ ] Relatórios automatizados
 
-### Melhorias Técnicas
+### 🔧 Melhorias Técnicas Planejadas
 - [ ] Criptografia de tokens em produção
-- [ ] Cache inteligente de dados
-- [ ] Compressão de dados históricos
-- [ ] Monitoramento de saúde da API
+- [ ] Cache inteligente com Redis
+- [ ] Rate limiting inteligente
+- [ ] Health checks automáticos
 
 ---
 
-**Status**: ✅ Implementado e Funcional  
+---
+
+## 📋 Resumo da Refatoração
+
+### Antes (Problemático)
+```typescript
+// Sistema pesado que salvava tudo na conexão inicial
+const { connectAccount } = useMetaAds();
+await connectAccount(token); // Salvava campanhas, insights, etc.
+```
+
+### Depois (Otimizado)
+```typescript
+// Conexão simples + funções sob demanda
+const { connectWithToken } = useMetaIntegration();
+await connectWithToken(token); // Apenas valida e salva token
+
+// Usar dados quando necessário
+import { fetchCampaigns } from '@/utils/metaApi';
+const campaigns = await fetchCampaigns(accountId, token);
+```
+
+### Benefícios
+- ✅ **Sem erros UUID**: IDs do Meta ficam apenas em utilitários
+- ✅ **Performance**: Conexão rápida sem dados pesados
+- ✅ **Modularidade**: Funções reutilizáveis em Lives, Analytics, etc.
+- ✅ **UX**: Interface simples focada na conexão
+- ✅ **Manutenibilidade**: Código organizado e testável
+
+---
+
+**Status**: ✅ Refatorado e Otimizado  
 **Última Atualização**: Janeiro 2025  
-**Responsável**: Sistema LiveShop Analytics
+**API Version**: v23.0  
+**Arquitetura**: Token-only + Modular Utilities

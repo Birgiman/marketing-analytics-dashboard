@@ -76,11 +76,11 @@ Evolution API (WhatsApp)
 ├── Status polling
 └── Message handling
 
-Facebook Marketing API (Meta Ads)
-├── Token-based authentication
-├── Campaign data sync
-├── Insights collection
-└── Multi-account support
+Facebook Marketing API (Meta Ads) v23.0
+├── Simplified token validation
+├── Modular API utilities
+├── Connection-only integration
+└── Reusable campaign functions
 ```
 
 ## 📁 Estrutura de Arquivos
@@ -97,7 +97,8 @@ liveshop-analytics-rebuilt/
 │   ├── hooks/
 │   │   ├── useToast.ts
 │   │   ├── useWhatsAppConnection.tsx
-│   │   └── useMetaAds.tsx
+│   │   ├── useMetaAds.tsx (deprecated)
+│   │   └── useMetaIntegration.tsx
 │   ├── lib/
 │   │   └── supabase.ts
 │   ├── pages/
@@ -112,7 +113,10 @@ liveshop-analytics-rebuilt/
 │   │   └── index.tsx
 │   ├── services/
 │   │   ├── whatsappService.ts
-│   │   └── metaAdsService.ts
+│   │   ├── metaAdsService.ts (deprecated)
+│   │   └── metaTokenService.ts
+│   ├── utils/
+│   │   └── metaApi.ts
 │   ├── styles/
 │   │   └── globals.css
 │   └── types/
@@ -177,9 +181,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 - **Modais e Componentes**: Interface rica com modais funcionais
 
 ### ✅ Recém Implementado (Janeiro 2025)
-- **Meta Ads Integration**: Sistema completo com Facebook Marketing API v18.0
+- **Meta Ads Integration**: Sistema completo com Facebook Marketing API v23.0
 - **Analytics Avançado**: Interface rica com métricas detalhadas  
 - **Sistema de Documentação**: Docs organizadas por funcionalidade
+- **Meta Integration Refactor**: Arquitetura simplificada token-only
 
 ### 🚧 Em Desenvolvimento
 - **Sistema de Lives**: Estrutura de dados, interface pendente
@@ -196,7 +201,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 - **Vendas por Público**: Analytics detalhado com filtros e métricas por grupos
 - **Modal de Endereço**: Sistema de gerenciamento de endereços de entrega
 - **Painel Administrativo**: Interface completa para aprovação/rejeição de usuários
-- **Meta Ads System**: Integração completa com Facebook Marketing API v18.0
+- **Meta Ads System**: Integração refatorada com Facebook Marketing API v23.0
+- **Meta Token Service**: Sistema simplificado de validação de tokens
+- **Meta API Utils**: Funções modulares e reutilizáveis para campanhas
 - **Documentação Técnica**: Docs separadas por funcionalidade (WhatsApp, Meta Ads)
 
 ### 📋 Próximas Funcionalidades
@@ -251,6 +258,8 @@ O projeto está pronto para desenvolvimento contínuo. Todas as funcionalidades 
 - ✅ Supabase connection: OK
 - ✅ WhatsApp integration: OK
 - ✅ Authentication flow: OK
+- ✅ Meta token validation: OK
+- ✅ Modular architecture: OK
 
 ### Próximos Passos Sugeridos
 1. Configurar variáveis de ambiente de produção

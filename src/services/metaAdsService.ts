@@ -44,7 +44,7 @@ export interface MetaInsights {
 }
 
 class MetaAdsService {
-  private readonly BASE_URL = 'https://graph.facebook.com/v18.0';
+  private readonly BASE_URL = 'https://graph.facebook.com/v23.0';
   
   /**
    * Valida e salva um novo token de acesso

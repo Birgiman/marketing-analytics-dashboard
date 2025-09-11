@@ -22,7 +22,7 @@ import {
   Clock,
   TrendingUp
 } from 'lucide-react';
-import { useMetaAds } from '@/hooks/useMetaAds';
+import { useMetaIntegration } from '@/hooks/useMetaIntegration';
 
 interface MetaAdsConnectionProps {
   isOpen: boolean;
@@ -34,23 +34,22 @@ export const MetaAdsConnection = ({ isOpen, onClose }: MetaAdsConnectionProps) =
   const [showTokenInput, setShowTokenInput] = useState(false);
   
   const {
-    data,
+    integration,
     isLoading,
     isConnected,
-    isSyncing,
+    isValidating,
     error,
-    lastSyncAt,
-    connectAccount,
-    disconnectAccount,
-    syncData,
-    refreshData
-  } = useMetaAds();
+    connectWithToken,
+    disconnect,
+    validateConnection,
+    clearError
+  } = useMetaIntegration();
   
   const handleConnect = async () => {
     if (!accessToken.trim()) return;
     
     try {
-      await connectAccount(accessToken);
+      await connectWithToken(accessToken);
       setAccessToken('');
       setShowTokenInput(false);
     } catch (err) {
@@ -58,8 +57,8 @@ export const MetaAdsConnection = ({ isOpen, onClose }: MetaAdsConnectionProps) =
     }
   };
   
-  const handleSync = async (accountId?: string) => {
-    await syncData(accountId);
+  const handleValidate = async () => {
+    await validateConnection();
   };
   
   const formatCurrency = (cents: number) => {
@@ -144,10 +143,10 @@ export const MetaAdsConnection = ({ isOpen, onClose }: MetaAdsConnectionProps) =
                       <div className="flex gap-2">
                         <Button 
                           onClick={handleConnect}
-                          disabled={!accessToken.trim() || isLoading}
+                          disabled={!accessToken.trim() || isValidating}
                           className="flex-1"
                         >
-                          {isLoading ? 'Conectando...' : 'Conectar'}
+                          {isValidating ? 'Validando...' : 'Conectar'}
                         </Button>
                         <Button 
                           onClick={() => {
@@ -164,137 +163,83 @@ export const MetaAdsConnection = ({ isOpen, onClose }: MetaAdsConnectionProps) =
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {/* Connected Accounts */}
-                  <div className="grid gap-4">
-                    {data.accounts.map((account) => (
-                      <div key={account.ad_account_id} className="border rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-semibold">{account.account_name}</h4>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline">
-                              {account.currency}
-                            </Badge>
-                            <Button
-                              onClick={() => handleSync(account.ad_account_id)}
-                              disabled={isSyncing}
-                              size="sm"
-                              variant="outline"
-                            >
-                              <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
-                            </Button>
-                            <Button
-                              onClick={() => disconnectAccount(account.ad_account_id)}
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        <div className="text-sm text-gray-600">
-                          <p>ID: {account.ad_account_id}</p>
-                          <p>Timezone: {account.timezone_name}</p>
-                          {lastSyncAt && (
-                            <p className="flex items-center gap-1 mt-1">
-                              <Clock className="h-3 w-3" />
-                              Última sincronização: {formatDate(lastSyncAt.toISOString())}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Quick Stats */}
-                  {data.campaigns.length > 0 && (
-                    <div className="grid grid-cols-3 gap-4 pt-4 border-t">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold">{data.campaigns.length}</div>
-                        <div className="text-sm text-gray-600">Campanhas</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold">
-                          {data.insights.reduce((sum, insight) => sum + insight.impressions, 0).toLocaleString()}
-                        </div>
-                        <div className="text-sm text-gray-600">Impressões</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold">
-                          {formatCurrency(data.insights.reduce((sum, insight) => sum + insight.spend, 0))}
-                        </div>
-                        <div className="text-sm text-gray-600">Investimento</div>
+                  {/* Connected Integration */}
+                  <div className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-semibold">Meta Ads - Integração Ativa</h4>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">
+                          {integration?.account_count} contas
+                        </Badge>
+                        <Button
+                          onClick={handleValidate}
+                          disabled={isValidating}
+                          size="sm"
+                          variant="outline"
+                        >
+                          <RefreshCw className={`h-3 w-3 ${isValidating ? 'animate-spin' : ''}`} />
+                        </Button>
+                        <Button
+                          onClick={disconnect}
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
-                  )}
+                    
+                    <div className="text-sm text-gray-600">
+                      <p>Conectado em: {integration ? formatDate(integration.connected_at) : '-'}</p>
+                      {integration?.last_validated_at && (
+                        <p className="flex items-center gap-1 mt-1">
+                          <Clock className="h-3 w-3" />
+                          Última validação: {formatDate(integration.last_validated_at)}
+                        </p>
+                      )}
+                      <p className="text-xs mt-2 text-blue-600">
+                        💡 Use esta integração para vincular campanhas às suas Lives
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
           
-          {/* Recent Campaigns */}
-          {isConnected && data.campaigns.length > 0 && (
+          {/* Info Card */}
+          {isConnected && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" />
-                  Campanhas Recentes
+                  Próximos Passos
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {data.campaigns.slice(0, 5).map((campaign) => (
-                    <div key={campaign.campaign_id} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                      <div>
-                        <div className="font-medium">{campaign.name}</div>
-                        <div className="text-sm text-gray-600">
-                          {campaign.objective} • {campaign.status}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-medium">
-                          {campaign.daily_budget 
-                            ? formatCurrency(campaign.daily_budget)
-                            : campaign.lifetime_budget 
-                              ? `${formatCurrency(campaign.lifetime_budget)} total`
-                              : 'N/A'
-                          }
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {formatDate(campaign.created_time)}
-                        </div>
-                      </div>
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-start gap-2">
+                    <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
+                    <div>
+                      <p className="font-medium">Vincular Campanhas às Lives</p>
+                      <p className="text-gray-600">Acesse "Lives" para conectar campanhas específicas e monitorar performance.</p>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          
-          {/* Sync Logs */}
-          {isConnected && data.logs.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Histórico de Sincronização</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {data.logs.slice(0, 3).map((log, index) => (
-                    <div key={index} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        {log.status === 'success' ? (
-                          <CheckCircle className="h-3 w-3 text-green-600" />
-                        ) : (
-                          <AlertTriangle className="h-3 w-3 text-red-600" />
-                        )}
-                        <span>{log.sync_type}</span>
-                      </div>
-                      <div className="text-gray-600">
-                        {log.records_processed} registros • {formatDate(log.created_at)}
-                      </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500 mt-2"></div>
+                    <div>
+                      <p className="font-medium">Analytics Integrado</p>
+                      <p className="text-gray-600">Veja métricas de anúncios junto com dados do WhatsApp.</p>
                     </div>
-                  ))}
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <div className="w-2 h-2 rounded-full bg-purple-500 mt-2"></div>
+                    <div>
+                      <p className="font-medium">Automação</p>
+                      <p className="text-gray-600">Configure alertas e relatórios automáticos.</p>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -307,33 +252,14 @@ export const MetaAdsConnection = ({ isOpen, onClose }: MetaAdsConnectionProps) =
             </Button>
             
             {isConnected && (
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => refreshData()}
-                  variant="outline"
-                  disabled={isLoading}
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                  Atualizar
-                </Button>
-                
-                <Button 
-                  onClick={() => syncData()}
-                  disabled={isSyncing}
-                >
-                  {isSyncing ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Sincronizando...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Sincronizar Tudo
-                    </>
-                  )}
-                </Button>
-              </div>
+              <Button 
+                onClick={handleValidate}
+                variant="outline"
+                disabled={isValidating}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isValidating ? 'animate-spin' : ''}`} />
+                Validar Conexão
+              </Button>
             )}
           </div>
         </div>
