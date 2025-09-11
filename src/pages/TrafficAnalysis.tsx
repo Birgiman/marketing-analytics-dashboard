@@ -479,7 +479,9 @@ const TrafficAnalysis = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-8">
+    <div className="min-h-screen bg-background">
+      <Header />
+      <div className="container mx-auto p-6 space-y-8">
       {/* Métricas Principais */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
         <Card>
@@ -950,6 +952,7 @@ const TrafficAnalysis = () => {
           </Table>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };
