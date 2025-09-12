@@ -56,16 +56,17 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
 
       await whatsappService.syncInstanceStatus(userId);
       
-      toast({
+      toast.success({
         title: "Status sincronizado",
         description: "Informações atualizadas com sucesso",
+        duration: 3000
       });
     } catch (err: any) {
       console.error('Erro ao sincronizar:', err);
-      toast({
+      toast.error({
         title: "Erro na sincronização",
         description: err.message || 'Falha ao sincronizar com Evolution API',
-        variant: "destructive",
+        duration: 7000
       });
     } finally {
       setIsSyncing(false);

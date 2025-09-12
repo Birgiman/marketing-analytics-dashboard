@@ -68,14 +68,16 @@ const ResearchInsights = () => {
   }, []);
 
   const refreshData = async () => {
-    toast({
+    toast.info({
       title: "Atualizando dados...",
-      description: "Buscando os dados mais recentes da pesquisa."
+      description: "Buscando os dados mais recentes da pesquisa.",
+      duration: 3000
     });
     await fetchSurveyData();
-    toast({
+    toast.success({
       title: "Dados atualizados!",
-      description: "Os insights foram atualizados com sucesso."
+      description: "Os insights foram atualizados com sucesso.",
+      duration: 4000
     });
   };
 

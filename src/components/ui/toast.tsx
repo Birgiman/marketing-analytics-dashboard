@@ -30,6 +30,9 @@ const toastVariants = cva(
         default: "border bg-background text-foreground",
         destructive:
           "destructive group border-destructive bg-destructive text-destructive-foreground",
+        success: "border-green-200 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-900/50 dark:text-green-100",
+        warning: "border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-100",
+        info: "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-700 dark:bg-blue-900/50 dark:text-blue-100",
       },
     },
     defaultVariants: {
@@ -38,17 +41,54 @@ const toastVariants = cva(
   }
 )
 
+interface ToastProps extends 
+  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root>,
+  VariantProps<typeof toastVariants> {
+  duration?: number
+}
+
 const Toast = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Root>,
-  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> &
-    VariantProps<typeof toastVariants>
->(({ className, variant, ...props }, ref) => {
+  ToastProps
+>(({ className, variant, duration = 5000, ...props }, ref) => {
+  const progressBarColor = React.useMemo(() => {
+    switch (variant) {
+      case 'success':
+        return 'bg-green-500'
+      case 'destructive':
+        return 'bg-red-500'
+      case 'warning':
+        return 'bg-yellow-500'
+      case 'info':
+        return 'bg-blue-500'
+      default:
+        return 'bg-primary'
+    }
+  }, [variant])
+
   return (
     <ToastPrimitives.Root
       ref={ref}
-      className={cn(toastVariants({ variant }), className)}
+      className={cn(toastVariants({ variant }), "pb-2", className)}
+      duration={duration}
       {...props}
-    />
+    >
+      <div className="flex-1 flex flex-col">
+        {props.children}
+      </div>
+      {/* Barra de progresso */}
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/10 dark:bg-white/10">
+        <div 
+          className={cn(
+            "h-full transition-all ease-linear",
+            progressBarColor
+          )}
+          style={{
+            animation: `toast-progress ${duration}ms linear forwards`
+          }}
+        />
+      </div>
+    </ToastPrimitives.Root>
   )
 })
 Toast.displayName = ToastPrimitives.Root.displayName
@@ -109,8 +149,6 @@ const ToastDescription = React.forwardRef<
   />
 ))
 ToastDescription.displayName = ToastPrimitives.Description.displayName
-
-type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>
 
 type ToastActionElement = React.ReactElement<typeof ToastAction>
 

@@ -6,13 +6,14 @@ import type {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_REMOVE_DELAY = 500 // Tempo para remover o toast após fechar (0.5s)
 
 type ToasterToast = ToastProps & {
   id: string
   title?: React.ReactNode
   description?: React.ReactNode
   action?: ToastActionElement
+  duration?: number
 }
 
 const actionTypes = {
@@ -166,6 +167,23 @@ function toast({ ...props }: Toast) {
     dismiss,
     update,
   }
+}
+
+// Funções de conveniência para diferentes tipos de toast
+toast.success = ({ duration = 5000, ...props }: Omit<Toast, 'variant'>) => {
+  return toast({ ...props, variant: 'success', duration })
+}
+
+toast.error = ({ duration = 6000, ...props }: Omit<Toast, 'variant'>) => {
+  return toast({ ...props, variant: 'destructive', duration })
+}
+
+toast.warning = ({ duration = 5000, ...props }: Omit<Toast, 'variant'>) => {
+  return toast({ ...props, variant: 'warning', duration })
+}
+
+toast.info = ({ duration = 4000, ...props }: Omit<Toast, 'variant'>) => {
+  return toast({ ...props, variant: 'info', duration })
 }
 
 function useToast() {
