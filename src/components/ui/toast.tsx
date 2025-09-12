@@ -23,16 +23,15 @@ const ToastViewport = React.forwardRef<
 ToastViewport.displayName = ToastPrimitives.Viewport.displayName
 
 const toastVariants = cva(
-  "group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-6 pr-8 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full",
+  "group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-6 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full cursor-pointer hover:bg-accent/5",
   {
     variants: {
       variant: {
         default: "border bg-background text-foreground",
-        destructive:
-          "destructive group border-destructive bg-destructive text-destructive-foreground",
-        success: "border-green-200 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-900/50 dark:text-green-100",
-        warning: "border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-100",
-        info: "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-700 dark:bg-blue-900/50 dark:text-blue-100",
+        destructive: "border-red-500 bg-background text-foreground",
+        success: "border-green-500 bg-background text-foreground",
+        warning: "border-yellow-500 bg-background text-foreground", 
+        info: "border-blue-500 bg-background text-foreground",
       },
     },
     defaultVariants: {
@@ -50,7 +49,9 @@ interface ToastProps extends
 const Toast = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Root>,
   ToastProps
->(({ className, variant, duration = 5000, ...props }, ref) => {
+>(({ className, variant, duration = 5000, onOpenChange, ...props }, ref) => {
+  const [progress, setProgress] = React.useState(100)
+
   const progressBarColor = React.useMemo(() => {
     switch (variant) {
       case 'success':
@@ -66,11 +67,34 @@ const Toast = React.forwardRef<
     }
   }, [variant])
 
+  React.useEffect(() => {
+    const startTime = Date.now()
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime
+      const remaining = Math.max(0, ((duration - elapsed) / duration) * 100)
+      setProgress(remaining)
+      
+      if (remaining <= 0) {
+        clearInterval(interval)
+      }
+    }, 50) // Atualiza a cada 50ms para animação suave
+
+    return () => clearInterval(interval)
+  }, [duration])
+
+  const handleClick = () => {
+    if (onOpenChange) {
+      onOpenChange(false)
+    }
+  }
+
   return (
     <ToastPrimitives.Root
       ref={ref}
-      className={cn(toastVariants({ variant }), "pb-2", className)}
+      className={cn(toastVariants({ variant }), "pb-2 pr-6", className)}
       duration={duration}
+      onOpenChange={onOpenChange}
+      onClick={handleClick}
       {...props}
     >
       <div className="flex-1 flex flex-col">
@@ -79,12 +103,9 @@ const Toast = React.forwardRef<
       {/* Barra de progresso */}
       <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/10 dark:bg-white/10">
         <div 
-          className={cn(
-            "h-full transition-all ease-linear",
-            progressBarColor
-          )}
+          className={cn("h-full transition-all duration-75", progressBarColor)}
           style={{
-            animation: `toast-progress ${duration}ms linear forwards`
+            width: `${progress}%`
           }}
         />
       </div>
