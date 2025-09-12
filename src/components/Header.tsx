@@ -7,8 +7,8 @@ const Header = () => {
 
   const navigationTabs = [
     {
-      path: '/',
-      name: 'Dashboard',
+      path: '/details',
+      name: 'Detalhes',
     },
     {
       path: '/traffic-analysis',
@@ -25,7 +25,6 @@ const Header = () => {
   ];
 
   const isTabActive = (path: string) => {
-    if (path === '/' && location.pathname === '/details') return true;
     return location.pathname === path;
   };
 
