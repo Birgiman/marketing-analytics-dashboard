@@ -152,7 +152,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
   return (
     <>
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl w-full">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-center">
               {editingLive ? 'Editar LiveShop 🛍️' : (currentStep === 1 ? 'Vamos criar sua LiveShop! 🛍️' : 'Adicionar Grupos WhatsApp 📱')}
