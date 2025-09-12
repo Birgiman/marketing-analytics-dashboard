@@ -57,6 +57,7 @@ src/
 ### ✅ Dashboard Principal
 - Métricas básicas (visualizações, vendas, receita)
 - Cards de navegação rápida
+- **Lives navegáveis**: Nomes das lives clicáveis para detalhes
 - Estatísticas de integrações conectadas
 
 ### ✅ Sistema de Tipos

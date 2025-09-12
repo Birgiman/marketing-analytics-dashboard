@@ -180,11 +180,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 - **Painel Admin**: Sistema de aprovação de usuários
 - **Modais e Componentes**: Interface rica com modais funcionais
 
-### ✅ Recém Implementado (Janeiro 2025)
+### ✅ Recém Implementado (Setembro 2025)
+- **Dashboard Interativo**: Nomes das lives clicáveis para navegação direta aos detalhes
+- **Modal Otimizado**: CreateLiveModal expandido para acomodar nomes longos de grupos WhatsApp
+- **Sistema Admin Unificado**: Função is_admin_user() atualizada para usar profiles.is_admin ao invés de email fixo
 - **Meta Ads Integration**: Sistema completo com Facebook Marketing API v23.0
 - **Analytics Avançado**: Interface rica com métricas detalhadas  
 - **Sistema de Documentação**: Docs organizadas por funcionalidade
-- **Meta Integration Refactor**: Arquitetura simplificada token-only
 
 ### 🚧 Em Desenvolvimento
 - **Sistema de Lives**: Estrutura de dados, interface pendente
