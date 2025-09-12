@@ -1,12 +1,16 @@
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Users, DollarSign, Target, Activity } from "lucide-react";
+import { TrendingUp, TrendingDown, Users, DollarSign, Target, Activity, RefreshCw, AlertCircle } from "lucide-react";
 import PerformanceAnalysis from "@/components/PerformanceAnalysis";
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Live, Creative, Group } from "@/types";
+import { Live, Group } from "@/types";
 import { DEMO_MODE } from "@/lib/demo-mode";
+import { useMetaLivesData } from "@/hooks/useMetaLivesData";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { MetaCampaignsList } from "@/components/MetaCampaignsList";
 
 const Details = () => {
   const [searchParams] = useSearchParams();
@@ -15,8 +19,20 @@ const Details = () => {
   
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState<Live | null>(null);
-  const [creatives, setCreatives] = useState<Creative[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+  
+  // Usar hook para dados do Meta Ads
+  const {
+    creatives,
+    isLoading: metaLoading,
+    isConnected: metaConnected,
+    hasMetaIntegration,
+    error: metaError,
+    lastUpdated,
+    refreshData: refreshMetaData,
+    clearError
+  } = useMetaLivesData(userId || undefined);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -36,20 +52,7 @@ const Details = () => {
           updated_at: new Date().toISOString()
         });
         
-        setCreatives([
-          {
-            id: '1',
-            campaign_name: 'Campanha Live Demo',
-            ad_set_name: 'Público Interesse',
-            ad_name: 'Criativo Principal',
-            amount_spent: 2500,
-            leads: 125,
-            cost_per_lead: 20,
-            day: new Date().toISOString().split('T')[0],
-            created_at: new Date().toISOString(),
-            user_id: 'demo-user'
-          }
-        ]);
+        // Dados de creatives vêm do hook useMetaLivesData
         
         setGroups([
           {
@@ -77,17 +80,9 @@ const Details = () => {
 
         if (liveError) throw liveError;
         setLive(liveData);
+        setUserId(liveData.user_id);
 
-        // Buscar dados de criativos (campanhas)
-        const { data: creativesData, error: creativesError } = await supabase
-          .from('creatives')
-          .select('*')
-          .eq('user_id', liveData.user_id);
-
-        if (creativesError) throw creativesError;
-        setCreatives(creativesData || []);
-
-        // Buscar dados de grupos
+        // Buscar dados de grupos (WhatsApp)
         const { data: groupsData, error: groupsError } = await supabase
           .from('groups')
           .select('*')
@@ -95,6 +90,8 @@ const Details = () => {
 
         if (groupsError) throw groupsError;
         setGroups(groupsData || []);
+
+        // Dados de creatives agora vêm do Meta Ads via hook
 
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
@@ -163,10 +160,18 @@ const Details = () => {
     return totalLeads > 0 ? totalSpent / totalLeads : 0;
   };
 
-  if (loading) {
+  if (loading || (userId && metaLoading && creatives.length === 0)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Carregando detalhes...</div>
+        <div className="text-center space-y-4">
+          <div className="text-xl">Carregando detalhes...</div>
+          {metaLoading && (
+            <div className="text-sm text-gray-600 flex items-center justify-center gap-2">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              Buscando dados do Meta Ads...
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -193,8 +198,68 @@ const Details = () => {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Detalhes da Live</h1>
             <p className="text-muted-foreground mt-1">{live.name}</p>
+            {lastUpdated && (
+              <p className="text-xs text-gray-500 mt-1">
+                Dados atualizados: {lastUpdated.toLocaleString('pt-BR')}
+              </p>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {/* Status da Integração Meta */}
+            <div className="flex items-center gap-2">
+              {hasMetaIntegration ? (
+                metaConnected ? (
+                  <Badge variant="default" className="bg-green-100 text-green-800">
+                    Meta Ads Conectado
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                    Meta Ads: Sem Dados
+                  </Badge>
+                )
+              ) : (
+                <Badge variant="outline" className="bg-gray-100 text-gray-600">
+                  Meta Ads Não Conectado
+                </Badge>
+              )}
+            </div>
+            
+            {/* Botão Refresh */}
+            {hasMetaIntegration && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refreshMetaData}
+                disabled={metaLoading}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${metaLoading ? 'animate-spin' : ''}`} />
+                Atualizar
+              </Button>
+            )}
           </div>
         </div>
+        
+        {/* Error Alert */}
+        {metaError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-red-600" />
+              <div>
+                <p className="text-sm font-medium text-red-800">Erro ao carregar dados do Meta Ads</p>
+                <p className="text-xs text-red-600 mt-1">{metaError}</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearError}
+                  className="mt-2 text-red-600 hover:text-red-700"
+                >
+                  Fechar
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Métricas Principais */}
         <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
@@ -271,6 +336,45 @@ const Details = () => {
           </Card>
         </div>
 
+        {/* Status dos Dados */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Activity className="h-5 w-5 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-blue-900">Fontes de Dados</h3>
+              <div className="text-sm text-blue-700 space-y-1 mt-1">
+                <p>
+                  <strong>CPL Líquido & Meta:</strong> {hasMetaIntegration ? 'Meta Ads integrado' : 'Dados de exemplo - Configure integração Meta Ads'}
+                </p>
+                <p>
+                  <strong>Dados de Grupos:</strong> WhatsApp Business via Evolution API
+                </p>
+                <p>
+                  <strong>Total de Campanhas:</strong> {creatives.length} registro(s)
+                </p>
+              </div>
+            </div>
+            {!hasMetaIntegration && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/integrations')}
+                className="bg-white hover:bg-blue-50"
+              >
+                Configurar Meta Ads
+              </Button>
+            )}
+          </div>
+        </div>
+        
+        {/* Lista de Campanhas Meta Ads */}
+        <MetaCampaignsList 
+          creatives={creatives} 
+          isLoading={metaLoading}
+        />
+        
         {/* Análise de Performance */}
         <PerformanceAnalysis />
       </div>

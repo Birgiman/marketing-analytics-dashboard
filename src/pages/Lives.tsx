@@ -7,13 +7,18 @@ import { DEMO_MODE } from '@/lib/demo-mode';
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Live } from '@/types';
-import { Plus, Play, Users, TrendingUp, Calendar, Clock, Eye, Edit, Trash2 } from 'lucide-react';
+import { Plus, Play, Users, TrendingUp, Calendar, Clock, Eye, Edit, Trash2, Target } from 'lucide-react';
+import { useMetaLivesData } from '@/hooks/useMetaLivesData';
+import { Badge } from '@/components/ui/badge';
 
 export default function Lives() {
   const navigate = useNavigate();
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const { lives, createLive, updateLive, deleteLive, loading: analyticsLoading } = useAnalytics(userId || undefined);
+  
+  // Verificar status da integração Meta
+  const { hasMetaIntegration, isConnected: metaConnected } = useMetaLivesData(userId || undefined);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -114,6 +119,53 @@ export default function Lives() {
               <Plus className="h-4 w-4" />
               Nova Live
             </Button>
+          </div>
+
+          {/* Status da Integração Meta */}
+          <div className="mb-6">
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Target className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Meta Ads Integration</h3>
+                    <p className="text-sm text-gray-600">
+                      {hasMetaIntegration 
+                        ? (metaConnected ? 'Conectado e funcionando' : 'Conectado, mas sem dados recentes') 
+                        : 'Não configurado'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {hasMetaIntegration ? (
+                    metaConnected ? (
+                      <Badge variant="default" className="bg-green-100 text-green-800">
+                        Ativo
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                        Sem Dados
+                      </Badge>
+                    )
+                  ) : (
+                    <>
+                      <Badge variant="outline" className="bg-gray-100 text-gray-600">
+                        Desconectado
+                      </Badge>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate('/integrations')}
+                      >
+                        Conectar
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </Card>
           </div>
 
           {/* Stats Cards */}
