@@ -92,7 +92,7 @@ export async function fetchCampaigns(
 
   if (status.length > 0) {
     params.append('filtering', JSON.stringify([{
-      field: 'campaign.status',
+      field: 'status',
       operator: 'IN',
       value: status
     }]));

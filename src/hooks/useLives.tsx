@@ -19,11 +19,23 @@ interface LiveGroup {
   group_size: number
 }
 
+interface LiveCampaign {
+  id: string
+  name: string
+  status: string
+  objective?: string
+  account_id?: string
+  account_name?: string
+  daily_budget?: string
+  lifetime_budget?: string
+  created_time: string
+}
+
 export function useLives() {
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
 
-  const createLiveWithGroups = async (liveData: LiveData, groups: LiveGroup[]) => {
+  const createLiveWithGroups = async (liveData: LiveData, groups: LiveGroup[], campaigns: LiveCampaign[] = []) => {
     try {
       setIsLoading(true)
 
@@ -77,12 +89,38 @@ export function useLives() {
         }
       }
 
+      // Create live_campaigns entries
+      if (campaigns.length > 0) {
+        const liveCampaigns = campaigns.map(campaign => ({
+          live_id: liveResult.id,
+          campaign_id: campaign.id,
+          campaign_name: campaign.name,
+          account_id: (campaign as any).account_id || null,
+          account_name: (campaign as any).account_name || null,
+          objective: campaign.objective || null,
+          status: campaign.status,
+          daily_budget: campaign.daily_budget ? parseFloat(campaign.daily_budget) : null,
+          lifetime_budget: campaign.lifetime_budget ? parseFloat(campaign.lifetime_budget) : null
+        }))
+
+        const { error: campaignsError } = await supabase
+          .from('live_campaigns')
+          .insert(liveCampaigns)
+
+        if (campaignsError) {
+          console.error('Error creating live campaigns:', campaignsError)
+          // Optionally delete the created live if campaigns fail
+          await supabase.from('lives').delete().eq('id', liveResult.id)
+          throw new Error(`Erro ao vincular campanhas: ${campaignsError.message}`)
+        }
+      }
+
       toast({
         title: "✅ Live criada com sucesso!",
-        description: `Live "${liveData.name}" criada com ${groups.length} grupo(s) vinculado(s).`
+        description: `Live "${liveData.name}" criada com ${groups.length} grupo(s) e ${campaigns.length} campanha(s) vinculado(s).`
       })
 
-      return { live: liveResult, groups }
+      return { live: liveResult, groups, campaigns }
 
     } catch (error) {
       console.error('Error in createLiveWithGroups:', error)
@@ -112,6 +150,17 @@ export function useLives() {
             group_name,
             group_size,
             monitoring
+          ),
+          live_campaigns (
+            id,
+            campaign_id,
+            campaign_name,
+            account_id,
+            account_name,
+            objective,
+            status,
+            daily_budget,
+            lifetime_budget
           )
         `)
         .eq('user_id', session.session.user.id)
@@ -129,7 +178,7 @@ export function useLives() {
     }
   }
 
-  const updateLiveWithGroups = async (liveId: string, liveData: LiveData, groups: LiveGroup[]) => {
+  const updateLiveWithGroups = async (liveId: string, liveData: LiveData, groups: LiveGroup[], campaigns: LiveCampaign[] = []) => {
     try {
       setIsLoading(true)
 
@@ -159,7 +208,7 @@ export function useLives() {
         throw new Error(`Erro ao atualizar live: ${liveError.message}`)
       }
 
-      // Delete existing live_groups and recreate them
+      // Delete existing live_groups and live_campaigns, then recreate them
       const { error: deleteGroupsError } = await supabase
         .from('live_groups')
         .delete()
@@ -168,6 +217,16 @@ export function useLives() {
       if (deleteGroupsError) {
         console.error('Error deleting existing live groups:', deleteGroupsError)
         throw new Error(`Erro ao atualizar grupos: ${deleteGroupsError.message}`)
+      }
+
+      const { error: deleteCampaignsError } = await supabase
+        .from('live_campaigns')
+        .delete()
+        .eq('live_id', liveId)
+
+      if (deleteCampaignsError) {
+        console.error('Error deleting existing live campaigns:', deleteCampaignsError)
+        throw new Error(`Erro ao atualizar campanhas: ${deleteCampaignsError.message}`)
       }
 
       // Create new live_groups entries
@@ -191,9 +250,33 @@ export function useLives() {
         }
       }
 
+      // Create new live_campaigns entries
+      if (campaigns.length > 0) {
+        const liveCampaigns = campaigns.map(campaign => ({
+          live_id: liveId,
+          campaign_id: campaign.id,
+          campaign_name: campaign.name,
+          account_id: (campaign as any).account_id || null,
+          account_name: (campaign as any).account_name || null,
+          objective: campaign.objective || null,
+          status: campaign.status,
+          daily_budget: campaign.daily_budget ? parseFloat(campaign.daily_budget) : null,
+          lifetime_budget: campaign.lifetime_budget ? parseFloat(campaign.lifetime_budget) : null
+        }))
+
+        const { error: campaignsError } = await supabase
+          .from('live_campaigns')
+          .insert(liveCampaigns)
+
+        if (campaignsError) {
+          console.error('Error creating updated live campaigns:', campaignsError)
+          throw new Error(`Erro ao atualizar campanhas: ${campaignsError.message}`)
+        }
+      }
+
       toast({
         title: "✅ Live atualizada com sucesso!",
-        description: `Live "${liveData.name}" foi atualizada com ${groups.length} grupo(s).`
+        description: `Live "${liveData.name}" foi atualizada com ${groups.length} grupo(s) e ${campaigns.length} campanha(s).`
       })
 
       return true

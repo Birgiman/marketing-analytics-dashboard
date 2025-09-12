@@ -4,9 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { GroupSearchSelector } from '@/components/GroupSearchSelector';
+import CampaignSelector from '@/components/CampaignSelector';
 import { useLives } from '@/hooks/useLives';
 import { Badge } from '@/components/ui/badge';
-import { Users, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, ChevronLeft, ChevronRight, Target } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CreateLiveModalProps {
   open: boolean;
@@ -31,7 +33,10 @@ interface GroupResult {
 export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCreated, editingLive }: CreateLiveModalProps) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedGroups, setSelectedGroups] = useState<GroupResult[]>([]);
+  const [selectedCampaigns, setSelectedCampaigns] = useState<any[]>([]);
   const [showGroupSelector, setShowGroupSelector] = useState(false);
+  const [showCampaignSelector, setShowCampaignSelector] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const { createLiveWithGroups, updateLiveWithGroups, isLoading } = useLives();
   
   const [formData, setFormData] = useState({
@@ -43,6 +48,19 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
     leadsTarget: '',
     adsBudget: ''
   });
+
+  // Get current user
+  useEffect(() => {
+    if (open) {
+      const getCurrentUser = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setUserId(session.user.id);
+        }
+      };
+      getCurrentUser();
+    }
+  }, [open]);
 
   // Populate form when editing
   useEffect(() => {
@@ -79,12 +97,16 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
   const handleNextStep = () => {
     if (currentStep === 1) {
       setCurrentStep(2);
+    } else if (currentStep === 2) {
+      setCurrentStep(3);
     }
   };
 
   const handlePrevStep = () => {
     if (currentStep === 2) {
       setCurrentStep(1);
+    } else if (currentStep === 3) {
+      setCurrentStep(2);
     }
   };
 
@@ -95,6 +117,15 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
 
   const handleRemoveGroup = (groupId: string) => {
     setSelectedGroups(prev => prev.filter(g => g.id !== groupId));
+  };
+
+  const handleCampaignsSelected = (campaigns: any[]) => {
+    setSelectedCampaigns(campaigns);
+    setShowCampaignSelector(false);
+  };
+
+  const handleRemoveCampaign = (campaignId: string) => {
+    setSelectedCampaigns(prev => prev.filter(c => c.id !== campaignId));
   };
 
   const parseNumericValue = (value: string) => {
@@ -122,9 +153,9 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
       }));
 
       if (editingLive) {
-        await updateLiveWithGroups(editingLive.id, liveData, groups);
+        await updateLiveWithGroups(editingLive.id, liveData, groups, selectedCampaigns);
       } else {
-        await createLiveWithGroups(liveData, groups);
+        await createLiveWithGroups(liveData, groups, selectedCampaigns);
       }
       
       onLiveCreated?.();
@@ -137,6 +168,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
   const handleClose = () => {
     setCurrentStep(1);
     setSelectedGroups([]);
+    setSelectedCampaigns([]);
     setFormData({
       liveName: '',
       captureStart: '',
@@ -152,13 +184,17 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
   return (
     <>
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="max-w-2xl w-full">
+        <DialogContent className="max-w-2xl w-full max-h-[85vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-center">
-              {editingLive ? 'Editar LiveShop 🛍️' : (currentStep === 1 ? 'Vamos criar sua LiveShop! 🛍️' : 'Adicionar Grupos WhatsApp 📱')}
+              {editingLive ? 'Editar LiveShop 🛍️' : (
+                currentStep === 1 ? 'Vamos criar sua LiveShop! 🛍️' : 
+                currentStep === 2 ? 'Adicionar Grupos WhatsApp 📱' : 
+                'Vincular Campanhas Meta Ads 🎯'
+              )}
             </DialogTitle>
             <div className="text-center text-sm text-muted-foreground">
-              Etapa {currentStep} de 2
+              Etapa {currentStep} de 3
             </div>
           </DialogHeader>
 
@@ -276,8 +312,8 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                 </Button>
               </div>
             </div>
-          ) : (
-            <div className="space-y-4">
+          ) : currentStep === 2 ? (
+            <div className="space-y-4 flex flex-col h-full">
               {/* Live Info Summary */}
               <div className="bg-muted p-3 rounded-lg">
                 <h4 className="font-medium text-sm mb-1">Live: {formData.liveName}</h4>
@@ -287,7 +323,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
               </div>
 
               {/* Groups Section */}
-              <div className="space-y-3">
+              <div className="space-y-3 flex-1 min-h-0">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Grupos selecionados</Label>
                   <Button 
@@ -310,18 +346,18 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
                     {selectedGroups.map((group) => (
-                      <div key={group.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                      <div key={group.id} className="flex items-start justify-between p-2 bg-muted rounded-lg gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{group.group_name}</p>
+                          <p className="text-sm font-medium break-words leading-tight">{group.group_name}</p>
                           <p className="text-xs text-muted-foreground">{group.group_size} participantes</p>
                         </div>
                         <Button
                           onClick={() => handleRemoveGroup(group.id)}
                           size="sm"
                           variant="ghost"
-                          className="text-destructive hover:text-destructive"
+                          className="text-destructive hover:text-destructive flex-shrink-0"
                         >
                           ✕
                         </Button>
@@ -338,11 +374,95 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
               </div>
 
               {/* Actions Step 2 */}
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-3 pt-4 mt-auto justify-center">
                 <Button 
                   variant="outline" 
                   onClick={handlePrevStep}
-                  className="flex-1"
+                  className="flex-1 max-w-[150px]"
+                >
+                  <ChevronLeft className="mr-2 h-4 w-4" />
+                  Voltar
+                </Button>
+                <Button 
+                  variant="primary"
+                  onClick={handleNextStep}
+                  className="flex-1 max-w-[180px]"
+                  disabled={selectedGroups.length === 0}
+                >
+                  Próximo
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 flex flex-col h-full">
+              {/* Live Info Summary */}
+              <div className="bg-muted p-3 rounded-lg">
+                <h4 className="font-medium text-sm mb-1">Live: {formData.liveName}</h4>
+                <p className="text-xs text-muted-foreground">
+                  Vincule campanhas do Meta Ads para análise integrada
+                </p>
+              </div>
+
+              {/* Campaigns Section */}
+              <div className="space-y-3 flex-1 min-h-0">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Campanhas vinculadas</Label>
+                  <Button 
+                    onClick={() => setShowCampaignSelector(true)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    + Buscar campanhas
+                  </Button>
+                </div>
+
+                {selectedCampaigns.length === 0 ? (
+                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+                    <Target className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                    <p className="text-sm text-muted-foreground">
+                      Nenhuma campanha vinculada ainda
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Clique em "Buscar campanhas" para adicionar
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {selectedCampaigns.map((campaign) => (
+                      <div key={campaign.id} className="flex items-start justify-between p-2 bg-muted rounded-lg gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium break-words leading-tight">{campaign.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Status: {campaign.status} • Criada: {new Date(campaign.created_time).toLocaleDateString('pt-BR')}
+                          </p>
+                        </div>
+                        <Button
+                          onClick={() => handleRemoveCampaign(campaign.id)}
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive flex-shrink-0"
+                        >
+                          ✕
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {selectedCampaigns.length > 0 && (
+                  <Badge variant="secondary" className="w-fit">
+                    {selectedCampaigns.length} campanha(s) vinculada(s)
+                  </Badge>
+                )}
+              </div>
+
+              {/* Actions Step 3 */}
+              <div className="flex gap-3 pt-4 mt-auto justify-center">
+                <Button 
+                  variant="outline" 
+                  onClick={handlePrevStep}
+                  className="flex-1 max-w-[150px]"
                 >
                   <ChevronLeft className="mr-2 h-4 w-4" />
                   Voltar
@@ -350,8 +470,8 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                 <Button 
                   variant="primary"
                   onClick={handleCreate}
-                  className="flex-1"
-                  disabled={isLoading || selectedGroups.length === 0}
+                  className="flex-1 max-w-[180px]"
+                  disabled={isLoading}
                 >
                   {isLoading ? (editingLive ? 'Salvando...' : 'Criando...') : (editingLive ? 'Salvar Alterações' : 'Criar LiveShop')}
                 </Button>
@@ -367,6 +487,15 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         onClose={() => setShowGroupSelector(false)}
         onGroupsSelected={handleGroupsSelected}
         currentInstance={currentInstance}
+      />
+
+      {/* Campaign Selector Modal */}
+      <CampaignSelector
+        isOpen={showCampaignSelector}
+        onClose={() => setShowCampaignSelector(false)}
+        onCampaignsSelected={handleCampaignsSelected}
+        userId={userId}
+        alreadySelected={selectedCampaigns}
       />
     </>
   );
