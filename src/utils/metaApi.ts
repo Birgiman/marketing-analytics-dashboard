@@ -90,13 +90,15 @@ export async function fetchCampaigns(
     limit: limit.toString()
   });
 
+  // Adicionar filtro de status apenas se especificado
   if (status.length > 0) {
     params.append('filtering', JSON.stringify([{
-      field: 'status',
+      field: 'effective_status',
       operator: 'IN',
       value: status
     }]));
   }
+
 
   const response = await fetch(`${BASE_URL}/${adAccountId}/campaigns?${params}`);
 

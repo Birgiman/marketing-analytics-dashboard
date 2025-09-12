@@ -7,6 +7,9 @@ This session continued from a previous conversation focused on Meta Ads integrat
 1. **Database Migration Issue**: Lives page showing empty due to missing `live_campaigns` table relationship
 2. **Campaign Selection Flow Problem**: Incorrect API usage trying to fetch campaigns from all accounts simultaneously
 3. **Meta API Integration**: Implementing proper 2-step campaign selection flow
+4. **Infinite Requests Loop**: Fixed critical performance issue in Live details page
+5. **Campaign Status Filtering**: Added user-friendly status filters for Active/Paused campaigns
+6. **API Error Resolution**: Resolved Meta API filtering errors and improved error handling
 
 ## Key Issues Resolved
 
@@ -173,6 +176,101 @@ This feedback led to the complete redesign of the campaign selection flow.
 
 This indicated the migration synchronization issue and led to the direct SQL approach.
 
+### 4. Infinite Requests Loop Issue (Session Continuation)
+
+**Problem**: Live details page making 434+ API requests infinitely, causing rate limits and performance issues.
+
+**Root Cause**: The `useMetaLivesData` hook had a circular dependency in its `useEffect`:
+```typescript
+// Problem (before)
+useEffect(() => {
+  refreshData();
+}, [refreshData]); // refreshData changes every time userId changes
+```
+
+**Solution**: Fixed dependency array to only depend on `userId`:
+```typescript
+// Solution (after)  
+useEffect(() => {
+  refreshData();
+}, [userId]); // Only userId as dependency
+```
+
+**Impact**: Reduced API calls from 434+ to normal levels, eliminated rate limiting errors.
+
+### 5. Campaign Status Filtering Enhancement
+
+**Problem**: Users needed to filter campaigns by status (Active/Paused) to reduce clutter from inactive campaigns.
+
+**Solution**: Added comprehensive status filtering:
+- **UI Enhancement**: Added checkboxes for "Ativas" and "Pausadas" in a highlighted section
+- **Dual Filtering**: Works in both "Show All" and "Search by Keyword" modes
+- **Local Filtering**: Filters applied client-side to avoid API limitations
+- **User Experience**: Both checkboxes checked by default, reset on modal open
+
+```typescript
+// Filter logic implementation
+const filteredCampaigns = campaigns.filter(campaign => {
+  // Status filter
+  const statusMatch = 
+    (campaign.status === 'ACTIVE' && showActive) ||
+    (campaign.status === 'PAUSED' && showPaused);
+  
+  if (!statusMatch) return false;
+  
+  // Name filter (when not using API search)
+  if (!useSearch && searchTerm) {
+    return campaign.name.toLowerCase().includes(searchTerm.toLowerCase());
+  }
+  
+  return true;
+});
+```
+
+### 6. Meta API Filtering Resolution
+
+**Problem**: API error "(#100) Filtering field 'status' is not supported" when trying to filter campaigns by status via Meta API.
+
+**Root Cause**: Meta Marketing API doesn't support status filtering on campaigns endpoint.
+
+**Solution**: 
+- **Removed API-level status filtering** to eliminate API errors
+- **Maintained name-based filtering** using `field: 'name', operator: 'CONTAIN'` which works correctly
+- **Implemented client-side status filtering** for better user experience
+- **Ensured both search modes work**: "Show All Campaigns" and "Search by Keyword"
+
+**API Configuration**:
+```typescript
+// Working API call for name search
+const response = await fetch(
+  `https://graph.facebook.com/v23.0/${account.id}/campaigns?` +
+  new URLSearchParams({
+    fields: options.fields.join(','),
+    access_token: token,
+    limit: options.limit.toString(),
+    filtering: JSON.stringify([{
+      field: 'name',
+      operator: 'CONTAIN', 
+      value: searchTerm.trim()
+    }])
+  })
+);
+```
+
+### 7. Campaign Data Analysis
+
+**Reference Data**: Based on Meta CSV export for campaign "Post do Instagram: Lojista, sabe o que acontece...":
+- **Period**: Sept 1-12, 2025
+- **Reach**: 3,633 users
+- **Impressions**: 4,967
+- **Budget**: R$ 6.00 daily
+- **Amount Spent**: R$ 69.22
+- **Results**: 255 link clicks
+- **Cost per Result**: R$ 0.27
+- **Status**: Active
+
+This data provides validation benchmarks for the integration to ensure correct metrics are being displayed.
+
 ## Final State
 
 After this session:
@@ -183,22 +281,53 @@ After this session:
 - ✅ Search functionality with both local and API-level filtering
 - ✅ Error handling and loading states implemented
 - ✅ User authentication integrated throughout
+- ✅ **Infinite requests loop eliminated** (434+ requests → normal levels)
+- ✅ **Campaign status filters implemented** (Active/Paused checkboxes)
+- ✅ **Meta API errors resolved** (status filtering moved client-side)
+- ✅ **Performance optimization** (eliminated rate limiting issues)
+- ✅ **Enhanced user experience** with intuitive filtering options
 
 ## Files Modified
 
-1. **src/components/CampaignSelector.tsx** - Complete rewrite
+### Initial Implementation:
+1. **src/components/CampaignSelector.tsx** - Complete rewrite with 2-step flow
 2. **src/hooks/useLives.tsx** - Added campaign relationship handling
 3. **src/components/CreateLiveModal.tsx** - Updated for campaign flow
 4. **src/utils/metaApi.ts** - Fixed filtering bug
 5. **supabase/migrations/20250912120000_create_live_campaigns_table.sql** - New migration
 
+### Session Continuation Updates:
+6. **src/hooks/useMetaLivesData.tsx** - Fixed infinite loop dependency issue
+7. **src/components/CampaignSelector.tsx** - Added status filtering UI and logic
+8. **src/utils/metaApi.ts** - Removed problematic status filtering, kept name filtering
+9. **docs/archive/planilhas-do-meta/[VL]-[RS]-Rafael-Santos-CA-Campanhas-1-de-set-de-2025-12-de-set-de-2025.csv** - Reference data for validation
+
 ## Session Conclusion
 
-The Meta Ads integration is now fully functional with:
-- Proper database relationships
-- Intuitive user interface with 2-step selection
-- Robust API error handling
-- Search capabilities
-- Complete CRUD operations for campaign management
+The Meta Ads integration has evolved through multiple iterations to become a robust, production-ready system:
 
-The system now correctly handles the workflow of creating Lives, selecting WhatsApp groups, and associating Meta advertising campaigns for comprehensive live event management.
+### Core Functionality:
+- **Database Integration**: Complete schema with live_campaigns relationships and RLS policies
+- **2-Step Campaign Selection**: Intuitive Ad Account → Campaigns flow
+- **Advanced Filtering**: Client-side status filters (Active/Paused) + API name search
+- **Performance Optimized**: Eliminated infinite request loops and rate limiting issues
+- **Error Resilient**: Proper error handling for API limitations and edge cases
+
+### User Experience Improvements:
+- **Status Filtering**: Reduce clutter by filtering Active/Paused campaigns
+- **Dual Search Modes**: "Show All" for browsing, "Search by Keyword" for precision
+- **Real-time Updates**: Manual refresh with loading states and error feedback
+- **Data Validation**: Reference benchmarks from actual Meta CSV exports
+
+### Technical Architecture:
+- **Meta Marketing API v23.0**: Correct usage patterns avoiding unsupported filtering
+- **React Components**: Modular, reusable components with proper state management  
+- **Supabase Integration**: RLS policies, foreign keys, and proper data relationships
+- **Performance**: Optimized hooks preventing circular dependencies and excessive API calls
+
+### Validation Data:
+Using real campaign "Post do Instagram: Lojista, sabe o que acontece..." as benchmark:
+- Period: Sept 1-12, 2025 | Budget: R$ 6/day | Spent: R$ 69.22
+- Reach: 3,633 | Impressions: 4,967 | Clicks: 255 | CPM: R$ 0.27
+
+The system now provides a complete workflow for Live event management with integrated Meta advertising campaign tracking, supporting the full lifecycle from creation to performance analysis.

@@ -126,7 +126,7 @@ export function useMetaLivesData(userId?: string): UseMetaLivesDataReturn {
   // Auto-carregar dados quando userId mudar
   useEffect(() => {
     refreshData();
-  }, [refreshData]);
+  }, [userId]); // Apenas userId como dependência
 
   // Auto-refresh a cada 10 minutos se conectado
   useEffect(() => {

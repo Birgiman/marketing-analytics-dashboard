@@ -33,11 +33,25 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   const [useSearch, setUseSearch] = useState(false);
   const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [showActive, setShowActive] = useState(true);
+  const [showPaused, setShowPaused] = useState(true);
 
-  // Filtrar campanhas (só usado quando useSearch = false)
-  const filteredCampaigns = useSearch ? campaigns : campaigns.filter(campaign =>
-    campaign.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filtrar campanhas com filtros de status e busca por nome
+  const filteredCampaigns = campaigns.filter(campaign => {
+    // Filtro de status
+    const statusMatch = 
+      (campaign.status === 'ACTIVE' && showActive) ||
+      (campaign.status === 'PAUSED' && showPaused);
+    
+    if (!statusMatch) return false;
+    
+    // Filtro de nome (apenas quando não está usando busca na API)
+    if (!useSearch && searchTerm) {
+      return campaign.name.toLowerCase().includes(searchTerm.toLowerCase());
+    }
+    
+    return true;
+  });
 
   useEffect(() => {
     if (isOpen && userId) {
@@ -54,6 +68,8 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
       setSearchTerm('');
       setUseSearch(false);
       setError(null);
+      setShowActive(true);
+      setShowPaused(true);
     }
   }, [isOpen]);
 
@@ -112,8 +128,8 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
       // Preparar opções da requisição
       const options: any = {
         limit: 50,
-        status: ['ACTIVE', 'PAUSED'],
-        fields: ['id', 'name', 'status', 'objective', 'daily_budget', 'lifetime_budget', 'created_time', 'updated_time']
+        fields: ['id', 'name', 'status', 'objective', 'daily_budget', 'lifetime_budget', 'created_time', 'updated_time'],
+        status: [] // Sem filtro de status na API para evitar erros
       };
 
       // Buscar campanhas com filtro se solicitado
@@ -352,6 +368,27 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                       onChange={() => handleSearchModeChange(true)}
                     />
                     <label htmlFor="search-by-keyword" className="text-sm">Buscar por palavra-chave</label>
+                  </div>
+                </div>
+
+                {/* Filtros de Status */}
+                <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">Status:</span>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="status-active"
+                      checked={showActive}
+                      onCheckedChange={setShowActive}
+                    />
+                    <label htmlFor="status-active" className="text-sm text-gray-600">Ativas</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="status-paused"
+                      checked={showPaused}
+                      onCheckedChange={setShowPaused}
+                    />
+                    <label htmlFor="status-paused" className="text-sm text-gray-600">Pausadas</label>
                   </div>
                 </div>
 
