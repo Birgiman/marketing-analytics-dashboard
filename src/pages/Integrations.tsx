@@ -265,7 +265,7 @@ export default function Integrations() {
                     <div className="space-y-3">
                       <Button 
                         onClick={handleDisconnectWhatsApp} 
-                        variant="destructive" 
+                        variant="danger" 
                         className="w-full"
                         disabled={isLoading}
                       >
