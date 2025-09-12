@@ -244,7 +244,12 @@ const [lives, setLives] = useState<any[]>([]);
               {lives.length > 0 ? (
                 lives.map((live) => (
                   <div key={live.id} className="grid grid-cols-7 gap-4 p-4 border-b items-center">
-                    <div className="font-medium">{live.name}</div>
+                    <div 
+                      className="font-medium cursor-pointer hover:text-primary transition-colors" 
+                      onClick={() => navigate(`/details?live=${live.id}`)}
+                    >
+                      {live.name}
+                    </div>
                     <div className="text-sm text-muted-foreground">
                       {live.live_date ? new Date(live.live_date).toLocaleDateString('pt-BR') : 'Não definida'}
                     </div>
