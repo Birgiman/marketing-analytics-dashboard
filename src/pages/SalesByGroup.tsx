@@ -11,23 +11,7 @@ import Header from "@/components/Header";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { LiveGroup, Live } from "@/types";
 
-interface GroupData {
-  id: string;
-  group_name: string;
-  event: 'join' | 'leave';
-  created_at: string;
-  user_id: string;
-}
-
-interface CreativeData {
-  id: string;
-  campaign_name: string;
-  ad_set_name: string;
-  amount_spent: number;
-  leads: number;
-  day: string;
-  user_id: string;
-}
+// These interfaces are no longer used as we now use LiveGroup from types
 
 interface SalesData {
   id: number;
@@ -207,8 +191,30 @@ const SalesByGroup = () => {
     setAudiences(audiences.filter(a => a.id !== id));
   };
 
-  // For Live-specific data, we don't need correlation analysis with old data
-  // This section is removed as it was using old demo data structure
+  // Generate correlation data from audiences and live groups
+  const correlationData = audiences.map(audience => {
+    // Find groups that match this audience's term in their name (case insensitive)
+    const matchingGroups = liveGroups.filter(group => 
+      group.group_name.toLowerCase().includes(audience.campaignTerm.toLowerCase())
+    );
+    
+    const groupEntradas = matchingGroups.reduce((sum, group) => sum + group.group_size, 0);
+    const groupSaidas = 0; // TODO: Implement exit tracking
+    const groupAtivos = groupEntradas - groupSaidas;
+
+    return {
+      id: audience.id,
+      audienceName: audience.name,
+      campaignTerm: audience.campaignTerm,
+      groupEmoji: audience.groupEmoji,
+      trafficLeads: 0, // TODO: Get from Meta insights
+      trafficInvestment: 0, // TODO: Get from Meta insights
+      trafficCPL: 0, // TODO: Calculate from Meta insights
+      groupEntradas,
+      groupSaidas,
+      groupAtivos
+    };
+  });
 
   // Sales upload functionality
   const handleSalesUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -299,6 +305,7 @@ const SalesByGroup = () => {
         <Header />
         <div className="container mx-auto p-6">
           <div className="space-y-6">
+            <div className="text-center">Carregando dados da Live...</div>
             {[1, 2, 3].map(i => (
               <Card key={i}>
                 <CardHeader>
@@ -315,6 +322,9 @@ const SalesByGroup = () => {
       </div>
     );
   }
+
+  // Debug info
+  console.log('SalesByGroup Debug:', { liveId, live, liveGroups, totalGroupMembers, isLoading });
 
   return (
     <div>
