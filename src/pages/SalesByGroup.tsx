@@ -8,6 +8,8 @@ import { UserPlus, UserMinus, Users, TrendingUp, ShoppingCart, Target, BarChart3
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { LiveGroup, Live } from "@/types";
 
 interface GroupData {
   id: string;
@@ -36,15 +38,20 @@ interface SalesData {
 }
 
 const SalesByGroup = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const liveId = searchParams.get('live');
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [publicoFilter, setPublicoFilter] = useState("all");
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Data states
-  const [groupsData, setGroupsData] = useState<GroupData[]>([]);
-  const [creativesData, setCreativesData] = useState<CreativeData[]>([]);
+  // Data states for Live-specific groups
+  const [liveGroups, setLiveGroups] = useState<LiveGroup[]>([]);
+  const [live, setLive] = useState<Live | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   
   // Sales data upload
   const [salesData, setSalesData] = useState<SalesData[]>([]);
@@ -72,131 +79,81 @@ const SalesByGroup = () => {
     groupEmoji: ""
   });
 
-  // Fetch data from Supabase
+  // Fetch Live-specific data from Supabase
   const fetchData = async () => {
     try {
       setIsLoading(true);
       
-      // Fetch groups data (simulated with WhatsApp groups log)
-      const { data: groupsResult, error: groupsError } = await supabase
-        .from('whatsapp_groups_log')
+      // Check authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        navigate('/auth/signin');
+        return;
+      }
+      setUserId(session.user.id);
+
+      // Check if Live ID is provided
+      if (!liveId) {
+        navigate('/lives');
+        return;
+      }
+
+      // Fetch Live data
+      const { data: liveData, error: liveError } = await supabase
+        .from('lives')
         .select('*')
+        .eq('id', liveId)
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (liveError || !liveData) {
+        console.error('Error fetching live:', liveError);
+        navigate('/lives');
+        return;
+      }
+      setLive(liveData);
+
+      // Fetch Live groups - only groups linked to this specific Live
+      const { data: groupsResult, error: groupsError } = await supabase
+        .from('live_groups')
+        .select('*')
+        .eq('live_id', liveId)
         .order('created_at', { ascending: false });
 
       if (groupsError) {
-        console.error('Error fetching groups:', groupsError);
-        // Use demo data
-        setGroupsData(generateDemoGroupsData());
+        console.error('Error fetching live groups:', groupsError);
+        setLiveGroups([]);
       } else {
-        const transformedGroups: GroupData[] = (groupsResult || []).map(item => ({
-          id: item.id,
-          group_name: item.group_name || 'Grupo Desconhecido',
-          event: item.event === 'join' ? 'join' : 'leave',
-          created_at: item.created_at,
-          user_id: item.user_id || ''
-        }));
-        setGroupsData(transformedGroups);
+        setLiveGroups(groupsResult || []);
       }
 
-      // Fetch creatives data
-      const { data: creativesResult, error: creativesError } = await supabase
-        .from('criativos')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (creativesError) {
-        console.error('Error fetching creatives:', creativesError);
-        setCreativesData(generateDemoCreativesData());
-      } else {
-        const transformedCreatives: CreativeData[] = (creativesResult || []).map(item => ({
-          id: item.id,
-          campaign_name: item.campaign_name || '',
-          ad_set_name: item.ad_set_name || '',
-          amount_spent: Number(item.amount_spent) || 0,
-          leads: item.leads || 0,
-          day: item.day || new Date().toLocaleDateString('pt-BR'),
-          user_id: item.user_id || ''
-        }));
-        setCreativesData(transformedCreatives);
-      }
     } catch (error) {
       console.error('Error fetching data:', error);
-      setGroupsData(generateDemoGroupsData());
-      setCreativesData(generateDemoCreativesData());
+      navigate('/lives');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Generate demo data
-  const generateDemoGroupsData = (): GroupData[] => {
-    const groups = ['Grupo VIP ⭐', 'Grupo Premium ❤️', 'Grupo Exclusivo ⭐', 'Grupo Gold ❤️'];
-    
-    return Array.from({ length: 200 }, (_, i) => ({
-      id: `demo-group-${i}`,
-      group_name: groups[Math.floor(Math.random() * groups.length)],
-      event: Math.random() > 0.3 ? 'join' : 'leave' as 'join' | 'leave', // 70% entrada, 30% saída
-      created_at: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-      user_id: `user-${i}`
-    }));
-  };
-
-  const generateDemoCreativesData = (): CreativeData[] => {
-    const campaigns = ['Campanha Quente A', 'Campanha Frio B', 'Campanha Quente C', 'Campanha Frio D'];
-    
-    return Array.from({ length: 50 }, (_, i) => ({
-      id: `demo-creative-${i}`,
-      campaign_name: campaigns[Math.floor(Math.random() * campaigns.length)],
-      ad_set_name: `Conjunto ${i + 1}`,
-      amount_spent: Math.random() * 1000 + 100,
-      leads: Math.floor(Math.random() * 50) + 5,
-      day: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR'),
-      user_id: `user-${i}`
-    }));
-  };
-
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [liveId]);
 
-  // Calculate real group statistics
-  const entrou = groupsData.filter(item => item.event === 'join').length;
-  const saiu = groupsData.filter(item => item.event === 'leave').length;
-  const leadsAtivos = entrou - saiu;
+  // Calculate statistics from Live groups
+  const totalGroupMembers = liveGroups.reduce((sum, group) => sum + group.group_size, 0);
+  const totalGroups = liveGroups.length;
 
-  // Group data by group name
-  const grupoStats = groupsData.reduce((acc, item) => {
-    if (!acc[item.group_name]) {
-      acc[item.group_name] = {
-        nome: item.group_name,
-        entradas: 0,
-        saidas: 0,
-        ativos: 0
-      };
-    }
-    if (item.event === 'join') {
-      acc[item.group_name].entradas++;
-    } else if (item.event === 'leave') {
-      acc[item.group_name].saidas++;
-    }
-    acc[item.group_name].ativos = acc[item.group_name].entradas - acc[item.group_name].saidas;
-    return acc;
-  }, {} as Record<string, any>);
-
-  // Convert to array for table display
-  const processedGroupsData = Object.values(grupoStats).map((group: any, index) => ({
+  // Convert Live groups to table display format
+  const processedGroupsData = liveGroups.map((group, index) => ({
     id: index + 1,
-    name: group.nome,
-    campaign: "", // Will be filled based on emoji matching
-    entered: group.entradas,
-    left: group.saidas,
-    active: group.ativos,
-    sales: Math.floor(Math.random() * 10), // Mock sales data
-    revenue: Math.floor(Math.random() * 5000),
-    averageTicket: 0 // Will be calculated
-  })).map(group => ({
-    ...group,
-    averageTicket: group.sales > 0 ? Math.round(group.revenue / group.sales) : 0
+    name: group.group_name,
+    campaign: "N/A", // TODO: Add campaign detection based on group name patterns
+    entered: group.group_size,
+    left: 0, // TODO: Implement exit tracking
+    active: group.group_size,
+    sales: 0, // TODO: Implement sales tracking per group
+    revenue: 0, // TODO: Implement revenue tracking per group
+    averageTicket: 0 // Will be calculated when sales data is available
   }));
 
   const handleSort = (field: string) => {
@@ -250,40 +207,8 @@ const SalesByGroup = () => {
     setAudiences(audiences.filter(a => a.id !== id));
   };
 
-  // Calculate correlation data
-  const correlationData = audiences.map(audience => {
-    // Traffic data from campaigns
-    const campaignData = creativesData.filter(item => {
-      const campaignName = item.campaign_name?.toLowerCase() || '';
-      return campaignName.includes(audience.campaignTerm.toLowerCase());
-    });
-
-    // Group data based on emoji
-    const groupData = groupsData.filter(item => 
-      item.group_name.includes(audience.groupEmoji)
-    );
-
-    const trafficLeads = campaignData.reduce((sum, item) => sum + (item.leads || 0), 0);
-    const trafficInvestment = campaignData.reduce((sum, item) => sum + (item.amount_spent || 0), 0);
-    const trafficCPL = trafficLeads > 0 ? trafficInvestment / trafficLeads : 0;
-
-    const groupEntradas = groupData.filter(item => item.event === 'join').length;
-    const groupSaidas = groupData.filter(item => item.event === 'leave').length;
-    const groupAtivos = groupEntradas - groupSaidas;
-
-    return {
-      id: audience.id,
-      audienceName: audience.name,
-      campaignTerm: audience.campaignTerm,
-      groupEmoji: audience.groupEmoji,
-      trafficLeads,
-      trafficInvestment,
-      trafficCPL,
-      groupEntradas,
-      groupSaidas,
-      groupAtivos
-    };
-  });
+  // For Live-specific data, we don't need correlation analysis with old data
+  // This section is removed as it was using old demo data structure
 
   // Sales upload functionality
   const handleSalesUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -403,7 +328,7 @@ const SalesByGroup = () => {
               <UserPlus className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{entrou.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{totalGroupMembers.toLocaleString()}</div>
             </CardContent>
           </Card>
 
@@ -413,7 +338,7 @@ const SalesByGroup = () => {
               <UserMinus className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{saiu.toLocaleString()}</div>
+              <div className="text-2xl font-bold">0</div>
             </CardContent>
           </Card>
 
@@ -423,7 +348,7 @@ const SalesByGroup = () => {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{leadsAtivos.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{totalGroupMembers.toLocaleString()}</div>
             </CardContent>
           </Card>
 
@@ -577,10 +502,10 @@ const SalesByGroup = () => {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5" />
-                  Dados por Público
+                  {live ? `Grupos da Live: ${live.name}` : 'Dados por Público'}
                 </CardTitle>
                 <CardDescription>
-                  Visualize e filtre os dados de todos os grupos e campanhas
+                  {live ? `Grupos vinculados à Live "${live.name}"` : 'Visualize e filtre os dados de todos os grupos e campanhas'}
                 </CardDescription>
               </div>
             </div>

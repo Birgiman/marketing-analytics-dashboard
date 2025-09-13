@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { DemoBanner } from "@/components/DemoBanner";
 import { 
   Users, 
   UserMinus, 
@@ -22,166 +21,101 @@ import {
   ArrowDown
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
-
-interface GroupData {
-  id: string;
-  grupo: string;
-  publico: string;
-  live: string;
-  entrouGrupo: number;
-  saiuGrupo: number;
-  leadsAtivos: number;
-  vendas: number;
-  receita: number;
-  ticketMedio: number;
-}
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { LiveGroup, Live } from "@/types";
 
 export default function Groups() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const liveId = searchParams.get('live');
+  
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedPublico, setSelectedPublico] = useState("todos");
-  const [selectedLive, setSelectedLive] = useState("todas");
+  const [liveGroups, setLiveGroups] = useState<LiveGroup[]>([]);
+  const [live, setLive] = useState<Live | null>(null);
+  const [allGroups, setAllGroups] = useState<LiveGroup[]>([]);
+  const [allLives, setAllLives] = useState<Live[]>([]);
+  const [selectedLive, setSelectedLive] = useState(liveId || "todas");
 
-  // Mock data - replace with real data from your backend
-  const mockGroupsData: GroupData[] = [
-    {
-      id: "1",
-      grupo: "Grupo WhatsApp 1",
-      publico: "Black Friday 2024",
-      live: "Live Black Friday #1",
-      entrouGrupo: 450,
-      saiuGrupo: 32,
-      leadsAtivos: 418,
-      vendas: 15,
-      receita: 7350,
-      ticketMedio: 490
-    },
-    {
-      id: "2", 
-      grupo: "Grupo WhatsApp 2",
-      publico: "Black Friday 2024",
-      live: "Live Black Friday #1",
-      entrouGrupo: 380,
-      saiuGrupo: 28,
-      leadsAtivos: 352,
-      vendas: 12,
-      receita: 5880,
-      ticketMedio: 490
-    },
-    {
-      id: "3",
-      grupo: "Grupo Telegram VIP",
-      publico: "Black Friday 2024", 
-      live: "Live Black Friday #2",
-      entrouGrupo: 125,
-      saiuGrupo: 8,
-      leadsAtivos: 117,
-      vendas: 5,
-      receita: 2440,
-      ticketMedio: 488
-    },
-    {
-      id: "4",
-      grupo: "Grupo Exclusivo VIP",
-      publico: "Lançamento Produto X",
-      live: "Live Produto X",
-      entrouGrupo: 220,
-      saiuGrupo: 15,
-      leadsAtivos: 205,
-      vendas: 10,
-      receita: 4680,
-      ticketMedio: 468
-    },
-    {
-      id: "5",
-      grupo: "Grupo WhatsApp Beta",
-      publico: "Lançamento Produto X",
-      live: "Live Produto X",
-      entrouGrupo: 180,
-      saiuGrupo: 12,
-      leadsAtivos: 168,
-      vendas: 8,
-      receita: 3740,
-      ticketMedio: 467
-    },
-    {
-      id: "6",
-      grupo: "Grupo Premium Members",
-      publico: "Cyber Monday",
-      live: "Live Cyber Monday",
-      entrouGrupo: 95,
-      saiuGrupo: 5,
-      leadsAtivos: 90,
-      vendas: 7,
-      receita: 3850,
-      ticketMedio: 550
-    },
-    {
-      id: "7",
-      grupo: "Grupo Diamond",
-      publico: "Black Friday 2024",
-      live: "Live Black Friday #3",
-      entrouGrupo: 300,
-      saiuGrupo: 20,
-      leadsAtivos: 280,
-      vendas: 18,
-      receita: 8640,
-      ticketMedio: 480
-    },
-    {
-      id: "8",
-      grupo: "Grupo Elite",
-      publico: "Cyber Monday",
-      live: "Live Cyber Monday",
-      entrouGrupo: 150,
-      saiuGrupo: 10,
-      leadsAtivos: 140,
-      vendas: 9,
-      receita: 4950,
-      ticketMedio: 550
-    }
-  ];
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const initializePage = async () => {
       try {
+        // Check authentication
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
           navigate('/auth/signin');
           return;
         }
         setUserId(session.user.id);
+
+        // Fetch all lives for filtering
+        const { data: livesData, error: livesError } = await supabase
+          .from('lives')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false });
+
+        if (livesError) throw livesError;
+        setAllLives(livesData || []);
+
+        // Fetch all groups for all lives
+        const { data: groupsData, error: groupsError } = await supabase
+          .from('live_groups')
+          .select(`
+            *,
+            lives!inner(id, name, user_id)
+          `)
+          .eq('lives.user_id', session.user.id);
+
+        if (groupsError) throw groupsError;
+        setAllGroups(groupsData || []);
+
+        // If specific live is requested, fetch that live's data
+        if (liveId) {
+          const { data: liveData, error: liveError } = await supabase
+            .from('lives')
+            .select('*')
+            .eq('id', liveId)
+            .single();
+
+          if (liveError) throw liveError;
+          setLive(liveData);
+
+          // Filter groups for this live
+          const filteredGroups = groupsData?.filter(group => group.live_id === liveId) || [];
+          setLiveGroups(filteredGroups);
+        } else {
+          setLiveGroups(groupsData || []);
+        }
+
       } catch (error) {
-        console.error('Error checking auth:', error);
-        navigate('/auth/signin'); 
+        console.error('Error initializing page:', error);
+        navigate('/auth/signin');
       } finally {
         setLoading(false);
       }
     };
 
-    checkAuth();
-  }, [navigate]);
+    initializePage();
+  }, [navigate, liveId]);
 
-  // Calculate totals
-  const totals = mockGroupsData.reduce((acc, group) => ({
-    entrouGrupo: acc.entrouGrupo + group.entrouGrupo,
-    saiuGrupo: acc.saiuGrupo + group.saiuGrupo,
-    leadsAtivos: acc.leadsAtivos + group.leadsAtivos,
-    vendas: acc.vendas + group.vendas,
-    receita: acc.receita + group.receita,
-    ticketMedio: acc.receita / acc.vendas || 0
+  // Filter groups based on selected live and search
+  const displayGroups = selectedLive === "todas" ? allGroups : allGroups.filter(group => group.live_id === selectedLive);
+  const filteredData = displayGroups.filter(group => 
+    group.group_name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Calculate totals from real data
+  const totals = filteredData.reduce((acc, group) => ({
+    entrouGrupo: acc.entrouGrupo + group.group_size,
+    saiuGrupo: acc.saiuGrupo + 0, // TODO: Implement tracking of group exits
+    leadsAtivos: acc.leadsAtivos + group.group_size,
+    vendas: acc.vendas + 0, // TODO: Implement sales tracking per group
+    receita: acc.receita + 0, // TODO: Implement revenue tracking per group
+    ticketMedio: 0 // Will be calculated after we have sales data
   }), { entrouGrupo: 0, saiuGrupo: 0, leadsAtivos: 0, vendas: 0, receita: 0, ticketMedio: 0 });
-
-  // Filter data
-  const filteredData = mockGroupsData.filter(group => {
-    const matchesSearch = group.grupo.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesPublico = selectedPublico === "todos" || group.publico === selectedPublico;
-    const matchesLive = selectedLive === "todas" || group.live === selectedLive;
-    return matchesSearch && matchesPublico && matchesLive;
-  });
 
   if (loading) {
     return (
@@ -193,9 +127,8 @@ export default function Groups() {
 
   return (
     <>
-      <title>Vendas por Público - Live Shop Analytics</title>
+      <title>Grupos por Live - LiveShop Analytics</title>
       <main className="min-h-screen bg-gray-50">
-        <DemoBanner />
         <div className="flex-1 space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -319,10 +252,10 @@ export default function Groups() {
             <div className="space-y-1">
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5" />
-                Vendas por Público - Geral
+                Grupos WhatsApp por Live
               </CardTitle>
               <CardDescription>
-                Visualize e filtre os dados de todos os grupos e campanhas
+                {liveId ? `Grupos vinculados à Live específica` : 'Visualize todos os grupos vinculados às suas Lives'}
               </CardDescription>
             </div>
             <div className="flex items-center gap-4">
@@ -353,28 +286,17 @@ export default function Groups() {
                 className="pl-10"
               />
             </div>
-            <Select value={selectedPublico} onValueChange={setSelectedPublico}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Todos os públicos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os públicos</SelectItem>
-                <SelectItem value="Black Friday 2024">Black Friday 2024</SelectItem>
-                <SelectItem value="Lançamento Produto X">Lançamento Produto X</SelectItem>
-                <SelectItem value="Cyber Monday">Cyber Monday</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={selectedLive} onValueChange={setSelectedLive}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Todas as lives" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todas">Todas as lives</SelectItem>
-                <SelectItem value="Live Black Friday #1">Live Black Friday #1</SelectItem>
-                <SelectItem value="Live Black Friday #2">Live Black Friday #2</SelectItem>
-                <SelectItem value="Live Black Friday #3">Live Black Friday #3</SelectItem>
-                <SelectItem value="Live Produto X">Live Produto X</SelectItem>
-                <SelectItem value="Live Cyber Monday">Live Cyber Monday</SelectItem>
+                {allLives.map((live) => (
+                  <SelectItem key={live.id} value={live.id}>
+                    {live.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -385,10 +307,10 @@ export default function Groups() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Grupo</TableHead>
-                  <TableHead>Público</TableHead>
                   <TableHead>Live</TableHead>
+                  <TableHead className="text-center">Status</TableHead>
                   <TableHead className="text-center">
-                    Entrou no Grupo
+                    Tamanho do Grupo
                     <div className="text-xs text-muted-foreground font-normal">Total: {totals.entrouGrupo.toLocaleString()}</div>
                   </TableHead>
                   <TableHead className="text-center">
@@ -407,40 +329,45 @@ export default function Groups() {
                     Receita
                     <div className="text-xs text-muted-foreground font-normal">Total: R$ {totals.receita.toLocaleString()}</div>
                   </TableHead>
-                  <TableHead className="text-center">
-                    Ticket Médio
-                    <div className="text-xs text-muted-foreground font-normal">Média: R$ {Math.round(totals.ticketMedio)}</div>
-                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredData.map((group) => (
-                  <TableRow key={group.id}>
-                    <TableCell className="font-medium">{group.grupo}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{group.publico}</Badge>
-                    </TableCell>
-                    <TableCell className="text-blue-600">{group.live}</TableCell>
-                    <TableCell className="text-center text-green-600 font-medium">
-                      {group.entrouGrupo}
-                    </TableCell>
-                    <TableCell className="text-center text-red-600 font-medium">
-                      {group.saiuGrupo}
-                    </TableCell>
-                    <TableCell className="text-center text-blue-600 font-medium">
-                      {group.leadsAtivos}
-                    </TableCell>
-                    <TableCell className="text-center font-medium">
-                      {group.vendas}
-                    </TableCell>
-                    <TableCell className="text-center font-medium">
-                      R$ {group.receita.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-center font-medium">
-                      R$ {group.ticketMedio}
+                {filteredData.map((group) => {
+                  const liveName = allLives.find(live => live.id === group.live_id)?.name || 'Live não encontrada';
+                  return (
+                    <TableRow key={group.id}>
+                      <TableCell className="font-medium">{group.group_name}</TableCell>
+                      <TableCell className="text-blue-600">{liveName}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant={group.monitoring ? "default" : "secondary"}>
+                          {group.monitoring ? "Monitorando" : "Pausado"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center text-green-600 font-medium">
+                        {group.group_size.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-center text-red-600 font-medium">
+                        0
+                      </TableCell>
+                      <TableCell className="text-center text-blue-600 font-medium">
+                        {group.group_size.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-center font-medium">
+                        0
+                      </TableCell>
+                      <TableCell className="text-center font-medium">
+                        R$ 0
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {filteredData.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      {selectedLive === "todas" ? "Nenhum grupo encontrado" : "Nenhum grupo vinculado a esta Live"}
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </div>

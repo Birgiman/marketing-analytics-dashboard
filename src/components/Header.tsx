@@ -1,30 +1,37 @@
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 
 const Header = () => {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const liveId = searchParams.get('live');
 
   const navigationTabs = [
     {
-      path: '/details',
+      path: liveId ? `/details?live=${liveId}` : '/lives',
       name: 'Detalhes',
     },
     {
-      path: '/traffic-analysis',
+      path: liveId ? `/traffic-analysis?live=${liveId}` : '/lives',
       name: 'Análise de Tráfego',
     },
     {
-      path: '/research-insights',
+      path: liveId ? `/research-insights?live=${liveId}` : '/lives',
       name: 'Insights de Pesquisa',
     },
     {
-      path: '/sales-by-group',
+      path: liveId ? `/sales-by-group?live=${liveId}` : '/lives',
       name: 'Públicos',
     },
   ];
 
   const isTabActive = (path: string) => {
+    // Check if the current path matches the base path (ignoring query params)
+    if (path.includes('?')) {
+      const basePath = path.split('?')[0];
+      return location.pathname === basePath;
+    }
     return location.pathname === path;
   };
 

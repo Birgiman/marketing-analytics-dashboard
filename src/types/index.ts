@@ -114,6 +114,18 @@ export interface Group {
   user_id: string | null;
 }
 
+export interface LiveGroup {
+  id: string;
+  live_id: string;
+  group_id: string;
+  group_name: string;
+  group_size: number;
+  monitoring: boolean;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Live {
   id: string;
   name: string;

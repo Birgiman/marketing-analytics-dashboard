@@ -90,21 +90,95 @@ export async function fetchCampaigns(
     limit: limit.toString()
   });
 
-  // Adicionar filtro de status apenas se especificado
   if (status.length > 0) {
     params.append('filtering', JSON.stringify([{
-      field: 'effective_status',
+      field: 'status',
       operator: 'IN',
       value: status
     }]));
   }
-
 
   const response = await fetch(`${BASE_URL}/${adAccountId}/campaigns?${params}`);
 
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.error?.message || 'Erro ao buscar campanhas');
+  }
+
+  const data = await response.json();
+  return data.data || [];
+}
+
+/**
+ * Busca dados específicos de uma campanha pelo ID
+ */
+export async function fetchCampaignById(
+  campaignId: string,
+  accessToken: string,
+  options: {
+    fields?: string[];
+  } = {}
+): Promise<MetaCampaign> {
+  const {
+    fields = [
+      'id', 'name', 'status', 'objective', 'daily_budget', 'lifetime_budget',
+      'start_time', 'stop_time', 'created_time', 'updated_time', 'effective_status',
+      'buying_type', 'bid_strategy'
+    ]
+  } = options;
+
+  const params = new URLSearchParams({
+    fields: fields.join(','),
+    access_token: accessToken
+  });
+
+  const response = await fetch(`${BASE_URL}/${campaignId}?${params}`);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error?.message || 'Erro ao buscar campanha');
+  }
+
+  return await response.json();
+}
+
+/**
+ * Busca insights de uma campanha específica
+ */
+export async function fetchCampaignInsightsById(
+  campaignId: string,
+  accessToken: string,
+  options: {
+    fields?: string[];
+    datePreset?: string;
+    level?: string;
+    timeIncrement?: string;
+  } = {}
+): Promise<any> {
+  const {
+    fields = [
+      'campaign_name', 'ad_name', 'date_start', 'date_stop', 'spend',
+      'impressions', 'clicks', 'reach', 'frequency', 'cpm', 'ctr',
+      'cpp', 'cost_per_unique_click', 'actions'
+    ],
+    datePreset = 'last_30d',
+    level = 'campaign',
+    timeIncrement = '1'
+  } = options;
+
+  const params = new URLSearchParams({
+    fields: fields.join(','),
+    access_token: accessToken,
+    date_preset: datePreset,
+    level: level,
+    time_increment: timeIncrement
+  });
+
+  const response = await fetch(`${BASE_URL}/${campaignId}/insights?${params}`);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error?.message || 'Erro ao buscar insights da campanha');
   }
 
   const data = await response.json();

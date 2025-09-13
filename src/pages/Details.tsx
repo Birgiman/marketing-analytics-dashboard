@@ -5,9 +5,8 @@ import PerformanceAnalysis from "@/components/PerformanceAnalysis";
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Live, Group } from "@/types";
-import { DEMO_MODE } from "@/lib/demo-mode";
-import { useMetaLivesData } from "@/hooks/useMetaLivesData";
+import { Live, LiveGroup } from "@/types";
+import { useLiveCampaignData } from "@/hooks/useLiveCampaignData";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MetaCampaignsList } from "@/components/MetaCampaignsList";
@@ -19,54 +18,22 @@ const Details = () => {
   
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState<Live | null>(null);
-  const [groups, setGroups] = useState<Group[]>([]);
+  const [groups, setGroups] = useState<LiveGroup[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   
-  // Usar hook para dados do Meta Ads
+  // Usar hook para dados das campanhas específicas da Live
   const {
-    creatives,
-    isLoading: metaLoading,
-    isConnected: metaConnected,
-    hasMetaIntegration,
-    error: metaError,
-    lastUpdated,
-    refreshData: refreshMetaData,
-    clearError
-  } = useMetaLivesData(userId || undefined);
+    campaigns,
+    isLoading: campaignsLoading,
+    error: campaignsError,
+    refreshData: refreshCampaigns,
+    clearError: clearCampaignsError
+  } = useLiveCampaignData(liveId || '');
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!liveId || DEMO_MODE) {
-        // Para demo mode, criar dados fictícios
-        setLive({
-          id: 'demo-live-1',
-          name: 'Live Demo',
-          user_id: 'demo-user',
-          live_date: new Date().toISOString(),
-          participants: 1250,
-          sales: 45,
-          revenue: 15680.50,
-          current_viewers: 320,
-          peak_viewers: 580,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
-        
-        // Dados de creatives vêm do hook useMetaLivesData
-        
-        setGroups([
-          {
-            id: '1',
-            nome_grupo: 'Grupo VIP Live',
-            evento: 'ENTROU',
-            telefone: '11999999999',
-            data_hora: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            user_id: 'demo-user'
-          }
-        ]);
-        
-        setLoading(false);
+      if (!liveId) {
+        navigate('/lives');
         return;
       }
 
@@ -82,11 +49,11 @@ const Details = () => {
         setLive(liveData);
         setUserId(liveData.user_id);
 
-        // Buscar dados de grupos (WhatsApp)
+        // Buscar dados de grupos vinculados à Live
         const { data: groupsData, error: groupsError } = await supabase
-          .from('groups')
+          .from('live_groups')
           .select('*')
-          .eq('user_id', liveData.user_id);
+          .eq('live_id', liveId);
 
         if (groupsError) throw groupsError;
         setGroups(groupsData || []);
@@ -105,14 +72,16 @@ const Details = () => {
 
   // Calcular CPL Líquido
   const calculateCPLLiquido = () => {
-    if (!creatives || !groups || creatives.length === 0 || groups.length === 0) return 0;
+    if (!campaigns || !groups || campaigns.length === 0 || groups.length === 0) return 0;
     
-    const totalSpent = creatives.reduce((sum, item) => {
-      const amount = item.amount_spent || 0;
-      return sum + amount;
+    // Usar dados reais de spend dos insights
+    const totalSpent = campaigns.reduce((sum, campaign) => {
+      const spend = parseFloat(campaign.insights?.spend || '0');
+      return sum + spend;
     }, 0);
     
-    const totalEntrou = groups.filter(grupo => grupo.evento === 'ENTROU').length;
+    // Para o CPL Líquido, usamos a soma do tamanho dos grupos vinculados
+    const totalEntrou = groups.reduce((sum, group) => sum + group.group_size, 0);
     return totalEntrou > 0 ? totalSpent / totalEntrou : 0;
   };
 
@@ -122,20 +91,30 @@ const Details = () => {
       return { entrou: 0, saiu: 0, ativos: 0 };
     }
     
-    const entrou = groups.filter(grupo => grupo.evento === 'ENTROU').length;
-    const saiu = groups.filter(grupo => grupo.evento === 'SAIU').length;
-    const ativos = entrou - saiu;
+    // Com a nova estrutura, usamos o tamanho total dos grupos
+    const totalMembros = groups.reduce((sum, group) => sum + group.group_size, 0);
+    const gruposMonitorados = groups.filter(group => group.monitoring).length;
     
-    return { entrou, saiu, ativos };
+    return { 
+      entrou: totalMembros, 
+      saiu: 0, // TODO: Implementar tracking de saídas
+      ativos: totalMembros 
+    };
   };
 
   // Calcular taxa de retenção
   const calculateRetentionRate = () => {
-    if (!creatives || creatives.length === 0) return 0;
+    if (!campaigns || campaigns.length === 0) return 0;
     
-    const totalLeads = creatives.reduce((sum, item) => {
-      const leads = item.leads || 0;
-      return sum + leads;
+    // Extrair leads reais das actions dos insights
+    const totalLeads = campaigns.reduce((sum, campaign) => {
+      const actions = campaign.insights?.actions || [];
+      const leadAction = actions.find(action => 
+        action.action_type === 'lead' || 
+        action.action_type === 'submit_application' ||
+        action.action_type === 'complete_registration'
+      );
+      return sum + (leadAction ? parseInt(leadAction.value) : 0);
     }, 0);
     
     const { entrou } = calculateGroupData();
@@ -145,30 +124,37 @@ const Details = () => {
 
   // Calcular CPL Meta
   const calculateCPLMeta = () => {
-    if (!creatives || creatives.length === 0) return 0;
+    if (!campaigns || campaigns.length === 0) return 0;
     
-    const totalSpent = creatives.reduce((sum, item) => {
-      const amount = item.amount_spent || 0;
-      return sum + amount;
+    // Usar dados reais de spend dos insights
+    const totalSpent = campaigns.reduce((sum, campaign) => {
+      const spend = parseFloat(campaign.insights?.spend || '0');
+      return sum + spend;
     }, 0);
     
-    const totalLeads = creatives.reduce((sum, item) => {
-      const leads = item.leads || 0;
-      return sum + leads;
+    // Extrair leads reais das actions dos insights
+    const totalLeads = campaigns.reduce((sum, campaign) => {
+      const actions = campaign.insights?.actions || [];
+      const leadAction = actions.find(action => 
+        action.action_type === 'lead' || 
+        action.action_type === 'submit_application' ||
+        action.action_type === 'complete_registration'
+      );
+      return sum + (leadAction ? parseInt(leadAction.value) : 0);
     }, 0);
     
     return totalLeads > 0 ? totalSpent / totalLeads : 0;
   };
 
-  if (loading || (userId && metaLoading && creatives.length === 0)) {
+  if (loading || campaignsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="text-xl">Carregando detalhes...</div>
-          {metaLoading && (
+          {campaignsLoading && (
             <div className="text-sm text-gray-600 flex items-center justify-center gap-2">
               <RefreshCw className="h-4 w-4 animate-spin" />
-              Buscando dados do Meta Ads...
+              Buscando dados das campanhas...
             </div>
           )}
         </div>
@@ -198,60 +184,47 @@ const Details = () => {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Detalhes da Live</h1>
             <p className="text-muted-foreground mt-1">{live.name}</p>
-            {lastUpdated && (
-              <p className="text-xs text-gray-500 mt-1">
-                Dados atualizados: {lastUpdated.toLocaleString('pt-BR')}
-              </p>
-            )}
           </div>
           
           <div className="flex items-center gap-3">
-            {/* Status da Integração Meta */}
+            {/* Status das Campanhas */}
             <div className="flex items-center gap-2">
-              {hasMetaIntegration ? (
-                metaConnected ? (
-                  <Badge variant="default" className="bg-green-100 text-green-800">
-                    Meta Ads Conectado
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                    Meta Ads: Sem Dados
-                  </Badge>
-                )
+              {campaigns.length > 0 ? (
+                <Badge variant="default" className="bg-green-100 text-green-800">
+                  {campaigns.length} Campanha(s) Vinculada(s)
+                </Badge>
               ) : (
                 <Badge variant="outline" className="bg-gray-100 text-gray-600">
-                  Meta Ads Não Conectado
+                  Nenhuma Campanha Vinculada
                 </Badge>
               )}
             </div>
             
             {/* Botão Refresh */}
-            {hasMetaIntegration && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={refreshMetaData}
-                disabled={metaLoading}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${metaLoading ? 'animate-spin' : ''}`} />
-                Atualizar
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refreshCampaigns}
+              disabled={campaignsLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${campaignsLoading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
           </div>
         </div>
         
         {/* Error Alert */}
-        {metaError && (
+        {campaignsError && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-red-600" />
               <div>
-                <p className="text-sm font-medium text-red-800">Erro ao carregar dados do Meta Ads</p>
-                <p className="text-xs text-red-600 mt-1">{metaError}</p>
+                <p className="text-sm font-medium text-red-800">Erro ao carregar dados das campanhas</p>
+                <p className="text-xs text-red-600 mt-1">{campaignsError}</p>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={clearError}
+                  onClick={clearCampaignsError}
                   className="mt-2 text-red-600 hover:text-red-700"
                 >
                   Fechar
@@ -346,34 +319,67 @@ const Details = () => {
               <h3 className="font-semibold text-blue-900">Fontes de Dados</h3>
               <div className="text-sm text-blue-700 space-y-1 mt-1">
                 <p>
-                  <strong>CPL Líquido & Meta:</strong> {hasMetaIntegration ? 'Meta Ads integrado' : 'Dados de exemplo - Configure integração Meta Ads'}
+                  <strong>CPL Líquido & Meta:</strong> {campaigns.length > 0 ? `Baseado em ${campaigns.length} campanha(s) vinculada(s)` : 'Nenhuma campanha vinculada'}
                 </p>
                 <p>
                   <strong>Dados de Grupos:</strong> WhatsApp Business via Evolution API
                 </p>
                 <p>
-                  <strong>Total de Campanhas:</strong> {creatives.length} registro(s)
+                  <strong>Total de Campanhas:</strong> {campaigns.length} registro(s)
                 </p>
               </div>
             </div>
-            {!hasMetaIntegration && (
+            {campaigns.length === 0 && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate('/integrations')}
+                onClick={() => navigate('/lives')}
                 className="bg-white hover:bg-blue-50"
               >
-                Configurar Meta Ads
+                Vincular Campanhas
               </Button>
             )}
           </div>
         </div>
         
         {/* Lista de Campanhas Meta Ads */}
-        <MetaCampaignsList 
-          creatives={creatives} 
-          isLoading={metaLoading}
-        />
+        <div className="space-y-4">
+          <h3 className="text-xl font-semibold">Campanhas Vinculadas</h3>
+          {campaigns.length > 0 ? (
+            <div className="grid gap-4">
+              {campaigns.map((campaign) => (
+                <Card key={campaign.id} className="p-4">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-2">
+                      <h4 className="font-medium">{campaign.campaign_name}</h4>
+                      <div className="flex gap-4 text-sm text-gray-600">
+                        <span>ID: {campaign.campaign_id}</span>
+                        <span>Status: {campaign.status}</span>
+                        <span>Objetivo: {campaign.objective}</span>
+                      </div>
+                      <div className="flex gap-4 text-sm">
+                        <span>Orçamento Diário: R$ {(campaign.daily_budget / 100).toFixed(2)}</span>
+                        {campaign.lifetime_budget && (
+                          <span>Orçamento Total: R$ {(campaign.lifetime_budget / 100).toFixed(2)}</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Conta: {campaign.account_name} ({campaign.account_id})
+                      </div>
+                    </div>
+                    <Badge variant={campaign.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                      {campaign.status}
+                    </Badge>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              Nenhuma campanha vinculada a esta Live
+            </div>
+          )}
+        </div>
         
         {/* Análise de Performance */}
         <PerformanceAnalysis />
