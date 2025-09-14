@@ -10,6 +10,7 @@ import { useLiveCampaignData } from "@/hooks/useLiveCampaignData";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MetaCampaignsList } from "@/components/MetaCampaignsList";
+import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 
 const Details = () => {
   const [searchParams] = useSearchParams();
@@ -20,6 +21,7 @@ const Details = () => {
   const [live, setLive] = useState<Live | null>(null);
   const [groups, setGroups] = useState<LiveGroup[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  const [testLoading, setTestLoading] = useState(false);
   
   // Usar hook para dados das campanhas específicas da Live
   const {
@@ -125,25 +127,56 @@ const Details = () => {
   // Calcular CPL Meta
   const calculateCPLMeta = () => {
     if (!campaigns || campaigns.length === 0) return 0;
-    
+
     // Usar dados reais de spend dos insights
     const totalSpent = campaigns.reduce((sum, campaign) => {
       const spend = parseFloat(campaign.insights?.spend || '0');
       return sum + spend;
     }, 0);
-    
+
     // Extrair leads reais das actions dos insights
     const totalLeads = campaigns.reduce((sum, campaign) => {
       const actions = campaign.insights?.actions || [];
-      const leadAction = actions.find(action => 
-        action.action_type === 'lead' || 
+      const leadAction = actions.find(action =>
+        action.action_type === 'lead' ||
         action.action_type === 'submit_application' ||
         action.action_type === 'complete_registration'
       );
       return sum + (leadAction ? parseInt(leadAction.value) : 0);
     }, 0);
-    
+
     return totalLeads > 0 ? totalSpent / totalLeads : 0;
+  };
+
+  // Função para testar os dados completos da live
+  const handleTestLiveData = async () => {
+    if (!liveId) return;
+
+    setTestLoading(true);
+    try {
+      console.log('🧪 [TESTE] Iniciando busca completa de dados para Live:', liveId);
+      const completeData = await fetchCompleteLiveData(liveId);
+
+      console.log('🧪 [TESTE] ✅ Dados completos obtidos:', completeData);
+      console.log('📊 [RESUMO]', {
+        live: completeData.live.name,
+        grupos: completeData.summary.totalGroups,
+        membros: completeData.summary.totalGroupMembers,
+        campanhas: completeData.summary.totalCampaigns,
+        campanhas_ativas: completeData.summary.activeCampaigns,
+        gasto_total: `$${completeData.summary.totalSpend}`,
+        impressoes: completeData.summary.totalImpressions
+      });
+
+      const insights = completeData.summary.insights;
+      alert(`✅ Teste concluído com sucesso!\n\nLive: ${completeData.live.name}\nGrupos: ${completeData.summary.totalGroups} (${completeData.summary.totalGroupMembers} membros)\nCampanhas: ${completeData.summary.totalCampaigns} (${completeData.summary.activeCampaigns} ativas)\nGasto Total: $${completeData.summary.totalSpend}\nImpressões: ${completeData.summary.totalImpressions}\nCliques: ${completeData.summary.totalClicks}\n\nINSIGHTS (${insights.totalInsights} registros):\n• CPM Médio: $${insights.avgCPM}\n• CTR Médio: ${insights.avgCTR}%\n• CPP Médio: $${insights.avgCPP}\n• Custo por Clique Único: $${insights.avgCostPerUniqueClick}\n• Frequência Média: ${insights.avgFrequency}\n• Total de Ações: ${insights.totalActions}\n\nVeja o console para mais detalhes!`);
+
+    } catch (error) {
+      console.error('🧪 [TESTE] ❌ Erro ao buscar dados:', error);
+      alert(`❌ Erro no teste: ${error}`);
+    } finally {
+      setTestLoading(false);
+    }
   };
 
   if (loading || campaignsLoading) {
@@ -380,10 +413,29 @@ const Details = () => {
             </div>
           )}
         </div>
-        
+
         {/* Análise de Performance */}
         <PerformanceAnalysis />
       </div>
+
+      {/* Botão de Teste - Posição fixa no canto inferior direito */}
+      <Button
+        onClick={handleTestLiveData}
+        disabled={testLoading}
+        className="fixed bottom-6 right-6 z-50 bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-4 py-2 rounded-lg font-medium"
+        size="sm"
+      >
+        {testLoading ? (
+          <>
+            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+            Testando...
+          </>
+        ) : (
+          <>
+            🧪 Testar Dados
+          </>
+        )}
+      </Button>
     </div>
   );
 };

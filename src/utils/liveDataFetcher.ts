@@ -59,6 +59,15 @@ export interface LiveDataResponse {
     totalImpressions: number;
     totalClicks: number;
     totalReach: number;
+    insights: {
+      totalInsights: number;
+      avgCPM: number;
+      avgCTR: number;
+      avgCPP: number;
+      avgCostPerUniqueClick: number;
+      avgFrequency: number;
+      totalActions: number;
+    };
   };
 }
 
@@ -85,13 +94,15 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
 
     console.log(`[LiveDataFetcher] Live encontrada: ${live.name} (User: ${live.user_id})`);
 
-    // 2. Buscar dados do usuário
-    console.log('[LiveDataFetcher] 2. Buscando dados do usuário...');
-    const { data: user, error: userError } = await supabase.auth.admin.getUserById(live.user_id);
-    
-    if (userError) {
-      console.warn('[LiveDataFetcher] Erro ao buscar usuário:', userError);
-    }
+    // 2. Buscar dados do usuário (usando dados básicos disponíveis)
+    console.log('[LiveDataFetcher] 2. Preparando dados do usuário...');
+    const user = {
+      user: {
+        id: live.user_id,
+        email: null // Email não disponível sem permissões admin
+      }
+    };
+    console.log(`[LiveDataFetcher] Usuário ID: ${live.user_id}`);
 
     // 3. Buscar grupos vinculados à Live
     console.log('[LiveDataFetcher] 3. Buscando grupos vinculados à Live...');
@@ -119,6 +130,14 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
 
     if (metaError) {
       console.warn('[LiveDataFetcher] Integração Meta não encontrada:', metaError.message);
+    } else if (metaIntegration) {
+      console.log('[LiveDataFetcher] Integração Meta encontrada:', {
+        user_id: metaIntegration.user_id,
+        account_id: metaIntegration.account_id,
+        account_name: metaIntegration.account_name,
+        is_active: metaIntegration.is_active,
+        has_access_token: !!metaIntegration.access_token
+      });
     }
 
     let allUserCampaigns: MetaCampaign[] = [];
@@ -127,7 +146,9 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
     // 5. Se tem integração Meta, buscar campanhas do usuário
     if (metaIntegration?.access_token && metaIntegration?.account_id) {
       console.log('[LiveDataFetcher] 5. Buscando todas as campanhas do usuário no Meta...');
-      
+      console.log(`[LiveDataFetcher] Account ID: ${metaIntegration.account_id}`);
+      console.log(`[LiveDataFetcher] Access Token presente: ${!!metaIntegration.access_token}`);
+
       try {
         allUserCampaigns = await fetchCampaigns(
           metaIntegration.account_id,
@@ -142,11 +163,18 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
             ]
           }
         );
-        
+
         console.log(`[LiveDataFetcher] ${allUserCampaigns.length} campanhas encontradas no Meta`);
+        if (allUserCampaigns.length > 0) {
+          console.log('[LiveDataFetcher] Primeiras campanhas encontradas:', allUserCampaigns.slice(0, 3).map(c => ({ id: c.id, name: c.name, status: c.status })));
+        }
       } catch (error) {
         console.warn('[LiveDataFetcher] Erro ao buscar campanhas do Meta:', error);
+        console.warn('[LiveDataFetcher] Erro detalhado:', error.message);
       }
+    } else {
+      console.log('[LiveDataFetcher] 5. Pular busca de campanhas - Integração Meta não disponível');
+      console.log(`[LiveDataFetcher] Meta integration: ${!!metaIntegration}, Access token: ${!!metaIntegration?.access_token}, Account ID: ${metaIntegration?.account_id}`);
     }
 
     // 6. Buscar campanhas vinculadas à Live
@@ -176,7 +204,11 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
             liveCampaign.campaign_id,
             metaIntegration.access_token,
             {
-              datePreset: 'last_30d',
+              // Usar período específico para comparação - setembro 2025
+              dateRange: {
+                since: '2025-09-01',
+                until: '2025-09-14'
+              },
               fields: [
                 'campaign_id', 'campaign_name', 'ad_name', 'date_start', 'date_stop',
                 'spend', 'impressions', 'clicks', 'reach', 'frequency',
@@ -201,23 +233,163 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
     console.log('[LiveDataFetcher] 8. Calculando resumo...');
     const totalGroups = liveGroups.length;
     const totalGroupMembers = liveGroups.reduce((sum, group) => sum + group.group_size, 0);
-    const totalCampaigns = allUserCampaigns.length;
-    const activeCampaigns = allUserCampaigns.filter(c => c.status === 'ACTIVE').length;
+
+    // Se não conseguiu buscar campanhas do Meta, usar dados das campanhas vinculadas à Live
+    const totalCampaigns = allUserCampaigns.length > 0 ? allUserCampaigns.length : liveCampaignsList.length;
+    const activeCampaigns = allUserCampaigns.length > 0
+      ? allUserCampaigns.filter(c => c.status === 'ACTIVE').length
+      : liveCampaignsList.filter(c => c.status === 'ACTIVE').length;
+
+    console.log(`[LiveDataFetcher] Campanhas para resumo: Meta API (${allUserCampaigns.length}) | Live vinculadas (${liveCampaignsList.length})`);
+    console.log(`[LiveDataFetcher] Usando dados: ${allUserCampaigns.length > 0 ? 'Meta API' : 'Live vinculadas'}`);
+    console.log(`[LiveDataFetcher] Total campanhas: ${totalCampaigns}, Ativas: ${activeCampaigns}`);
 
     // Calcular métricas dos insights
     let totalSpend = 0;
     let totalImpressions = 0;
     let totalClicks = 0;
     let totalReach = 0;
+    let totalInsights = 0;
 
-    campaignInsights.forEach(({ insights }) => {
-      insights.forEach(insight => {
+    // Para médias
+    let sumCPM = 0;
+    let sumCTR = 0;
+    let sumCPP = 0;
+    let sumCostPerUniqueClick = 0;
+    let sumFrequency = 0;
+    let totalActions = 0;
+    let validCPMCount = 0;
+    let validCTRCount = 0;
+    let validCPPCount = 0;
+    let validCostPerUniqueClickCount = 0;
+    let validFrequencyCount = 0;
+
+    console.log(`[LiveDataFetcher] Processando ${campaignInsights.length} campanhas de insights...`);
+
+    campaignInsights.forEach(({ campaign_id, insights }) => {
+      console.log(`[LiveDataFetcher] Campanha ${campaign_id}: ${insights.length} insights`);
+
+      insights.forEach((insight, index) => {
         totalSpend += parseFloat(insight.spend || '0');
         totalImpressions += parseInt(insight.impressions || '0');
         totalClicks += parseInt(insight.clicks || '0');
         totalReach += parseInt(insight.reach || '0');
+        totalInsights++;
+
+        // CPM - custo por mil impressões
+        if (insight.cpm) {
+          sumCPM += parseFloat(insight.cpm);
+          validCPMCount++;
+        }
+
+        // CTR - taxa de cliques
+        if (insight.ctr) {
+          sumCTR += parseFloat(insight.ctr);
+          validCTRCount++;
+        }
+
+        // CPP - custo por postagem
+        if (insight.cpp) {
+          sumCPP += parseFloat(insight.cpp);
+          validCPPCount++;
+        }
+
+        // Custo por clique único
+        if (insight.cost_per_unique_click) {
+          sumCostPerUniqueClick += parseFloat(insight.cost_per_unique_click);
+          validCostPerUniqueClickCount++;
+        }
+
+        // Frequência
+        if (insight.frequency) {
+          sumFrequency += parseFloat(insight.frequency);
+          validFrequencyCount++;
+        }
+
+        // Actions (leads, conversões, etc.)
+        if (insight.actions && Array.isArray(insight.actions)) {
+          insight.actions.forEach(action => {
+            totalActions += parseInt(action.value || '0');
+          });
+        }
+
+        // Log dos primeiros insights para debug
+        if (index < 3) {
+          console.log(`[LiveDataFetcher] Insight ${index}:`, {
+            date: `${insight.date_start} - ${insight.date_stop}`,
+            spend: insight.spend,
+            impressions: insight.impressions,
+            clicks: insight.clicks,
+            cpm: insight.cpm,
+            ctr: insight.ctr,
+            frequency: insight.frequency,
+            actions: insight.actions?.length || 0
+          });
+        }
+
+        // Log do último insight para ver o range completo
+        if (index === insights.length - 1) {
+          console.log(`[LiveDataFetcher] Último Insight (${index}):`, {
+            date: `${insight.date_start} - ${insight.date_stop}`,
+            spend: insight.spend,
+            impressions: insight.impressions,
+            clicks: insight.clicks
+          });
+        }
       });
     });
+
+    // Calcular médias
+    const avgCPM = validCPMCount > 0 ? sumCPM / validCPMCount : 0;
+    const avgCTR = validCTRCount > 0 ? sumCTR / validCTRCount : 0;
+    const avgCPP = validCPPCount > 0 ? sumCPP / validCPPCount : 0;
+    const avgCostPerUniqueClick = validCostPerUniqueClickCount > 0 ? sumCostPerUniqueClick / validCostPerUniqueClickCount : 0;
+    const avgFrequency = validFrequencyCount > 0 ? sumFrequency / validFrequencyCount : 0;
+
+    console.log('[LiveDataFetcher] Métricas calculadas:', {
+      totalSpend: totalSpend.toFixed(2),
+      totalImpressions,
+      totalClicks,
+      totalInsights,
+      avgCPM: avgCPM.toFixed(4),
+      avgCTR: avgCTR.toFixed(4),
+      totalActions
+    });
+
+    // Log para comparação direta com Meta Dashboard
+    console.log('\n📊 [COMPARAÇÃO COM META DASHBOARD]');
+    console.log('==========================================');
+    console.log(`Período analisado: 1 set - 14 set 2025`);
+    console.log(`Campanha principal: ${liveCampaignsList[0]?.campaign_name || 'N/A'}`);
+    console.log('');
+    console.log('💰 GASTOS:');
+    console.log(`  Nossa API: $${totalSpend.toFixed(2)} USD / R$${(totalSpend * 5.5).toFixed(2)} BRL (aprox.)`);
+    console.log(`  Meta Dashboard: R$ 74,38 (conforme informado)`);
+    console.log('');
+    console.log('👀 IMPRESSÕES:');
+    console.log(`  Nossa API: ${totalImpressions.toLocaleString()}`);
+    console.log(`  Meta Dashboard: 5.325 (conforme informado)`);
+    console.log('');
+    console.log('👆 CLIQUES:');
+    console.log(`  Nossa API: ${totalClicks.toLocaleString()}`);
+    console.log(`  Meta Dashboard: [verificar na planilha]`);
+    console.log('');
+    console.log('📈 MÉTRICAS CALCULADAS:');
+    console.log(`  CPM Médio: $${avgCPM.toFixed(2)} (${avgCPM.toFixed(4)} exato)`);
+    console.log(`  CTR Médio: ${avgCTR.toFixed(2)}% (${avgCTR.toFixed(4)}% exato)`);
+    console.log(`  Custo/Clique: $${avgCostPerUniqueClick.toFixed(2)}`);
+    console.log(`  Frequência: ${avgFrequency.toFixed(2)}`);
+    console.log('');
+    console.log('🎯 AÇÕES/RESULTADOS:');
+    console.log(`  Total de Ações: ${totalActions}`);
+    console.log(`  Meta Dashboard: 272 resultados (conforme informado)`);
+    console.log('');
+    console.log('⚠️  POSSÍVEIS DIFERENÇAS:');
+    console.log('  - Período: API pode estar usando 30 dias vs. 1-14 setembro');
+    console.log('  - Agregação: API soma todos os dias vs. totais do dashboard');
+    console.log('  - Moeda: API em USD vs. Dashboard em BRL');
+    console.log('  - Timezone: Possível diferença de fuso horário');
+    console.log('==========================================\n');
 
     const response: LiveDataResponse = {
       live: {
@@ -245,7 +417,16 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
         totalSpend: Math.round(totalSpend * 100) / 100, // Arredondar para 2 casas decimais
         totalImpressions,
         totalClicks,
-        totalReach
+        totalReach,
+        insights: {
+          totalInsights,
+          avgCPM: Math.round(avgCPM * 10000) / 10000, // 4 casas decimais
+          avgCTR: Math.round(avgCTR * 10000) / 10000, // 4 casas decimais
+          avgCPP: Math.round(avgCPP * 100) / 100, // 2 casas decimais
+          avgCostPerUniqueClick: Math.round(avgCostPerUniqueClick * 100) / 100, // 2 casas decimais
+          avgFrequency: Math.round(avgFrequency * 100) / 100, // 2 casas decimais
+          totalActions
+        }
       }
     };
 
