@@ -104,44 +104,9 @@ export function AppSidebar() {
     getUser();
   }, []);
 
-  // Buscar foto do perfil WhatsApp quando a instância estiver conectada
-  useEffect(() => {
-    const fetchWhatsAppProfilePicture = async () => {
-      if (currentInstance?.instance_name && currentInstance.status === 'connected') {
-        try {
-          const { data: session } = await supabase.auth.getSession();
-          if (!session.session?.user) return;
-
-          // Fazer chamada para API do WhatsApp para obter foto do perfil
-          const response = await fetch(`https://gsdmasbgrglbvlpuhidv.supabase.co/functions/v1/whatsapp-api`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.session.access_token}`,
-              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzZG1hc2JncmdsYnZscHVoaWR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwMDkwMTMsImV4cCI6MjA3MjU4NTAxM30.hrL3tWvdZKrsDwNf_yG2kawqYcA6nnV89CW9nEkH93s'
-            },
-            body: JSON.stringify({
-              instanceName: currentInstance.instance_name,
-              endpoint: '/instance/profilePictureUrl',
-              method: 'GET',
-              data: {}
-            })
-          });
-
-          if (response.ok) {
-            const result = await response.json();
-            if (result.profilePictureUrl) {
-              setProfilePicture(result.profilePictureUrl);
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching WhatsApp profile picture:', error);
-        }
-      }
-    };
-
-    fetchWhatsAppProfilePicture();
-  }, [currentInstance?.instance_name, currentInstance?.status]);
+  // Note: WhatsApp profile picture endpoint not supported by Evolution API
+  // Removed the profilePictureUrl call as it's not in the supported actions list
+  // Available actions: create instance, reconnect instance, check instance, check status, get qr, disconnect, delete instance
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();

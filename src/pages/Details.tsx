@@ -208,6 +208,12 @@ const Details = () => {
   const retentionRate = calculateRetentionRate();
   const cplMeta = calculateCPLMeta();
 
+  // Calculate total spend for PerformanceAnalysis
+  const totalSpend = campaigns.reduce((sum, campaign) => {
+    const spend = parseFloat(campaign.insights?.spend || '0');
+    return sum + spend;
+  }, 0);
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -224,7 +230,7 @@ const Details = () => {
             <div className="flex items-center gap-2">
               {campaigns.length > 0 ? (
                 <Badge variant="default" className="bg-green-100 text-green-800">
-                  {campaigns.length} Campanha(s) Vinculada(s)
+                  {campaigns.length === 1 ? '1 Campanha Vinculada' : `${campaigns.length} Campanhas Vinculadas`}
                 </Badge>
               ) : (
                 <Badge variant="outline" className="bg-gray-100 text-gray-600">
@@ -352,13 +358,13 @@ const Details = () => {
               <h3 className="font-semibold text-blue-900">Fontes de Dados</h3>
               <div className="text-sm text-blue-700 space-y-1 mt-1">
                 <p>
-                  <strong>CPL Líquido & Meta:</strong> {campaigns.length > 0 ? `Baseado em ${campaigns.length} campanha(s) vinculada(s)` : 'Nenhuma campanha vinculada'}
+                  <strong>CPL Líquido & Meta:</strong> {campaigns.length > 0 ? `Baseado em ${campaigns.length === 1 ? '1 campanha vinculada' : `${campaigns.length} campanhas vinculadas`}` : 'Nenhuma campanha vinculada'}
                 </p>
                 <p>
                   <strong>Dados de Grupos:</strong> WhatsApp Business via Evolution API
                 </p>
                 <p>
-                  <strong>Total de Campanhas:</strong> {campaigns.length} registro(s)
+                  <strong>Total de Campanhas:</strong> {campaigns.length === 0 ? 'Nenhum registro' : campaigns.length === 1 ? '1 registro' : `${campaigns.length} registros`}
                 </p>
               </div>
             </div>
@@ -366,7 +372,7 @@ const Details = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate('/lives')}
+                onClick={() => navigate('/dashboard')}
                 className="bg-white hover:bg-blue-50"
               >
                 Vincular Campanhas
@@ -388,16 +394,16 @@ const Details = () => {
                       <div className="flex gap-4 text-sm text-gray-600">
                         <span>ID: {campaign.campaign_id}</span>
                         <span>Status: {campaign.status}</span>
-                        <span>Objetivo: {campaign.objective}</span>
+                        <span>Objetivo: {campaign.objective || '—'}</span>
                       </div>
                       <div className="flex gap-4 text-sm">
-                        <span>Orçamento Diário: R$ {(campaign.daily_budget / 100).toFixed(2)}</span>
+                        <span>Orçamento Diário: {campaign.daily_budget ? `R$ ${(Number(campaign.daily_budget) / 100).toFixed(2)}` : '—'}</span>
                         {campaign.lifetime_budget && (
-                          <span>Orçamento Total: R$ {(campaign.lifetime_budget / 100).toFixed(2)}</span>
+                          <span>Orçamento Total: R$ {(Number(campaign.lifetime_budget) / 100).toFixed(2)}</span>
                         )}
                       </div>
                       <div className="text-xs text-gray-500">
-                        Conta: {campaign.account_name} ({campaign.account_id})
+                        Conta: {campaign.account_name || '—'} ({campaign.account_id || '—'})
                       </div>
                     </div>
                     <Badge variant={campaign.status === 'ACTIVE' ? 'default' : 'secondary'}>
@@ -415,7 +421,13 @@ const Details = () => {
         </div>
 
         {/* Análise de Performance */}
-        <PerformanceAnalysis />
+        <PerformanceAnalysis
+          live={live}
+          totalSpend={totalSpend}
+          totalGroupMembers={groupData.entrou}
+          cplLiquido={cplLiquido}
+          cplMeta={cplMeta}
+        />
       </div>
 
       {/* Botão de Teste - Posição fixa no canto inferior direito */}

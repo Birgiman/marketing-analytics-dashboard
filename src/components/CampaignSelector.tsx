@@ -15,6 +15,7 @@ interface CampaignSelectorProps {
   onCampaignsSelected: (campaigns: any[]) => void;
   userId?: string;
   alreadySelected?: any[];
+  linkedCampaigns?: string[];
 }
 
 const CampaignSelector: React.FC<CampaignSelectorProps> = ({
@@ -22,7 +23,8 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   onClose,
   onCampaignsSelected,
   userId,
-  alreadySelected = []
+  alreadySelected = [],
+  linkedCampaigns = []
 }) => {
   const [step, setStep] = useState(1); // 1 = Select Account, 2 = Select Campaigns
   const [adAccounts, setAdAccounts] = useState<any[]>([]);
@@ -228,8 +230,8 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
 
   const formatCurrency = (value: string | undefined) => {
     if (!value) return 'N/A';
-    const numValue = parseFloat(value) / 100;
-    return `R$ ${numValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+    const numValue = parseFloat(value) / 100; // Facebook sends values in cents
+    return `R$ ${numValue.toFixed(2)}`;
   };
 
   const getStatusColor = (status: string) => {
@@ -480,57 +482,74 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                       )}
                     </div>
                   ) : (
-                    filteredCampaigns.map((campaign) => (
-                      <div
-                        key={campaign.id}
-                        className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-                          selectedCampaignIds.includes(campaign.id)
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                        }`}
-                        onClick={() => handleCampaignToggle(campaign)}
-                      >
-                        <div className="flex items-start space-x-3">
-                          <Checkbox
-                            checked={selectedCampaignIds.includes(campaign.id)}
-                            onChange={() => {}} // Handled by parent click
-                            className="mt-1"
-                          />
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-2">
-                              <h3 className="font-medium text-gray-900 truncate pr-2">
-                                {campaign.name}
-                              </h3>
-                              <Badge className={getStatusColor(campaign.status)}>
-                                {campaign.status === 'ACTIVE' ? 'Ativa' : 'Pausada'}
-                              </Badge>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
-                              <div className="flex items-center gap-1">
-                                <Target className="h-3 w-3" />
-                                <span className="truncate">{campaign.objective || 'N/A'}</span>
-                              </div>
-                              
-                              {campaign.daily_budget && (
-                                <div className="flex items-center gap-1">
-                                  <DollarSign className="h-3 w-3" />
-                                  <span>Orçamento: {formatCurrency(campaign.daily_budget)}/dia</span>
+                    filteredCampaigns.map((campaign) => {
+                      const isLinked = linkedCampaigns.includes(campaign.id);
+                      const isSelected = selectedCampaignIds.includes(campaign.id);
+
+                      return (
+                        <div
+                          key={campaign.id}
+                          className={`border rounded-lg p-4 transition-colors ${
+                            isLinked
+                              ? 'border-orange-300 bg-orange-50 cursor-default'
+                              : isSelected
+                                ? 'border-blue-500 bg-blue-50 cursor-pointer'
+                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
+                          }`}
+                          onClick={() => !isLinked && handleCampaignToggle(campaign)}
+                        >
+                          <div className="flex items-start space-x-3">
+                            <Checkbox
+                              checked={isSelected || isLinked}
+                              disabled={isLinked}
+                              onChange={() => {}} // Handled by parent click
+                              className="mt-1"
+                            />
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-2">
+                                <h3 className={`font-medium truncate pr-2 ${
+                                  isLinked ? 'text-orange-700' : 'text-gray-900'
+                                }`}>
+                                  {campaign.name}
+                                </h3>
+                                <div className="flex gap-1">
+                                  {isLinked && (
+                                    <Badge className="bg-orange-100 text-orange-800 text-xs">
+                                      Já vinculada
+                                    </Badge>
+                                  )}
+                                  <Badge className={getStatusColor(campaign.status)}>
+                                    {campaign.status === 'ACTIVE' ? 'Ativa' : 'Pausada'}
+                                  </Badge>
                                 </div>
-                              )}
-                              
-                              <div className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                <span>
-                                  {new Date(campaign.created_time).toLocaleDateString('pt-BR')}
-                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
+                                <div className="flex items-center gap-1">
+                                  <Target className="h-3 w-3" />
+                                  <span className="truncate">{campaign.objective || 'N/A'}</span>
+                                </div>
+
+                                {campaign.daily_budget && (
+                                  <div className="flex items-center gap-1">
+                                    <DollarSign className="h-3 w-3" />
+                                    <span>Orçamento: {formatCurrency(campaign.daily_budget)}/dia</span>
+                                  </div>
+                                )}
+
+                                <div className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  <span>
+                                    {new Date(campaign.created_time).toLocaleDateString('pt-BR')}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               )}

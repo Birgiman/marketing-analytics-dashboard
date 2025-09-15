@@ -115,9 +115,12 @@ export function useLives() {
         }
       }
 
+      const groupText = groups.length === 0 ? 'nenhum grupo' : groups.length === 1 ? '1 grupo' : `${groups.length} grupos`;
+      const campaignText = campaigns.length === 0 ? 'nenhuma campanha' : campaigns.length === 1 ? '1 campanha' : `${campaigns.length} campanhas`;
+
       toast({
         title: "✅ Live criada com sucesso!",
-        description: `Live "${liveData.name}" criada com ${groups.length} grupo(s) e ${campaigns.length} campanha(s) vinculado(s).`
+        description: `Live "${liveData.name}" criada com ${groupText} e ${campaignText} vinculados.`
       })
 
       return { live: liveResult, groups, campaigns }
@@ -208,7 +211,7 @@ export function useLives() {
         throw new Error(`Erro ao atualizar live: ${liveError.message}`)
       }
 
-      // Delete existing live_groups and live_campaigns, then recreate them
+      // Delete existing live_groups, then recreate them
       const { error: deleteGroupsError } = await supabase
         .from('live_groups')
         .delete()
@@ -217,16 +220,6 @@ export function useLives() {
       if (deleteGroupsError) {
         console.error('Error deleting existing live groups:', deleteGroupsError)
         throw new Error(`Erro ao atualizar grupos: ${deleteGroupsError.message}`)
-      }
-
-      const { error: deleteCampaignsError } = await supabase
-        .from('live_campaigns')
-        .delete()
-        .eq('live_id', liveId)
-
-      if (deleteCampaignsError) {
-        console.error('Error deleting existing live campaigns:', deleteCampaignsError)
-        throw new Error(`Erro ao atualizar campanhas: ${deleteCampaignsError.message}`)
       }
 
       // Create new live_groups entries
@@ -250,7 +243,7 @@ export function useLives() {
         }
       }
 
-      // Create new live_campaigns entries
+      // Add new live_campaigns entries (only new ones, don't replace existing)
       if (campaigns.length > 0) {
         const liveCampaigns = campaigns.map(campaign => ({
           live_id: liveId,
@@ -269,14 +262,17 @@ export function useLives() {
           .insert(liveCampaigns)
 
         if (campaignsError) {
-          console.error('Error creating updated live campaigns:', campaignsError)
-          throw new Error(`Erro ao atualizar campanhas: ${campaignsError.message}`)
+          console.error('Error adding new live campaigns:', campaignsError)
+          throw new Error(`Erro ao adicionar campanhas: ${campaignsError.message}`)
         }
       }
 
+      const groupText = groups.length === 0 ? 'nenhum grupo' : groups.length === 1 ? '1 grupo' : `${groups.length} grupos`;
+      const campaignText = campaigns.length === 0 ? 'nenhuma campanha' : campaigns.length === 1 ? '1 campanha' : `${campaigns.length} campanhas`;
+
       toast({
         title: "✅ Live atualizada com sucesso!",
-        description: `Live "${liveData.name}" foi atualizada com ${groups.length} grupo(s) e ${campaigns.length} campanha(s).`
+        description: `Live "${liveData.name}" foi atualizada com ${groupText} e ${campaignText}.`
       })
 
       return true
