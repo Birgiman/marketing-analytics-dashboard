@@ -4,6 +4,21 @@
  * Podem ser usadas em Lives, Campanhas, etc.
  */
 
+import {
+  MetaInsightLevel,
+  MetaFilterOperator,
+  MetaCampaignStatus,
+  MetaDatePreset,
+  MetaApiFields,
+  MetaInsightsOptions,
+  MetaApiFilter,
+  MetaTimeRange,
+  buildMetaApiUrl,
+  createCampaignStatusFilter,
+  createCampaignNameFilter,
+  createCampaignIdFilter
+} from '../types/metaApi';
+
 export interface MetaAdAccount {
   id: string;
   name: string;
@@ -63,6 +78,7 @@ export async function fetchAdAccounts(accessToken: string): Promise<MetaAdAccoun
 
 /**
  * Busca campanhas de uma conta específica
+ * Atualizada para usar a nova estrutura padronizada com enums
  */
 export async function fetchCampaigns(
   adAccountId: string,
@@ -71,20 +87,37 @@ export async function fetchCampaigns(
     limit?: number;
     status?: string[];
     fields?: string[];
+    searchTerm?: string;
   } = {}
 ): Promise<MetaCampaign[]> {
   const {
     limit = 25,
     status = ['ACTIVE', 'PAUSED'],
-    fields = [
-      'id', 'name', 'status', 'objective',
-      'daily_budget', 'lifetime_budget',
-      'start_time', 'stop_time',
-      'created_time', 'updated_time'
-    ]
+    fields = MetaApiFields.CAMPAIGN,
+    searchTerm
   } = options;
 
   console.log('📱 fetchCampaigns - Parâmetros recebidos:', { adAccountId, options });
+
+  const filters: MetaApiFilter[] = [];
+
+  // Add status filter if provided
+  if (status.length > 0) {
+    console.log('📱 Adicionando filtro de status:', status);
+    filters.push({
+      field: 'status',
+      operator: MetaFilterOperator.IN,
+      value: status
+    });
+  } else {
+    console.log('📱 Sem filtro de status (status array vazio)');
+  }
+
+  // Add search term filter if provided
+  if (searchTerm && searchTerm.trim()) {
+    console.log('📱 Adicionando filtro de busca:', searchTerm);
+    filters.push(createCampaignNameFilter(searchTerm.trim()));
+  }
 
   const params = new URLSearchParams({
     fields: fields.join(','),
@@ -92,15 +125,9 @@ export async function fetchCampaigns(
     limit: limit.toString()
   });
 
-  if (status.length > 0) {
-    console.log('📱 Adicionando filtro de status:', status);
-    params.append('filtering', JSON.stringify([{
-      field: 'status',
-      operator: 'IN',
-      value: status
-    }]));
-  } else {
-    console.log('📱 Sem filtro de status (status array vazio)');
+  // Add filtering if we have any filters
+  if (filters.length > 0) {
+    params.append('filtering', JSON.stringify(filters));
   }
 
   const url = `${BASE_URL}/${adAccountId}/campaigns?${params}`;
@@ -129,6 +156,7 @@ export async function fetchCampaigns(
 
 /**
  * Busca dados específicos de uma campanha pelo ID
+ * Atualizada para usar campos padronizados
  */
 export async function fetchCampaignById(
   campaignId: string,
@@ -138,11 +166,7 @@ export async function fetchCampaignById(
   } = {}
 ): Promise<MetaCampaign> {
   const {
-    fields = [
-      'id', 'name', 'status', 'objective', 'daily_budget', 'lifetime_budget',
-      'start_time', 'stop_time', 'created_time', 'updated_time', 'effective_status',
-      'buying_type', 'bid_strategy'
-    ]
+    fields = MetaApiFields.CAMPAIGN
   } = options;
 
   const params = new URLSearchParams({
@@ -162,30 +186,20 @@ export async function fetchCampaignById(
 
 /**
  * Busca insights de uma campanha específica
+ * Atualizada para usar a nova estrutura com enums e tipos
  */
 export async function fetchCampaignInsightsById(
   campaignId: string,
   accessToken: string,
-  options: {
-    fields?: string[];
-    datePreset?: string;
-    dateRange?: {
-      since: string;
-      until: string;
-    };
-    level?: string;
+  options: MetaInsightsOptions & {
     timeIncrement?: string;
   } = {}
 ): Promise<any> {
   const {
-    fields = [
-      'campaign_name', 'ad_name', 'date_start', 'date_stop', 'spend',
-      'impressions', 'clicks', 'reach', 'frequency', 'cpm', 'ctr',
-      'cpp', 'cost_per_unique_click', 'actions'
-    ],
-    datePreset = 'last_30d',
+    fields = MetaApiFields.CAMPAIGN_INSIGHTS,
+    datePreset = MetaDatePreset.LAST_30D,
     dateRange,
-    level = 'campaign',
+    level = MetaInsightLevel.CAMPAIGN,
     timeIncrement = '1'
   } = options;
 
@@ -328,4 +342,201 @@ export function isValidAdAccountId(id: string): boolean {
 export function isValidAccessToken(token: string): boolean {
   // Tokens do Meta geralmente têm 200+ caracteres e começam com letras/números
   return token.length > 50 && /^[A-Za-z0-9]+/.test(token);
+}
+
+/**
+ * Busca insights agregados a nível de conta (múltiplas campanhas)
+ * Usado para obter dados consolidados de todas as campanhas selecionadas
+ */
+export async function fetchAccountLevelInsights(
+  adAccountId: string,
+  accessToken: string,
+  options: MetaInsightsOptions = {}
+): Promise<any[]> {
+  const {
+    level = MetaInsightLevel.ACCOUNT,
+    fields = MetaApiFields.ACCOUNT_INSIGHTS,
+    dateRange,
+    datePreset = MetaDatePreset.LAST_30D,
+    filtering = [],
+    limit = 100
+  } = options;
+
+  const params = new URLSearchParams({
+    fields: fields.join(','),
+    access_token: accessToken,
+    level: level,
+    limit: limit.toString()
+  });
+
+  // Add date range or preset
+  if (dateRange) {
+    params.append('time_range', JSON.stringify({
+      since: dateRange.since,
+      until: dateRange.until
+    }));
+  } else {
+    params.append('date_preset', datePreset);
+  }
+
+  // Add filtering if provided
+  if (filtering.length > 0) {
+    params.append('filtering', JSON.stringify(filtering));
+  }
+
+  const url = `${BASE_URL}/${adAccountId}/insights?${params}`;
+  console.log('📊 [fetchAccountLevelInsights] URL:', url.replace(accessToken, 'TOKEN_OCULTO'));
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error?.message || 'Erro ao buscar insights agregados da conta');
+  }
+
+  const data = await response.json();
+  console.log('📊 [fetchAccountLevelInsights] Resposta:', data);
+  return data.data || [];
+}
+
+/**
+ * Busca insights específicos de múltiplas campanhas com filtros avançados
+ * Suporta filtros por status, nome e IDs específicos
+ */
+export async function fetchMultipleCampaignInsights(
+  adAccountId: string,
+  accessToken: string,
+  options: MetaInsightsOptions & {
+    campaignIds?: string[];
+    campaignStatuses?: MetaCampaignStatus[];
+    searchTerm?: string;
+  } = {}
+): Promise<any[]> {
+  const {
+    level = MetaInsightLevel.CAMPAIGN,
+    fields = MetaApiFields.CAMPAIGN_INSIGHTS,
+    dateRange,
+    datePreset = MetaDatePreset.LAST_30D,
+    campaignIds,
+    campaignStatuses = [MetaCampaignStatus.ACTIVE, MetaCampaignStatus.PAUSED],
+    searchTerm,
+    limit = 100
+  } = options;
+
+  const filters: MetaApiFilter[] = [];
+
+  // Add campaign status filter
+  if (campaignStatuses.length > 0) {
+    filters.push(createCampaignStatusFilter(campaignStatuses));
+  }
+
+  // Add campaign name filter if search term provided
+  if (searchTerm && searchTerm.trim()) {
+    filters.push(createCampaignNameFilter(searchTerm.trim()));
+  }
+
+  // Add campaign ID filter if specific IDs provided
+  if (campaignIds && campaignIds.length > 0) {
+    filters.push(createCampaignIdFilter(campaignIds));
+  }
+
+  const params = new URLSearchParams({
+    fields: fields.join(','),
+    access_token: accessToken,
+    level: level,
+    limit: limit.toString()
+  });
+
+  // Add date range or preset
+  if (dateRange) {
+    params.append('time_range', JSON.stringify({
+      since: dateRange.since,
+      until: dateRange.until
+    }));
+  } else {
+    params.append('date_preset', datePreset);
+  }
+
+  // Add filtering
+  if (filters.length > 0) {
+    params.append('filtering', JSON.stringify(filters));
+  }
+
+  const url = `${BASE_URL}/${adAccountId}/insights?${params}`;
+  console.log('📊 [fetchMultipleCampaignInsights] URL:', url.replace(accessToken, 'TOKEN_OCULTO'));
+  console.log('📊 [fetchMultipleCampaignInsights] Filtros aplicados:', filters);
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error?.message || 'Erro ao buscar insights de múltiplas campanhas');
+  }
+
+  const data = await response.json();
+  console.log('📊 [fetchMultipleCampaignInsights] Total de insights:', data.data?.length || 0);
+  return data.data || [];
+}
+
+/**
+ * Função para buscar insights agregados de campanhas específicas de uma Live
+ * Combina os dados de campanhas individuais com insights agregados
+ */
+export async function fetchLiveCampaignsInsights(
+  adAccountId: string,
+  campaignIds: string[],
+  accessToken: string,
+  options: MetaInsightsOptions = {}
+): Promise<{
+  aggregated: any[];
+  individual: any[];
+}> {
+  const {
+    dateRange,
+    datePreset = MetaDatePreset.LAST_30D
+  } = options;
+
+  try {
+    // 1. Buscar insights agregados (level=account) com filtro dos IDs específicos
+    const aggregatedOptions: MetaInsightsOptions = {
+      level: MetaInsightLevel.ACCOUNT,
+      fields: MetaApiFields.ACCOUNT_INSIGHTS,
+      dateRange,
+      datePreset,
+      filtering: [createCampaignIdFilter(campaignIds)]
+    };
+
+    const aggregated = await fetchAccountLevelInsights(
+      adAccountId,
+      accessToken,
+      aggregatedOptions
+    );
+
+    // 2. Buscar insights individuais (level=campaign) dos mesmos IDs
+    const individualOptions: MetaInsightsOptions = {
+      level: MetaInsightLevel.CAMPAIGN,
+      fields: MetaApiFields.CAMPAIGN_INSIGHTS,
+      dateRange,
+      datePreset,
+      filtering: [createCampaignIdFilter(campaignIds)]
+    };
+
+    const individual = await fetchMultipleCampaignInsights(
+      adAccountId,
+      accessToken,
+      individualOptions
+    );
+
+    console.log('📊 [fetchLiveCampaignsInsights] Insights agregados:', aggregated.length);
+    console.log('📊 [fetchLiveCampaignsInsights] Insights individuais:', individual.length);
+
+    return {
+      aggregated,
+      individual
+    };
+
+  } catch (error) {
+    console.error('📊 [fetchLiveCampaignsInsights] Erro:', error);
+    throw error;
+  }
 }
