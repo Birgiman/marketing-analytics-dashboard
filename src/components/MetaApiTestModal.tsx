@@ -35,16 +35,25 @@ const AVAILABLE_FIELDS = [
   { id: 'actions', label: 'Actions', description: 'Ações/Conversões' }
 ];
 
-// Campos padrão que normalmente são necessários
+// Campos padrão otimizados para testes eficientes
 const DEFAULT_SELECTED_FIELDS = [
   'campaign_id',
   'campaign_name',
   'date_start',
   'date_stop',
   'spend',
-  'impressions',
-  'clicks'
+  'impressions'
 ];
+
+// Conjunto mínimo para testes rápidos
+const MINIMAL_FIELDS = [
+  'campaign_id',
+  'campaign_name',
+  'spend'
+];
+
+// Conjunto completo para análise detalhada
+const COMPLETE_FIELDS = AVAILABLE_FIELDS.map(field => field.id);
 
 export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModalProps) => {
   const [selectedFields, setSelectedFields] = useState<string[]>(DEFAULT_SELECTED_FIELDS);
@@ -102,11 +111,19 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
   };
 
   const handleSelectAll = () => {
-    setSelectedFields(AVAILABLE_FIELDS.map(field => field.id));
+    setSelectedFields(COMPLETE_FIELDS);
   };
 
   const handleDeselectAll = () => {
     setSelectedFields([]);
+  };
+
+  const handleSelectMinimal = () => {
+    setSelectedFields(MINIMAL_FIELDS);
+  };
+
+  const handleSelectDefault = () => {
+    setSelectedFields(DEFAULT_SELECTED_FIELDS);
   };
 
   const handleTest = async () => {
@@ -221,6 +238,35 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
 
       console.log('🧪 [TESTE META API] Account ID obtido das campanhas:', accountId);
 
+      // Validar período de datas para evitar "número excessivo de linhas"
+      const dateRangeStart = new Date(dateRange.since);
+      const dateRangeEnd = new Date(dateRange.until);
+      const diffTime = Math.abs(dateRangeEnd.getTime() - dateRangeStart.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      console.log('🧪 [TESTE META API] Período de dias:', diffDays);
+
+      if (diffDays > 365) {
+        throw new Error(`Período muito longo (${diffDays} dias). Para evitar erro de "número excessivo de linhas", limite o período para no máximo 1 ano (365 dias).`);
+      }
+
+      // Determinar limite baseado no período e número de campos
+      let apiLimit = 25;
+      if (diffDays > 180) {
+        apiLimit = 15; // Períodos longos: menos resultados
+      } else if (diffDays > 90) {
+        apiLimit = 20; // Períodos médios
+      } else {
+        apiLimit = 25; // Períodos curtos: mais resultados
+      }
+
+      // Ajustar limite baseado no número de campos selecionados
+      if (selectedFields.length > 10) {
+        apiLimit = Math.max(10, Math.floor(apiLimit * 0.7)); // Reduzir limite se muitos campos
+      }
+
+      console.log('🧪 [TESTE META API] Limite calculado:', apiLimit);
+
       // Fazer a requisição para a API Meta com os parâmetros selecionados
       const options = {
         level: level,
@@ -228,7 +274,8 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
         dateRange: {
           since: dateRange.since,
           until: dateRange.until
-        }
+        },
+        limit: apiLimit
       };
 
       console.log('🧪 [TESTE META API] Chamando fetchLiveCampaignsInsights com:', {
@@ -337,6 +384,11 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
             <p className="text-xs text-gray-500">
               Período configurado na Live será carregado automaticamente
             </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mt-2">
+              <p className="text-xs text-amber-800">
+                ⚠️ <strong>Limite de período:</strong> Máximo 1 ano (365 dias) para evitar erro de "número excessivo de linhas"
+              </p>
+            </div>
           </div>
 
           {/* Seleção de Campos */}
@@ -345,22 +397,42 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
               <Label className="text-sm font-semibold">
                 Campos da API ({selectedFields.length}/{AVAILABLE_FIELDS.length} selecionados)
               </Label>
-              <div className="space-x-2">
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSelectMinimal}
+                  className="text-xs"
+                >
+                  Mínimo (3)
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSelectDefault}
+                  className="text-xs"
+                >
+                  Padrão (6)
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={handleSelectAll}
+                  className="text-xs"
                 >
-                  Selecionar Todos
+                  Todos (15)
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={handleDeselectAll}
+                  className="text-xs"
                 >
-                  Desmarcar Todos
+                  Limpar
                 </Button>
               </div>
             </div>

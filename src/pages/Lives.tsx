@@ -10,11 +10,14 @@ import { Live } from '@/types';
 import { Plus, Play, Users, TrendingUp, Calendar, Clock, Eye, Edit, Trash2, Target } from 'lucide-react';
 import { useMetaLivesData } from '@/hooks/useMetaLivesData';
 import { Badge } from '@/components/ui/badge';
+import { MetaApiTestModal } from '@/components/MetaApiTestModal';
 
 export default function Lives() {
   const navigate = useNavigate();
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showTestModal, setShowTestModal] = useState(false);
+  const [selectedLiveForTest, setSelectedLiveForTest] = useState<string | null>(null);
   const { lives, createLive, updateLive, deleteLive, loading: analyticsLoading } = useAnalytics(userId || undefined);
   
   // Verificar status da integração Meta
@@ -282,6 +285,18 @@ export default function Lives() {
                           <Edit className="h-4 w-4 mr-1" />
                           Editar
                         </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedLiveForTest(live.id);
+                            setShowTestModal(true);
+                          }}
+                          className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                        >
+                          <Target className="h-4 w-4 mr-1" />
+                          🧪 API
+                        </Button>
                         <Button variant="outline" size="sm">
                           <Trash2 className="h-4 w-4 mr-1" />
                           Excluir
@@ -312,6 +327,20 @@ export default function Lives() {
           </div>
         </div>
       </main>
+
+      {/* Modal de Teste da API Meta */}
+      {selectedLiveForTest && (
+        <MetaApiTestModal
+          open={showTestModal}
+          onOpenChange={(open) => {
+            setShowTestModal(open);
+            if (!open) {
+              setSelectedLiveForTest(null);
+            }
+          }}
+          liveId={selectedLiveForTest}
+        />
+      )}
     </>
   );
 }
