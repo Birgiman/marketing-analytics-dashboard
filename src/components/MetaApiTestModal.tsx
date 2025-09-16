@@ -62,6 +62,7 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
     since: '',
     until: ''
   });
+  const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
 
@@ -70,11 +71,12 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
     try {
       const { data: live, error } = await supabase
         .from('lives')
-        .select('insights_date_since, insights_date_until')
+        .select('insights_date_since, insights_date_until, campaign_search_term')
         .eq('id', liveId)
         .single();
 
       if (!error && live) {
+        // Carregar período de datas
         if (live.insights_date_since && live.insights_date_until) {
           setDateRange({
             since: live.insights_date_since,
@@ -88,6 +90,12 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
             since: firstDayOfMonth.toISOString().split('T')[0],
             until: now.toISOString().split('T')[0]
           });
+        }
+
+        // Carregar termo de busca das campanhas
+        if (live.campaign_search_term) {
+          setSearchTerm(live.campaign_search_term);
+          console.log('🧪 [TESTE META API] Termo de busca carregado da Live:', live.campaign_search_term);
         }
       }
     } catch (error) {
@@ -275,7 +283,12 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
           since: dateRange.since,
           until: dateRange.until
         },
-        limit: apiLimit
+        limit: apiLimit,
+        // Adicionar filtro por termo de busca se especificado
+        ...(searchTerm.trim() && {
+          searchTerm: searchTerm.trim(),
+          campaignStatuses: [MetaCampaignStatus.ACTIVE, MetaCampaignStatus.PAUSED]
+        })
       };
 
       console.log('🧪 [TESTE META API] Chamando fetchLiveCampaignsInsights com:', {
@@ -339,6 +352,28 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Termo de Busca das Campanhas */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">Termo de Busca das Campanhas</Label>
+            <Input
+              type="text"
+              placeholder="Ex: BLACK_FRIDAY_2025, NATAL_2024, PROMOCAO_VERAO..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
+              className="font-mono"
+            />
+            <p className="text-xs text-gray-500">
+              Filtro de nome usado quando a Live foi criada. Apenas campanhas que contêm este termo serão buscadas.
+            </p>
+            {searchTerm && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+                <p className="text-xs text-blue-800">
+                  🎯 <strong>Filtro ativo:</strong> Campanhas contendo "{searchTerm}"
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Seleção de Level */}
           <div className="space-y-2">
             <Label className="text-sm font-semibold">Level da API</Label>
