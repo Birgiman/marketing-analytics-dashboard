@@ -121,6 +121,14 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         adsBudget: editingLive.ad_budget?.toString() || ''
       });
 
+      // Carregar dateRange se existir
+      if (editingLive.insights_date_since && editingLive.insights_date_until) {
+        setDateRange({
+          since: editingLive.insights_date_since,
+          until: editingLive.insights_date_until
+        });
+      }
+
       // Set selected groups if editing
       if (editingLive.live_groups) {
         const groups = editingLive.live_groups.map((group: any) => ({

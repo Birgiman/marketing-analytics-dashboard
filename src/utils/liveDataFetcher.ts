@@ -218,10 +218,13 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
             };
             console.log(`[LiveDataFetcher] Usando dateRange da Live: ${live.insights_date_since} até ${live.insights_date_until}`);
           } else {
-            // Fallback para período padrão
+            // Fallback para período padrão (Live sem período definido)
+            const now = new Date();
+            const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
             insightsOptions.dateRange = {
-              since: '2025-09-01',
-              until: '2025-09-14'
+              since: firstDayOfMonth.toISOString().split('T')[0],
+              until: now.toISOString().split('T')[0]
             };
             console.log('[LiveDataFetcher] Usando dateRange padrão (Live sem período definido)');
           }
