@@ -27,7 +27,8 @@
       "Bash(supabase status:*)",
       "Bash(npm run typecheck:*)",
       "Bash(npm run type-check:*)",
-      "Bash(supabase db reset:*)"
+      "Bash(supabase db reset:*)",
+      "Bash(supabase db describe:*)"
     ],
     "deny": [],
     "ask": []

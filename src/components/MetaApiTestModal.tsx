@@ -132,6 +132,7 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
       });
 
       // Buscar dados da Live e integração Meta
+      console.log('🧪 [TESTE META API] Buscando dados da Live:', liveId);
       const { data: live, error: liveError } = await supabase
         .from('lives')
         .select('user_id')
@@ -139,24 +140,70 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
         .single();
 
       if (liveError || !live) {
-        throw new Error('Live não encontrada');
+        console.error('🧪 [TESTE META API] Erro ao buscar Live:', liveError);
+        throw new Error(`Live não encontrada: ${liveError?.message || 'ID inválido'}`);
       }
 
-      const { data: metaIntegration, error: metaError } = await supabase
+      console.log('🧪 [TESTE META API] Live encontrada, user_id:', live.user_id);
+
+      // Verificar se existe alguma integração Meta para este usuário
+      const { data: allIntegrations, error: allIntegrationsError } = await supabase
         .from('meta_integrations')
-        .select('access_token, account_id')
+        .select('*')
+        .eq('user_id', live.user_id);
+
+      console.log('🧪 [TESTE META API] Todas as integrações do usuário:', allIntegrations);
+
+      let { data: metaIntegration, error: metaError } = await supabase
+        .from('meta_integrations')
+        .select('access_token, is_active')
         .eq('user_id', live.user_id)
         .eq('is_active', true)
         .single();
 
-      if (metaError || !metaIntegration) {
+      if (metaError) {
+        console.error('🧪 [TESTE META API] Erro ao buscar integração Meta:', metaError);
+        console.log('🧪 [TESTE META API] Total de integrações encontradas:', allIntegrations?.length || 0);
+
+        if (allIntegrations && allIntegrations.length > 0) {
+          console.log('🧪 [TESTE META API] Integrações disponíveis:', allIntegrations.map(i => ({
+            id: i.id,
+            is_active: i.is_active,
+            created_at: i.created_at
+          })));
+
+          // Tentar pegar a primeira integração (mesmo que não esteja ativa)
+          const firstIntegration = allIntegrations[0];
+          console.log('🧪 [TESTE META API] Usando primeira integração disponível:', firstIntegration);
+
+          if (firstIntegration.access_token) {
+            console.log('🧪 [TESTE META API] ⚠️ Usando integração inativa, mas com access_token válido');
+            // Usar a primeira integração disponível
+            metaIntegration = {
+              access_token: firstIntegration.access_token,
+              is_active: firstIntegration.is_active
+            };
+          } else {
+            throw new Error(`Integração Meta encontrada mas sem access_token necessário`);
+          }
+        } else {
+          throw new Error('Nenhuma integração Meta encontrada para este usuário. Verifique se a integração com Facebook/Meta está configurada.');
+        }
+      }
+
+      if (!metaIntegration) {
         throw new Error('Integração Meta não encontrada');
       }
+
+      console.log('🧪 [TESTE META API] Integração Meta encontrada:', {
+        is_active: metaIntegration.is_active,
+        has_access_token: !!metaIntegration.access_token
+      });
 
       // Buscar campanhas da Live
       const { data: liveCampaigns, error: campaignsError } = await supabase
         .from('live_campaigns')
-        .select('campaign_id')
+        .select('campaign_id, account_id')
         .eq('live_id', liveId);
 
       if (campaignsError || !liveCampaigns || liveCampaigns.length === 0) {
@@ -164,6 +211,15 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
       }
 
       const campaignIds = liveCampaigns.map(c => c.campaign_id);
+
+      // Obter account_id da primeira campanha (todas devem ter o mesmo account)
+      const accountId = liveCampaigns[0].account_id;
+
+      if (!accountId) {
+        throw new Error('Account ID não encontrado nas campanhas da Live');
+      }
+
+      console.log('🧪 [TESTE META API] Account ID obtido das campanhas:', accountId);
 
       // Fazer a requisição para a API Meta com os parâmetros selecionados
       const options = {
@@ -176,13 +232,13 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
       };
 
       console.log('🧪 [TESTE META API] Chamando fetchLiveCampaignsInsights com:', {
-        adAccountId: metaIntegration.account_id,
+        adAccountId: accountId,
         campaignIds: campaignIds,
         options: options
       });
 
       const result = await fetchLiveCampaignsInsights(
-        metaIntegration.account_id,
+        accountId,
         campaignIds,
         metaIntegration.access_token,
         options
@@ -198,7 +254,7 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
           level: level,
           dateRange: dateRange,
           campaignIds: campaignIds,
-          accountId: metaIntegration.account_id
+          accountId: accountId
         }
       });
 
