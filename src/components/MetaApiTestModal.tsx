@@ -362,7 +362,65 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
 
           {/* Período de Datas */}
           <div className="space-y-2">
-            <Label className="text-sm font-semibold">Período de Datas</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-semibold">Período de Datas</Label>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const today = new Date();
+                    const thirtyDaysAgo = new Date();
+                    thirtyDaysAgo.setDate(today.getDate() - 30);
+
+                    setDateRange({
+                      since: thirtyDaysAgo.toISOString().split('T')[0],
+                      until: today.toISOString().split('T')[0]
+                    });
+                  }}
+                  className="text-xs"
+                >
+                  30 dias
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const today = new Date();
+                    const ninetyDaysAgo = new Date();
+                    ninetyDaysAgo.setDate(today.getDate() - 90);
+
+                    setDateRange({
+                      since: ninetyDaysAgo.toISOString().split('T')[0],
+                      until: today.toISOString().split('T')[0]
+                    });
+                  }}
+                  className="text-xs"
+                >
+                  3 meses
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const today = new Date();
+                    const oneYearAgo = new Date();
+                    oneYearAgo.setFullYear(today.getFullYear() - 1);
+
+                    setDateRange({
+                      since: oneYearAgo.toISOString().split('T')[0],
+                      until: today.toISOString().split('T')[0]
+                    });
+                  }}
+                  className="text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                >
+                  📅 1 ano (máximo)
+                </Button>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-gray-600">Data Início</Label>
