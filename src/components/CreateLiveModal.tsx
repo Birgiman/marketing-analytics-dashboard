@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { GroupSearchSelector } from '@/components/GroupSearchSelector';
 import CampaignSelector from '@/components/CampaignSelector';
+import { MetaApiTestModal } from '@/components/MetaApiTestModal';
 import { useLives } from '@/hooks/useLives';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -52,6 +53,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
   const [linkedCampaigns, setLinkedCampaigns] = useState<any[]>([]);
   const [selectedCampaignsToDelete, setSelectedCampaignsToDelete] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  const [showTestModal, setShowTestModal] = useState(false);
   const { createLiveWithGroups, updateLiveWithGroups, isLoading } = useLives();
   const { toast } = useToast();
   
@@ -670,16 +672,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => {
-                      if (typeof window !== 'undefined' && (window as any).testLiveDataFetcher) {
-                        (window as any).testLiveDataFetcher(editingLive.id);
-                      } else {
-                        toast({
-                          title: "🔧 Função de teste",
-                          description: "Função testLiveDataFetcher não encontrada no console."
-                        });
-                      }
-                    }}
+                    onClick={() => setShowTestModal(true)}
                     className="w-full text-xs"
                   >
                     🧪 Testar coleta completa de dados
@@ -710,6 +703,15 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Teste da API Meta */}
+      {editingLive && (
+        <MetaApiTestModal
+          open={showTestModal}
+          onOpenChange={setShowTestModal}
+          liveId={editingLive.id}
+        />
+      )}
 
       {/* Group Search Modal */}
       <GroupSearchSelector
