@@ -276,7 +276,7 @@ export function WhatsAppAdvancedSettings({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleModalChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[850px] overflow-y-auto flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5 text-green-600" />

@@ -63,7 +63,18 @@ export function useLiveCampaignData(liveId: string): UseLiveCampaignDataReturn {
     setError(null);
 
     try {
-      // 1. Buscar campanhas vinculadas à Live no Supabase
+      // 1. Buscar dados da Live para obter dateRange
+      const { data: liveData, error: liveError } = await supabase
+        .from('lives')
+        .select('insights_date_since, insights_date_until, user_id')
+        .eq('id', liveId)
+        .single();
+
+      if (liveError) {
+        throw new Error(`Erro ao buscar dados da Live: ${liveError.message}`);
+      }
+
+      // 2. Buscar campanhas vinculadas à Live no Supabase
       const { data: liveCampaigns, error: supabaseError } = await supabase
         .from('live_campaigns')
         .select('*')
@@ -78,8 +89,8 @@ export function useLiveCampaignData(liveId: string): UseLiveCampaignDataReturn {
         return;
       }
 
-      // 2. Buscar access token do Meta
-      const userId = liveCampaigns[0].user_id;
+      // 3. Buscar access token do Meta
+      const userId = liveData.user_id;
       if (!userId) {
         setCampaigns(liveCampaigns as CampaignWithMetaData[]);
         return;
@@ -98,7 +109,7 @@ export function useLiveCampaignData(liveId: string): UseLiveCampaignDataReturn {
         return;
       }
 
-      // 3. Buscar dados detalhados e insights de cada campanha no Meta
+      // 4. Buscar dados detalhados e insights de cada campanha no Meta
       const campaignsWithMetaData = await Promise.all(
         liveCampaigns.map(async (campaign) => {
           try {
@@ -109,9 +120,20 @@ export function useLiveCampaignData(liveId: string): UseLiveCampaignDataReturn {
             );
 
             // Buscar insights da campanha
+            const options: any = {};
+
+            // Usar dateRange da Live se disponível
+            if (liveData.insights_date_since && liveData.insights_date_until) {
+              options.dateRange = {
+                since: liveData.insights_date_since,
+                until: liveData.insights_date_until
+              };
+            }
+
             const insightsData = await fetchCampaignInsightsById(
               campaign.campaign_id,
-              metaIntegration.access_token
+              metaIntegration.access_token,
+              options
             );
 
             // Pegar o primeiro insight (mais recente)

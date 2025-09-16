@@ -60,7 +60,7 @@ export const LivesListModal = ({ open, onOpenChange, lives, currentInstance, onL
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[850px] overflow-y-auto flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">Todas as Lives</DialogTitle>
         </DialogHeader>

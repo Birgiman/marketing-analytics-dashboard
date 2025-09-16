@@ -66,6 +66,7 @@ export interface LiveDataResponse {
       avgCPP: number;
       avgCostPerUniqueClick: number;
       avgFrequency: number;
+      avgCPL: number;
       totalActions: number;
     };
   };
@@ -200,21 +201,35 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
         try {
           console.log(`[LiveDataFetcher] Buscando insights para campanha: ${liveCampaign.campaign_name} (${liveCampaign.campaign_id})`);
           
+          // Configurar opções de insights com campos necessários
+          const insightsOptions: any = {
+            fields: [
+              'campaign_id', 'campaign_name', 'ad_name', 'date_start', 'date_stop',
+              'spend', 'impressions', 'clicks', 'reach', 'frequency',
+              'cpm', 'ctr', 'cpp', 'cost_per_unique_click', 'actions'
+            ]
+          };
+
+          // Usar dateRange da Live se disponível
+          if (live.insights_date_since && live.insights_date_until) {
+            insightsOptions.dateRange = {
+              since: live.insights_date_since,
+              until: live.insights_date_until
+            };
+            console.log(`[LiveDataFetcher] Usando dateRange da Live: ${live.insights_date_since} até ${live.insights_date_until}`);
+          } else {
+            // Fallback para período padrão
+            insightsOptions.dateRange = {
+              since: '2025-09-01',
+              until: '2025-09-14'
+            };
+            console.log('[LiveDataFetcher] Usando dateRange padrão (Live sem período definido)');
+          }
+
           const insights = await fetchCampaignInsightsById(
             liveCampaign.campaign_id,
             metaIntegration.access_token,
-            {
-              // Usar período específico para comparação - setembro 2025
-              dateRange: {
-                since: '2025-09-01',
-                until: '2025-09-14'
-              },
-              fields: [
-                'campaign_id', 'campaign_name', 'ad_name', 'date_start', 'date_stop',
-                'spend', 'impressions', 'clicks', 'reach', 'frequency',
-                'cpm', 'ctr', 'cpp', 'cost_per_unique_click', 'actions'
-              ]
-            }
+            insightsOptions
           );
 
           campaignInsights.push({
@@ -339,9 +354,15 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
       });
     });
 
-    // Calcular médias
-    const avgCPM = validCPMCount > 0 ? sumCPM / validCPMCount : 0;
-    const avgCTR = validCTRCount > 0 ? sumCTR / validCTRCount : 0;
+    // Calcular médias corretas para múltiplas campanhas
+    // Para CPM, CTR e outras métricas, devemos calcular com base nos totais agregados
+    const calculatedCPM = totalImpressions > 0 ? (totalSpend / totalImpressions) * 1000 : 0;
+    const calculatedCTR = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
+    const calculatedCPL = totalActions > 0 ? totalSpend / totalActions : 0;
+
+    // Usar médias simples como fallback se não conseguirmos calcular baseado em totais
+    const avgCPM = calculatedCPM > 0 ? calculatedCPM : (validCPMCount > 0 ? sumCPM / validCPMCount : 0);
+    const avgCTR = calculatedCTR > 0 ? calculatedCTR : (validCTRCount > 0 ? sumCTR / validCTRCount : 0);
     const avgCPP = validCPPCount > 0 ? sumCPP / validCPPCount : 0;
     const avgCostPerUniqueClick = validCostPerUniqueClickCount > 0 ? sumCostPerUniqueClick / validCostPerUniqueClickCount : 0;
     const avgFrequency = validFrequencyCount > 0 ? sumFrequency / validFrequencyCount : 0;
@@ -350,10 +371,13 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
       totalSpend: totalSpend.toFixed(2),
       totalImpressions,
       totalClicks,
+      totalActions,
       totalInsights,
-      avgCPM: avgCPM.toFixed(4),
-      avgCTR: avgCTR.toFixed(4),
-      totalActions
+      calculatedCPM: calculatedCPM.toFixed(4),
+      calculatedCTR: calculatedCTR.toFixed(4),
+      calculatedCPL: calculatedCPL.toFixed(4),
+      finalCPM: avgCPM.toFixed(4),
+      finalCTR: avgCTR.toFixed(4)
     });
 
     // Log para comparação direta com Meta Dashboard
@@ -425,6 +449,7 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
           avgCPP: Math.round(avgCPP * 100) / 100, // 2 casas decimais
           avgCostPerUniqueClick: Math.round(avgCostPerUniqueClick * 100) / 100, // 2 casas decimais
           avgFrequency: Math.round(avgFrequency * 100) / 100, // 2 casas decimais
+          avgCPL: Math.round(calculatedCPL * 100) / 100, // Cost per lead calculado
           totalActions
         }
       }

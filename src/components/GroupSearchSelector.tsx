@@ -164,7 +164,7 @@ export function GroupSearchSelector({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[850px] overflow-y-auto flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Search className="h-5 w-5 text-blue-600" />
@@ -248,11 +248,11 @@ export function GroupSearchSelector({
                 </div>
 
                 {/* Groups List */}
-                <div className="overflow-y-auto space-y-2 max-h-80">
+                <div className="overflow-y-auto space-y-2 max-h-80 bg-gray-50 rounded-lg p-3">
                   {searchResults.map((group) => (
                     <div
                       key={group.id}
-                      className="flex items-center gap-4 p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                      className="flex items-center gap-4 p-4 bg-white border rounded-lg hover:bg-gray-100 transition-colors"
                     >
                       <Checkbox
                         checked={selectedGroups.has(group.id)}

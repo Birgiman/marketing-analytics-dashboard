@@ -65,7 +65,7 @@ export async function fetchAdAccounts(accessToken: string): Promise<MetaAdAccoun
  * Busca campanhas de uma conta específica
  */
 export async function fetchCampaigns(
-  adAccountId: string, 
+  adAccountId: string,
   accessToken: string,
   options: {
     limit?: number;
@@ -77,12 +77,14 @@ export async function fetchCampaigns(
     limit = 25,
     status = ['ACTIVE', 'PAUSED'],
     fields = [
-      'id', 'name', 'status', 'objective', 
-      'daily_budget', 'lifetime_budget', 
-      'start_time', 'stop_time', 
+      'id', 'name', 'status', 'objective',
+      'daily_budget', 'lifetime_budget',
+      'start_time', 'stop_time',
       'created_time', 'updated_time'
     ]
   } = options;
+
+  console.log('📱 fetchCampaigns - Parâmetros recebidos:', { adAccountId, options });
 
   const params = new URLSearchParams({
     fields: fields.join(','),
@@ -91,21 +93,37 @@ export async function fetchCampaigns(
   });
 
   if (status.length > 0) {
+    console.log('📱 Adicionando filtro de status:', status);
     params.append('filtering', JSON.stringify([{
       field: 'status',
       operator: 'IN',
       value: status
     }]));
+  } else {
+    console.log('📱 Sem filtro de status (status array vazio)');
   }
 
-  const response = await fetch(`${BASE_URL}/${adAccountId}/campaigns?${params}`);
+  const url = `${BASE_URL}/${adAccountId}/campaigns?${params}`;
+  console.log('📱 URL da requisição:', url.replace(accessToken, 'TOKEN_OCULTO'));
+
+  const response = await fetch(url);
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'Erro ao buscar campanhas');
+    const errorText = await response.text();
+    console.error('📱 ❌ Erro na resposta:', response.status, errorText);
+
+    try {
+      const error = JSON.parse(errorText);
+      throw new Error(error.error?.message || 'Erro ao buscar campanhas');
+    } catch {
+      throw new Error(`Erro HTTP ${response.status}: ${response.statusText}`);
+    }
   }
 
   const data = await response.json();
+  console.log('📱 ✅ Resposta da API:', data);
+  console.log('📱 ✅ Total de campanhas encontradas:', data.data?.length || 0);
+
   return data.data || [];
 }
 
@@ -151,6 +169,10 @@ export async function fetchCampaignInsightsById(
   options: {
     fields?: string[];
     datePreset?: string;
+    dateRange?: {
+      since: string;
+      until: string;
+    };
     level?: string;
     timeIncrement?: string;
   } = {}
@@ -162,6 +184,7 @@ export async function fetchCampaignInsightsById(
       'cpp', 'cost_per_unique_click', 'actions'
     ],
     datePreset = 'last_30d',
+    dateRange,
     level = 'campaign',
     timeIncrement = '1'
   } = options;
@@ -169,10 +192,19 @@ export async function fetchCampaignInsightsById(
   const params = new URLSearchParams({
     fields: fields.join(','),
     access_token: accessToken,
-    date_preset: datePreset,
     level: level,
     time_increment: timeIncrement
   });
+
+  // Use dateRange if provided, otherwise fall back to datePreset
+  if (dateRange) {
+    params.append('time_range', JSON.stringify({
+      since: dateRange.since,
+      until: dateRange.until
+    }));
+  } else {
+    params.append('date_preset', datePreset);
+  }
 
   const response = await fetch(`${BASE_URL}/${campaignId}/insights?${params}`);
 

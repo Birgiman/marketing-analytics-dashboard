@@ -16,6 +16,10 @@ interface CampaignSelectorProps {
   userId?: string;
   alreadySelected?: any[];
   linkedCampaigns?: string[];
+  dateRange?: {
+    since: string;
+    until: string;
+  };
 }
 
 const CampaignSelector: React.FC<CampaignSelectorProps> = ({
@@ -24,7 +28,8 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   onCampaignsSelected,
   userId,
   alreadySelected = [],
-  linkedCampaigns = []
+  linkedCampaigns = [],
+  dateRange
 }) => {
   const [step, setStep] = useState(1); // 1 = Select Account, 2 = Select Campaigns
   const [adAccounts, setAdAccounts] = useState<any[]>([]);
@@ -33,25 +38,58 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [useSearch, setUseSearch] = useState(false);
+  const [useAutoSearch, setUseAutoSearch] = useState(false);
+  const [autoSearchTerm, setAutoSearchTerm] = useState('');
+
+  // Chave para armazenamento no localStorage
+  const STORAGE_KEY = 'liveshop_campaign_search_term';
+
+  // Função para salvar termo de busca no localStorage
+  const saveSearchTerm = (term: string) => {
+    setSearchTerm(term);
+    if (term.trim()) {
+      localStorage.setItem(STORAGE_KEY, term);
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  };
+
+  // Função para limpar termo de busca (reset completo)
+  const clearSearchTerm = () => {
+    setSearchTerm('');
+    localStorage.removeItem(STORAGE_KEY);
+  };
   const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showActive, setShowActive] = useState(true);
   const [showPaused, setShowPaused] = useState(true);
+  const [accountSearchTerm, setAccountSearchTerm] = useState('');
+
+  // Filtrar contas por nome
+  const filteredAccounts = adAccounts.filter(account => {
+    if (!accountSearchTerm.trim()) return true;
+    return account.name.toLowerCase().includes(accountSearchTerm.toLowerCase());
+  });
 
   // Filtrar campanhas com filtros de status e busca por nome
   const filteredCampaigns = campaigns.filter(campaign => {
     // Filtro de status
-    const statusMatch = 
+    const statusMatch =
       (campaign.status === 'ACTIVE' && showActive) ||
       (campaign.status === 'PAUSED' && showPaused);
-    
+
     if (!statusMatch) return false;
-    
+
+    // Filtro de busca automática
+    if (useAutoSearch && autoSearchTerm) {
+      return campaign.name.toUpperCase().includes(autoSearchTerm.trim().toUpperCase());
+    }
+
     // Filtro de nome (apenas quando não está usando busca na API)
     if (!useSearch && searchTerm) {
       return campaign.name.toLowerCase().includes(searchTerm.toLowerCase());
     }
-    
+
     return true;
   });
 
@@ -62,13 +100,22 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   }, [isOpen, userId]);
 
   useEffect(() => {
-    // Reset quando modal abre/fecha
+    // Carregar termo de busca salvo do localStorage
+    if (isOpen) {
+      const savedSearchTerm = localStorage.getItem(STORAGE_KEY);
+      if (savedSearchTerm) {
+        setSearchTerm(savedSearchTerm);
+        setUseSearch(true); // Habilitar busca se há termo salvo
+      }
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    // Reset quando modal abre/fecha (mas preserva termo de busca)
     if (isOpen) {
       setStep(1);
       setSelectedAccount(null);
       setCampaigns([]);
-      setSearchTerm('');
-      setUseSearch(false);
       setError(null);
       setShowActive(true);
       setShowPaused(true);
@@ -120,8 +167,11 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   const loadCampaignsFromAccount = async (account: any, accessToken?: string) => {
     setLoading(true);
     setError(null);
-    
+
     try {
+      console.log('🔍 Carregando campanhas para conta:', account.name, account.id);
+      console.log('🔍 Modo de busca:', { useSearch, searchTerm: searchTerm.trim() });
+
       const token = accessToken || await getUserMetaToken(userId!);
       if (!token) {
         throw new Error('Token de acesso não encontrado');
@@ -134,11 +184,13 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
         status: [] // Sem filtro de status na API para evitar erros
       };
 
+      console.log('🔍 Opções da requisição:', options);
+
       // Buscar campanhas com filtro se solicitado
       if (useSearch && searchTerm.trim()) {
+        console.log('🔍 Fazendo busca com filtro:', searchTerm.trim());
         // Usar a API do Meta com filtering
-        const response = await fetch(
-          `https://graph.facebook.com/v23.0/${account.id}/campaigns?` +
+        const url = `https://graph.facebook.com/v23.0/${account.id}/campaigns?` +
           new URLSearchParams({
             fields: options.fields.join(','),
             access_token: token,
@@ -148,28 +200,40 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
               operator: 'CONTAIN',
               value: searchTerm.trim()
             }])
-          })
-        );
+          });
+
+        console.log('🔍 URL da requisição:', url.replace(token, 'TOKEN_OCULTO'));
+
+        const response = await fetch(url);
 
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ Erro na resposta da API:', response.status, errorText);
           throw new Error(`Erro na API: ${response.statusText}`);
         }
 
         const data = await response.json();
-        const campaignsWithAccount = data.data.map((campaign: any) => ({
+        console.log('✅ Resposta da API (com filtro):', data);
+
+        const campaignsWithAccount = (data.data || []).map((campaign: any) => ({
           ...campaign,
           account_name: account.name,
           account_id: account.id
         }));
-        setCampaigns(campaignsWithAccount || []);
+        console.log('✅ Campanhas processadas (com filtro):', campaignsWithAccount.length);
+        setCampaigns(campaignsWithAccount);
       } else {
+        console.log('🔍 Buscando todas as campanhas');
         // Buscar todas as campanhas
         const campaignsData = await fetchCampaigns(account.id, token, options);
+        console.log('✅ Campanhas recebidas:', campaignsData.length);
+
         const campaignsWithAccount = campaignsData.map(campaign => ({
           ...campaign,
           account_name: account.name,
           account_id: account.id
         }));
+        console.log('✅ Campanhas processadas:', campaignsWithAccount.length);
         setCampaigns(campaignsWithAccount);
       }
       
@@ -195,9 +259,12 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
     setUseSearch(false);
   };
 
-  const handleSearchModeChange = (searchMode: boolean) => {
-    setUseSearch(searchMode);
-    setSearchTerm('');
+  const handleSearchModeChange = (mode: 'all' | 'manual' | 'auto') => {
+    setUseSearch(mode === 'manual');
+    setUseAutoSearch(mode === 'auto');
+    clearSearchTerm();
+    setAutoSearchTerm('');
+
     if (selectedAccount) {
       loadCampaignsFromAccount(selectedAccount);
     }
@@ -206,6 +273,34 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   const handleSearchSubmit = () => {
     if (useSearch && selectedAccount) {
       loadCampaignsFromAccount(selectedAccount);
+    }
+  };
+
+  const handleAutoSearch = async () => {
+    if (!autoSearchTerm.trim() || !selectedAccount) return;
+
+    try {
+      setLoading(true);
+
+      // Buscar todas as campanhas da conta
+      await loadCampaignsFromAccount(selectedAccount);
+
+      // Após carregar, filtrar e selecionar automaticamente
+      setTimeout(() => {
+        const matchingCampaigns = campaigns.filter(campaign =>
+          campaign.name.toUpperCase().includes(autoSearchTerm.trim().toUpperCase())
+        );
+
+        // Selecionar automaticamente todas as campanhas que contêm o termo
+        const matchingIds = matchingCampaigns.map(c => c.id);
+        setSelectedCampaignIds(matchingIds);
+
+        setLoading(false);
+      }, 500);
+
+    } catch (error) {
+      console.error('Error in auto search:', error);
+      setLoading(false);
     }
   };
 
@@ -247,7 +342,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[850px] overflow-y-auto flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {step === 1 ? (
@@ -299,10 +394,41 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                 </div>
               )}
 
+              {/* Search Field for Accounts */}
+              {!loading && !error && adAccounts.length > 0 && (
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="Buscar conta por nome..."
+                      value={accountSearchTerm}
+                      onChange={(e) => setAccountSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+
+                  {accountSearchTerm && (
+                    <div className="text-sm text-gray-600">
+                      {filteredAccounts.length} de {adAccounts.length} conta{adAccounts.length !== 1 ? 's' : ''} encontrada{filteredAccounts.length !== 1 ? 's' : ''}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Ad Accounts List */}
               {!loading && !error && adAccounts.length > 0 && (
-                <div className="flex-1 overflow-y-auto space-y-2">
-                  {adAccounts.map((account) => (
+                <>
+                  {filteredAccounts.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center">
+                      <div className="text-center space-y-2">
+                        <Search className="h-8 w-8 text-gray-300 mx-auto" />
+                        <p className="text-gray-500">Nenhuma conta encontrada</p>
+                        <p className="text-sm text-gray-400">Tente usar um termo diferente</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex-1 overflow-y-auto space-y-2">
+                      {filteredAccounts.map((account) => (
                     <div
                       key={account.id}
                       className="border rounded-lg p-4 cursor-pointer transition-colors hover:border-blue-300 hover:bg-blue-50"
@@ -324,8 +450,10 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
@@ -350,26 +478,36 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                 </div>
 
                 {/* Opções de busca */}
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-center gap-2 p-3 border rounded-lg">
                     <input
                       type="radio"
                       id="show-all"
                       name="search-mode"
-                      checked={!useSearch}
-                      onChange={() => handleSearchModeChange(false)}
+                      checked={!useSearch && !useAutoSearch}
+                      onChange={() => handleSearchModeChange('all')}
                     />
-                    <label htmlFor="show-all" className="text-sm">Exibir todas as campanhas</label>
+                    <label htmlFor="show-all" className="text-sm">Exibir todas</label>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 p-3 border rounded-lg">
                     <input
                       type="radio"
                       id="search-by-keyword"
                       name="search-mode"
-                      checked={useSearch}
-                      onChange={() => handleSearchModeChange(true)}
+                      checked={useSearch && !useAutoSearch}
+                      onChange={() => handleSearchModeChange('manual')}
                     />
-                    <label htmlFor="search-by-keyword" className="text-sm">Buscar por palavra-chave</label>
+                    <label htmlFor="search-by-keyword" className="text-sm">Busca manual</label>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 border-2 border-blue-300 rounded-lg bg-blue-50">
+                    <input
+                      type="radio"
+                      id="auto-search"
+                      name="search-mode"
+                      checked={useAutoSearch}
+                      onChange={() => handleSearchModeChange('auto')}
+                    />
+                    <label htmlFor="auto-search" className="text-sm font-medium text-blue-700">Busca automática</label>
                   </div>
                 </div>
 
@@ -395,14 +533,40 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                 </div>
 
                 {/* Barra de busca */}
-                {useSearch ? (
+                {useAutoSearch ? (
+                  <div className="space-y-3">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <p className="text-sm text-blue-800 mb-2">
+                        <strong>🎯 Busca Automática:</strong> Digite o padrão das campanhas (ex: BLACK_FRIDAY_2025) e o sistema selecionará automaticamente todas as campanhas que contenham esse termo.
+                      </p>
+                      <p className="text-xs text-blue-600">
+                        Formato recomendado: TERMO_EM_MAIUSCULO_COM_UNDERLINES
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input
+                          placeholder="Ex: BLACK_FRIDAY_2025, NATAL_2024, PROMOCAO_VERAO..."
+                          value={autoSearchTerm}
+                          onChange={(e) => setAutoSearchTerm(e.target.value.toUpperCase())}
+                          className="pl-10 font-mono"
+                          onKeyPress={(e) => e.key === 'Enter' && handleAutoSearch()}
+                        />
+                      </div>
+                      <Button onClick={handleAutoSearch} disabled={!autoSearchTerm.trim()}>
+                        Buscar Campanhas
+                      </Button>
+                    </div>
+                  </div>
+                ) : useSearch ? (
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                       <Input
                         placeholder="Digite palavra-chave da campanha (ex: Black Friday)..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => saveSearchTerm(e.target.value)}
                         className="pl-10"
                         onKeyPress={(e) => e.key === 'Enter' && handleSearchSubmit()}
                       />
@@ -417,7 +581,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                     <Input
                       placeholder="Filtrar campanhas por nome..."
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={(e) => saveSearchTerm(e.target.value)}
                       className="pl-10"
                     />
                   </div>
@@ -471,10 +635,10 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                         }
                       </p>
                       {searchTerm && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => setSearchTerm('')}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => saveSearchTerm('')}
                           className="mt-2"
                         >
                           Limpar {useSearch ? 'busca' : 'filtro'}
@@ -560,9 +724,11 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
         {/* Rodapé com Actions */}
         <div className="border-t pt-4 flex items-center justify-between">
           <div className="text-sm text-gray-600">
-            {step === 1 ? 
+            {step === 1 ?
               `${adAccounts.length} conta(s) de anúncios encontrada(s)` :
-              `${selectedCampaignIds.length} campanha(s) selecionada(s)`
+              useAutoSearch && autoSearchTerm ?
+                `🎯 ${selectedCampaignIds.length} campanha(s) encontrada(s) para "${autoSearchTerm}"` :
+                `${selectedCampaignIds.length} campanha(s) selecionada(s)`
             }
           </div>
           

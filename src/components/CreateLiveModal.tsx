@@ -65,6 +65,16 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
     adsBudget: ''
   });
 
+  // Estado para intervalo de datas dos insights das campanhas
+  const [dateRange, setDateRange] = useState(() => {
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    return {
+      since: firstDayOfMonth.toISOString().split('T')[0], // YYYY-MM-DD
+      until: now.toISOString().split('T')[0] // YYYY-MM-DD
+    };
+  });
+
   // Get current user
   useEffect(() => {
     if (open) {
@@ -229,7 +239,9 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         ta_rolando_end: formData.liveEnd || undefined,
         sales_goal: parseNumericValue(formData.salesTarget),
         leads_goal: parseNumericValue(formData.leadsTarget),
-        ad_budget: parseNumericValue(formData.adsBudget)
+        ad_budget: parseNumericValue(formData.adsBudget),
+        insights_date_since: dateRange.since,
+        insights_date_until: dateRange.until
       };
 
       const groups = selectedGroups.map(group => ({
@@ -272,7 +284,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
   return (
     <>
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="max-w-2xl w-full max-h-[85vh] overflow-y-auto overflow-x-hidden">
+        <DialogContent className="max-w-4xl w-full max-h-[850px] overflow-y-auto flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-center">
               {editingLive ? 'Editar LiveShop 🛍️' : (
@@ -434,7 +446,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                  <div className="space-y-2 max-h-32 overflow-y-auto bg-gray-50 rounded-lg p-3">
                     {selectedGroups.map((group) => (
                       <div key={group.id} className="flex items-start justify-between p-2 bg-muted rounded-lg gap-2">
                         <div className="flex-1 min-w-0">
@@ -489,6 +501,43 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                 <h4 className="font-medium text-sm mb-1">Live: {formData.liveName}</h4>
                 <p className="text-xs text-muted-foreground">
                   Vincule campanhas do Meta Ads para análise integrada
+                </p>
+              </div>
+
+              {/* Date Range Selector */}
+              <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                <h4 className="font-medium text-sm mb-2 text-blue-800">📊 Período de Análise dos Insights</h4>
+                <p className="text-xs text-blue-600 mb-3">
+                  Defina o período para coleta dos dados das campanhas Meta Ads
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="dateFrom" className="text-xs font-medium text-blue-700">
+                      Data inicial
+                    </Label>
+                    <Input
+                      id="dateFrom"
+                      type="date"
+                      value={dateRange.since}
+                      onChange={(e) => setDateRange(prev => ({ ...prev, since: e.target.value }))}
+                      className="text-sm h-8"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="dateUntil" className="text-xs font-medium text-blue-700">
+                      Data final
+                    </Label>
+                    <Input
+                      id="dateUntil"
+                      type="date"
+                      value={dateRange.until}
+                      onChange={(e) => setDateRange(prev => ({ ...prev, until: e.target.value }))}
+                      className="text-sm h-8"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-blue-500 mt-2">
+                  Período atual: {new Date(dateRange.since).toLocaleDateString('pt-BR')} até {new Date(dateRange.until).toLocaleDateString('pt-BR')}
                 </p>
               </div>
 
@@ -670,6 +719,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         userId={userId}
         alreadySelected={selectedCampaigns}
         linkedCampaigns={linkedCampaigns.map(c => c.campaign_id)}
+        dateRange={dateRange}
       />
     </>
   );
