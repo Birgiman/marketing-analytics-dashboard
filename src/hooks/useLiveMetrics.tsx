@@ -119,28 +119,19 @@ export function useLiveMetrics({
         }
       }
 
-      // Buscar leads qualificados do WhatsApp
-      const { data: liveGroups, error: groupsError } = await supabase
-        .from('live_groups')
-        .select('group_id')
-        .eq('live_id', liveId);
+                  // Buscar leads qualificados do WhatsApp
+                  // NOTA: A tabela whatsapp_events ainda não existe
+                  // Por enquanto, usamos o group_size da tabela live_groups como proxy
+                  const { data: liveGroups, error: groupsError } = await supabase
+                    .from('live_groups')
+                    .select('group_size')
+                    .eq('live_id', liveId);
 
-      let qualifiedLeads = 0;
-      if (liveGroups && liveGroups.length > 0) {
-        const groupIds = liveGroups.map(g => g.group_id);
-        const { data: whatsappEvents, error: eventsError } = await supabase
-          .from('whatsapp_events')
-          .select('phone_number')
-          .in('group_id', groupIds)
-          .eq('event_type', 'member_joined')
-          .gte('created_at', since)
-          .lte('created_at', until);
-
-        if (!eventsError && whatsappEvents) {
-          const uniquePhones = new Set(whatsappEvents.map(e => e.phone_number));
-          qualifiedLeads = uniquePhones.size;
-        }
-      }
+                  let qualifiedLeads = 0;
+                  if (liveGroups && liveGroups.length > 0) {
+                    // Usar a soma do tamanho dos grupos como proxy para leads qualificados
+                    qualifiedLeads = liveGroups.reduce((sum, group) => sum + (group.group_size || 0), 0);
+                  }
 
       // Calcular CPLs
       const cpl_bruto = totalLeads > 0 ? totalSpend / totalLeads : null;

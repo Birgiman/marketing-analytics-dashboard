@@ -347,7 +347,6 @@ class WhatsAppService {
       // Para cada instância local, verificar status na Evolution API
       for (const localInstance of localInstances) {
         try {
-          console.log(`Verificando status da instância: ${localInstance.instance_name}`);
           
           // Verificar se ainda existe na Evolution API
           const existsInAPI = await this.checkInstanceExists(localInstance.instance_name, userId);
@@ -363,7 +362,6 @@ class WhatsAppService {
           const statusResponse = await this.checkConnectionStatus(localInstance.instance_name, userId);
           const apiStatus: WhatsAppStatus = statusResponse.connected ? 'connected' : 'disconnected';
           
-          console.log(`Status da API: ${apiStatus}, Status local: ${localInstance.status}`);
           
           // Se status mudou, atualizar no banco
           if (apiStatus !== localInstance.status) {
@@ -380,7 +378,6 @@ class WhatsAppService {
         }
       }
       
-      console.log('=== SINCRONIZAÇÃO CONCLUÍDA ===');
     } catch (error) {
       console.error('Erro na sincronização de status:', error);
       throw error;
