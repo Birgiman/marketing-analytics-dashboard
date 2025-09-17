@@ -1,17 +1,17 @@
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import CampaignSelector from '@/components/CampaignSelector';
+import { GroupSearchSelector } from '@/components/GroupSearchSelector';
+import { MetaApiTestModal } from '@/components/MetaApiTestModal';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { GroupSearchSelector } from '@/components/GroupSearchSelector';
-import CampaignSelector from '@/components/CampaignSelector';
-import { MetaApiTestModal } from '@/components/MetaApiTestModal';
-import { useLives } from '@/hooks/useLives';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Users, ChevronLeft, ChevronRight, Target, Trash2, AlertTriangle } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useLives } from '@/hooks/useLives';
+import { supabase } from '@/integrations/supabase/client';
+import { AlertTriangle, ChevronLeft, ChevronRight, Target, Trash2, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface CreateLiveModalProps {
   open: boolean;
@@ -527,6 +527,65 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                 <p className="text-xs text-blue-600 mb-3">
                   Defina o período para coleta dos dados das campanhas Meta Ads
                 </p>
+                
+                {/* Botões de datas rápidas */}
+                <div className="flex gap-2 mb-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date();
+                      const thirtyDaysAgo = new Date();
+                      thirtyDaysAgo.setDate(today.getDate() - 30);
+
+                      setDateRange({
+                        since: thirtyDaysAgo.toISOString().split('T')[0],
+                        until: today.toISOString().split('T')[0]
+                      });
+                    }}
+                    className="text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                  >
+                    📅 30 dias
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date();
+                      const threeMonthsAgo = new Date();
+                      threeMonthsAgo.setMonth(today.getMonth() - 3);
+
+                      setDateRange({
+                        since: threeMonthsAgo.toISOString().split('T')[0],
+                        until: today.toISOString().split('T')[0]
+                      });
+                    }}
+                    className="text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                  >
+                    📅 3 meses
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date();
+                      const oneYearAgo = new Date();
+                      oneYearAgo.setFullYear(today.getFullYear() - 1);
+
+                      setDateRange({
+                        since: oneYearAgo.toISOString().split('T')[0],
+                        until: today.toISOString().split('T')[0]
+                      });
+                    }}
+                    className="text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                  >
+                    📅 1 ano
+                  </Button>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label htmlFor="dateFrom" className="text-xs font-medium text-blue-700">
@@ -553,9 +612,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                     />
                   </div>
                 </div>
-                <p className="text-xs text-blue-500 mt-2">
-                  Período atual: {new Date(dateRange.since).toLocaleDateString('pt-BR')} até {new Date(dateRange.until).toLocaleDateString('pt-BR')}
-                </p>
               </div>
 
               {/* Campaigns Section */}

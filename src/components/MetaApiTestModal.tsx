@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { MetaInsightLevel, MetaCampaignStatus } from '@/types/metaApi';
-import { fetchMetaInsights, validateMetaTimeRange } from '@/utils/metaApi';
 import { supabase } from '@/integrations/supabase/client';
+import { MetaInsightLevel } from '@/types/metaApi';
+import { fetchMetaInsights, validateMetaTimeRange } from '@/utils/metaApi';
+import React, { useState } from 'react';
 
 interface MetaApiTestModalProps {
   open: boolean;
@@ -96,7 +96,6 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
         // Carregar termo de busca das campanhas
         if (live.campaign_search_term) {
           setSearchTerm(live.campaign_search_term);
-          console.log('🧪 [TESTE META API] Termo de busca carregado da Live:', live.campaign_search_term);
         }
       }
     } catch (error) {
@@ -162,15 +161,8 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
     setTestResult(null);
 
     try {
-      console.log('🧪 [TESTE META API] Iniciando teste com parâmetros:', {
-        fields: selectedFields,
-        level: level,
-        dateRange: dateRange,
-        liveId: liveId
-      });
 
       // Buscar dados da Live e integração Meta
-      console.log('🧪 [TESTE META API] Buscando dados da Live:', liveId);
       const { data: live, error: liveError } = await supabase
         .from('lives')
         .select('user_id')
@@ -182,7 +174,6 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
         throw new Error(`Live não encontrada: ${liveError?.message || 'ID inválido'}`);
       }
 
-      console.log('🧪 [TESTE META API] Live encontrada, user_id:', live.user_id);
 
       // Verificar se existe alguma integração Meta para este usuário
       const { data: allIntegrations, error: allIntegrationsError } = await supabase
@@ -190,7 +181,6 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
         .select('*')
         .eq('user_id', live.user_id);
 
-      console.log('🧪 [TESTE META API] Todas as integrações do usuário:', allIntegrations);
 
       let { data: metaIntegration, error: metaError } = await supabase
         .from('meta_integrations')
@@ -201,21 +191,13 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
 
       if (metaError) {
         console.error('🧪 [TESTE META API] Erro ao buscar integração Meta:', metaError);
-        console.log('🧪 [TESTE META API] Total de integrações encontradas:', allIntegrations?.length || 0);
 
         if (allIntegrations && allIntegrations.length > 0) {
-          console.log('🧪 [TESTE META API] Integrações disponíveis:', allIntegrations.map(i => ({
-            id: i.id,
-            is_active: i.is_active,
-            created_at: i.created_at
-          })));
 
           // Tentar pegar a primeira integração (mesmo que não esteja ativa)
           const firstIntegration = allIntegrations[0];
-          console.log('🧪 [TESTE META API] Usando primeira integração disponível:', firstIntegration);
 
           if (firstIntegration.access_token) {
-            console.log('🧪 [TESTE META API] ⚠️ Usando integração inativa, mas com access_token válido');
             // Usar a primeira integração disponível
             metaIntegration = {
               access_token: firstIntegration.access_token,
@@ -233,10 +215,6 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
         throw new Error('Integração Meta não encontrada');
       }
 
-      console.log('🧪 [TESTE META API] Integração Meta encontrada:', {
-        is_active: metaIntegration.is_active,
-        has_access_token: !!metaIntegration.access_token
-      });
 
       // Buscar campanhas da Live
       const { data: liveCampaigns, error: campaignsError } = await supabase
@@ -257,7 +235,6 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
         throw new Error('Account ID não encontrado nas campanhas da Live');
       }
 
-      console.log('🧪 [TESTE META API] Account ID obtido das campanhas:', accountId);
 
       // Validar período de datas para evitar "número excessivo de linhas"
       const dateRangeStart = new Date(dateRange.since);
@@ -265,7 +242,6 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
       const diffTime = Math.abs(dateRangeEnd.getTime() - dateRangeStart.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-      console.log('🧪 [TESTE META API] Período de dias:', diffDays);
 
       // Removed 365 days limit - user can choose any period
 
@@ -284,7 +260,6 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
         apiLimit = Math.max(10, Math.floor(apiLimit * 0.7)); // Reduzir limite se muitos campos
       }
 
-      console.log('🧪 [TESTE META API] Limite calculado:', apiLimit);
 
       // Fazer a requisição para a API Meta com os parâmetros selecionados
       // Criar filtros dinâmicos baseados na seleção do usuário
@@ -320,12 +295,7 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
         limit: limit
       };
 
-      console.log('🧪 [TESTE META API] Filtros dinâmicos criados:', filters);
 
-      console.log('🧪 [TESTE META API] Chamando fetchMetaInsights com:', {
-        targetId: accountId,
-        options: options
-      });
 
       const result = await fetchMetaInsights(
         accountId,
@@ -333,7 +303,6 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
         options
       );
 
-      console.log('🧪 [TESTE META API] ✅ Resultado:', result);
 
       setTestResult({
         success: true,

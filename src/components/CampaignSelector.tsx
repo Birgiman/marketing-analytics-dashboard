@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Search, Loader2, AlertCircle, Target, Calendar, DollarSign, TrendingUp, ArrowLeft, Building2 } from 'lucide-react';
-import { MetaCampaign } from '@/utils/metaApi';
-import { fetchAdAccounts, fetchCampaigns } from '@/utils/metaApi';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { fetchAdAccounts, fetchCampaigns, MetaCampaign } from '@/utils/metaApi';
 import { getUserMetaToken } from '@/utils/metaApiLives';
+import { AlertCircle, ArrowLeft, Building2, Calendar, DollarSign, Loader2, Search, Target } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 
 interface CampaignSelectorProps {
   isOpen: boolean;
@@ -38,7 +37,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [useSearch, setUseSearch] = useState(false);
-  const [useAutoSearch, setUseAutoSearch] = useState(false);
+  const [useAutoSearch, setUseAutoSearch] = useState(true); // MODIFICADO: Abrir direto na busca automática
   const [autoSearchTerm, setAutoSearchTerm] = useState('');
 
   // Chave para armazenamento no localStorage
@@ -479,6 +478,8 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
 
                 {/* Opções de busca */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* TEMPORARIAMENTE COMENTADO: Opções "Exibir todas" e "Busca manual" serão reativadas em futuras melhorias antes do lançamento */}
+                  {/* 
                   <div className="flex items-center gap-2 p-3 border rounded-lg">
                     <input
                       type="radio"
@@ -499,6 +500,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                     />
                     <label htmlFor="search-by-keyword" className="text-sm">Busca manual</label>
                   </div>
+                  */}
                   <div className="flex items-center gap-2 p-3 border-2 border-blue-300 rounded-lg bg-blue-50">
                     <input
                       type="radio"

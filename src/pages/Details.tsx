@@ -1,83 +1,83 @@
 import Header from "@/components/Header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Users, DollarSign, Target, Activity, RefreshCw, AlertCircle } from "lucide-react";
+import { LiveMetricsCards } from "@/components/LiveMetricsCards";
 import PerformanceAnalysis from "@/components/PerformanceAnalysis";
-import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { Live, LiveGroup } from "@/types";
-import { useLiveCampaignData } from "@/hooks/useLiveCampaignData";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MetaCampaignsList } from "@/components/MetaCampaignsList";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLiveCampaignData } from "@/hooks/useLiveCampaignData";
+import { useLiveDataCache } from "@/hooks/useLiveDataCache";
+import { useLiveMetrics } from "@/hooks/useLiveMetrics";
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
+import { Activity, AlertCircle, RefreshCw, TrendingDown, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 const Details = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const liveId = searchParams.get('live');
   
-  const [loading, setLoading] = useState(true);
-  const [live, setLive] = useState<Live | null>(null);
-  const [groups, setGroups] = useState<LiveGroup[]>([]);
-  const [userId, setUserId] = useState<string | null>(null);
   const [testLoading, setTestLoading] = useState(false);
   
-  // Usar hook para dados das campanhas específicas da Live
+  // Usar hook de cache para dados da Live
   const {
+    live,
+    groups,
     campaigns,
+    metrics,
+    isLoading: cacheLoading,
+    error: cacheError,
+    isFromCache,
+    refresh: refreshCache,
+    updateMetrics
+  } = useLiveDataCache({ liveId: liveId || '' });
+
+  // Usar hook para dados das campanhas específicas da Live (com cache)
+  const {
+    campaigns: campaignData,
     isLoading: campaignsLoading,
     error: campaignsError,
     refreshData: refreshCampaigns,
     clearError: clearCampaignsError
   } = useLiveCampaignData(liveId || '');
 
+  // Usar dados do hook que tem insights, senão usar dados do cache
+  const finalCampaigns = campaignData.length > 0 ? campaignData : campaigns;
+
+  // Usar hook para métricas em tempo real com dados salvos da Live
+  const {
+    metrics: liveMetrics,
+    isLoading: metricsLoading,
+    error: metricsError,
+    refetch: refetchMetrics
+  } = useLiveMetrics({
+    liveId: liveId || '',
+    since: live?.insights_date_since || '',
+    until: live?.insights_date_until || '',
+    enabled: !!liveId && !!live?.insights_date_since && !!live?.insights_date_until
+  });
+
+  // Atualizar métricas no cache quando recebidas
   useEffect(() => {
-    const fetchData = async () => {
-      if (!liveId) {
-        navigate('/lives');
-        return;
-      }
+    if (liveMetrics) {
+      updateMetrics(liveMetrics);
+    }
+  }, [liveMetrics, updateMetrics]);
 
-      try {
-        // Buscar dados da live
-        const { data: liveData, error: liveError } = await supabase
-          .from('lives')
-          .select('*')
-          .eq('id', liveId)
-          .single();
 
-        if (liveError) throw liveError;
-        setLive(liveData);
-        setUserId(liveData.user_id);
-
-        // Buscar dados de grupos vinculados à Live
-        const { data: groupsData, error: groupsError } = await supabase
-          .from('live_groups')
-          .select('*')
-          .eq('live_id', liveId);
-
-        if (groupsError) throw groupsError;
-        setGroups(groupsData || []);
-
-        // Dados de creatives agora vêm do Meta Ads via hook
-
-      } catch (error) {
-        console.error('Erro ao carregar dados:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+  // Navegar para /lives se não há liveId
+  useEffect(() => {
+    if (!liveId) {
+      navigate('/lives');
+    }
   }, [liveId, navigate]);
 
   // Calcular CPL Líquido
   const calculateCPLLiquido = () => {
-    if (!campaigns || !groups || campaigns.length === 0 || groups.length === 0) return 0;
+    if (!finalCampaigns || !groups || finalCampaigns.length === 0 || groups.length === 0) return 0;
     
     // Usar dados reais de spend dos insights
-    const totalSpent = campaigns.reduce((sum, campaign) => {
+    const totalSpent = finalCampaigns.reduce((sum, campaign) => {
       const spend = parseFloat(campaign.insights?.spend || '0');
       return sum + spend;
     }, 0);
@@ -106,10 +106,10 @@ const Details = () => {
 
   // Calcular taxa de retenção
   const calculateRetentionRate = () => {
-    if (!campaigns || campaigns.length === 0) return 0;
+    if (!finalCampaigns || finalCampaigns.length === 0) return 0;
     
     // Extrair leads reais das actions dos insights
-    const totalLeads = campaigns.reduce((sum, campaign) => {
+    const totalLeads = finalCampaigns.reduce((sum, campaign) => {
       const actions = campaign.insights?.actions || [];
       const leadAction = actions.find(action => 
         action.action_type === 'lead' || 
@@ -126,16 +126,16 @@ const Details = () => {
 
   // Calcular CPL Meta
   const calculateCPLMeta = () => {
-    if (!campaigns || campaigns.length === 0) return 0;
+    if (!finalCampaigns || finalCampaigns.length === 0) return 0;
 
     // Usar dados reais de spend dos insights
-    const totalSpent = campaigns.reduce((sum, campaign) => {
+    const totalSpent = finalCampaigns.reduce((sum, campaign) => {
       const spend = parseFloat(campaign.insights?.spend || '0');
       return sum + spend;
     }, 0);
 
     // Extrair leads reais das actions dos insights
-    const totalLeads = campaigns.reduce((sum, campaign) => {
+    const totalLeads = finalCampaigns.reduce((sum, campaign) => {
       const actions = campaign.insights?.actions || [];
       const leadAction = actions.find(action =>
         action.action_type === 'lead' ||
@@ -179,7 +179,7 @@ const Details = () => {
     }
   };
 
-  if (loading || campaignsLoading) {
+  if (cacheLoading || campaignsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -209,7 +209,7 @@ const Details = () => {
   const cplMeta = calculateCPLMeta();
 
   // Calculate total spend for PerformanceAnalysis
-  const totalSpend = campaigns.reduce((sum, campaign) => {
+  const totalSpend = finalCampaigns.reduce((sum, campaign) => {
     const spend = parseFloat(campaign.insights?.spend || '0');
     return sum + spend;
   }, 0);
@@ -228,9 +228,9 @@ const Details = () => {
           <div className="flex items-center gap-3">
             {/* Status das Campanhas */}
             <div className="flex items-center gap-2">
-              {campaigns.length > 0 ? (
+              {finalCampaigns.length > 0 ? (
                 <Badge variant="default" className="bg-green-100 text-green-800">
-                  {campaigns.length === 1 ? '1 Campanha Vinculada' : `${campaigns.length} Campanhas Vinculadas`}
+                  {finalCampaigns.length === 1 ? '1 Campanha Vinculada' : `${finalCampaigns.length} Campanhas Vinculadas`}
                 </Badge>
               ) : (
                 <Badge variant="outline" className="bg-gray-100 text-gray-600">
@@ -274,55 +274,16 @@ const Details = () => {
         )}
 
         {/* Métricas Principais */}
+        <LiveMetricsCards
+          cplLiquido={metrics?.cpl_liquido || cplLiquido}
+          cplMeta={metrics?.cpl_meta || cplMeta}
+          retentionRate={retentionRate}
+          groupMembers={groupData.entrou}
+          isLoading={metricsLoading || cacheLoading}
+        />
+
+        {/* Métricas Adicionais */}
         <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">CPL Líquido</CardTitle>
-              <Target className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                R$ {cplLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">CPL Meta</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                R$ {cplMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tx de Retenção</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {retentionRate}%
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Entrou no Grupo</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {groupData.entrou.toLocaleString('pt-BR')}
-              </div>
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Saiu do Grupo</CardTitle>
@@ -358,17 +319,17 @@ const Details = () => {
               <h3 className="font-semibold text-blue-900">Fontes de Dados</h3>
               <div className="text-sm text-blue-700 space-y-1 mt-1">
                 <p>
-                  <strong>CPL Líquido & Meta:</strong> {campaigns.length > 0 ? `Baseado em ${campaigns.length === 1 ? '1 campanha vinculada' : `${campaigns.length} campanhas vinculadas`}` : 'Nenhuma campanha vinculada'}
+                  <strong>CPL Líquido & Meta:</strong> {finalCampaigns.length > 0 ? `Baseado em ${finalCampaigns.length === 1 ? '1 campanha vinculada' : `${finalCampaigns.length} campanhas vinculadas`}` : 'Nenhuma campanha vinculada'}
                 </p>
                 <p>
                   <strong>Dados de Grupos:</strong> WhatsApp Business via Evolution API
                 </p>
                 <p>
-                  <strong>Total de Campanhas:</strong> {campaigns.length === 0 ? 'Nenhum registro' : campaigns.length === 1 ? '1 registro' : `${campaigns.length} registros`}
+                  <strong>Total de Campanhas:</strong> {finalCampaigns.length === 0 ? 'Nenhum registro' : finalCampaigns.length === 1 ? '1 registro' : `${finalCampaigns.length} registros`}
                 </p>
               </div>
             </div>
-            {campaigns.length === 0 && (
+            {finalCampaigns.length === 0 && (
               <Button
                 variant="outline"
                 size="sm"
@@ -383,10 +344,17 @@ const Details = () => {
         
         {/* Lista de Campanhas Meta Ads */}
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold">Campanhas Vinculadas</h3>
-          {campaigns.length > 0 ? (
-            <div className="grid gap-4">
-              {campaigns.map((campaign) => (
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-semibold">Campanhas Vinculadas</h3>
+            {finalCampaigns.length > 3 && (
+              <span className="text-sm text-gray-500">
+                {finalCampaigns.length} campanhas
+              </span>
+            )}
+          </div>
+          {finalCampaigns.length > 0 ? (
+            <div className="max-h-[400px] overflow-y-auto space-y-4 pr-2">
+              {finalCampaigns.map((campaign) => (
                 <Card key={campaign.id} className="p-4">
                   <div className="flex justify-between items-start">
                     <div className="space-y-2">

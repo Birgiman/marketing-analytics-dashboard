@@ -36,12 +36,7 @@ class WhatsAppService {
   // Chamar Edge Function para interagir com Evolution API
   private async callEvolutionAPI(action: string, data: any) {
     try {
-      console.log('=== WHATSAPP SERVICE DEBUG ===');
-      console.log('Action sendo enviada:', action);
-      console.log('Data sendo enviada:', JSON.stringify(data, null, 2));
-      
       const requestBody = { action, ...data };
-      console.log('Request body completo:', JSON.stringify(requestBody, null, 2));
 
       const response = await supabase.functions.invoke('whatsapp-api', {
         body: requestBody
@@ -80,20 +75,13 @@ class WhatsAppService {
   // Criar nova instância WhatsApp automaticamente usando perfil
   async createWhatsAppInstance(userId: string): Promise<CreateInstanceResponse> {
     try {
-      console.log('=== WHATSAPP CONNECTION DEBUG ===');
-      console.log('1. Iniciando conexão de instância...');
-      console.log('User ID:', userId);
 
       // Gerar nome da instância baseado no perfil
       const { instanceName, fullName } = await this.generateInstanceName(userId);
       
-      console.log('User:', fullName);
-      console.log('Instance Name:', instanceName);
 
       // PASSO 1: Verificar se instância existe na Evolution API (FONTE DA VERDADE)
-      console.log('2. Verificando se instância existe na Evolution API...');
       const instanceExistsInAPI = await this.checkInstanceExists(instanceName, userId);
-      console.log('3. Instância existe na Evolution API:', instanceExistsInAPI);
 
       let result;
       
@@ -339,7 +327,6 @@ class WhatsAppService {
   // Sincronizar status com Evolution API e atualizar banco
   async syncInstanceStatus(userId: string): Promise<void> {
     try {
-      console.log('=== SINCRONIZANDO STATUS COM EVOLUTION API ===');
       
       // Buscar instâncias no banco local
       const { data: localInstances, error } = await supabase

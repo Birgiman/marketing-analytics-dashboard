@@ -5,18 +5,16 @@
  */
 
 import {
-  MetaInsightLevel,
-  MetaFilterOperator,
-  MetaCampaignStatus,
-  MetaDatePreset,
-  MetaApiFields,
-  MetaInsightsOptions,
-  MetaApiFilter,
-  MetaTimeRange,
-  buildMetaApiUrl,
-  createCampaignStatusFilter,
-  createCampaignNameFilter,
-  createCampaignIdFilter
+    MetaApiFields,
+    MetaApiFilter,
+    MetaCampaignStatus,
+    MetaDatePreset,
+    MetaFilterOperator,
+    MetaInsightLevel,
+    MetaInsightsOptions,
+    createCampaignIdFilter,
+    createCampaignNameFilter,
+    createCampaignStatusFilter
 } from '../types/metaApi';
 
 export interface MetaAdAccount {
@@ -97,25 +95,21 @@ export async function fetchCampaigns(
     searchTerm
   } = options;
 
-  console.log('📱 fetchCampaigns - Parâmetros recebidos:', { adAccountId, options });
 
   const filters: MetaApiFilter[] = [];
 
   // Add status filter if provided
   if (status.length > 0) {
-    console.log('📱 Adicionando filtro de status:', status);
     filters.push({
       field: 'status',
       operator: MetaFilterOperator.IN,
       value: status
     });
   } else {
-    console.log('📱 Sem filtro de status (status array vazio)');
   }
 
   // Add search term filter if provided
   if (searchTerm && searchTerm.trim()) {
-    console.log('📱 Adicionando filtro de busca:', searchTerm);
     filters.push(createCampaignNameFilter(searchTerm.trim()));
   }
 
@@ -131,7 +125,6 @@ export async function fetchCampaigns(
   }
 
   const url = `${BASE_URL}/${adAccountId}/campaigns?${params}`;
-  console.log('📱 URL da requisição:', url.replace(accessToken, 'TOKEN_OCULTO'));
 
   const response = await fetch(url);
 
@@ -148,8 +141,6 @@ export async function fetchCampaigns(
   }
 
   const data = await response.json();
-  console.log('📱 ✅ Resposta da API:', data);
-  console.log('📱 ✅ Total de campanhas encontradas:', data.data?.length || 0);
 
   return data.data || [];
 }
@@ -362,7 +353,8 @@ export function validateMetaTimeRange(dateRange: { since: string; until: string 
   const maxAllowedDate = new Date(currentDate);
   maxAllowedDate.setFullYear(maxAllowedDate.getFullYear() - 1);
   
-  // Verificar se a data de início está dentro do limite
+  
+  // Verificar se a data de início está dentro do limite (não pode ser mais antiga que 1 ano)
   if (sinceDate < maxAllowedDate) {
     return {
       isValid: false,
@@ -438,7 +430,6 @@ export async function fetchAccountLevelInsights(
   }
 
   const url = `${BASE_URL}/${adAccountId}/insights?${params}`;
-  console.log('📊 [fetchAccountLevelInsights] URL:', url.replace(accessToken, 'TOKEN_OCULTO'));
 
   const response = await fetch(url);
 
@@ -448,7 +439,6 @@ export async function fetchAccountLevelInsights(
   }
 
   const data = await response.json();
-  console.log('📊 [fetchAccountLevelInsights] Resposta:', data);
   return data.data || [];
 }
 
@@ -490,13 +480,11 @@ export async function fetchMultipleCampaignInsights(
   // MELHORADO: Add campaign name filter if search term provided
   // Agora usa filtro mais robusto que funciona com a API Meta
   if (searchTerm && searchTerm.trim()) {
-    console.log('🔍 [fetchMultipleCampaignInsights] Aplicando filtro de busca:', searchTerm.trim());
     filters.push(createCampaignNameFilter(searchTerm.trim()));
   }
 
   // Add campaign ID filter if specific IDs provided
   if (campaignIds && campaignIds.length > 0) {
-    console.log('🎯 [fetchMultipleCampaignInsights] Aplicando filtro de IDs:', campaignIds.length, 'campanhas');
     filters.push(createCampaignIdFilter(campaignIds));
   }
 
@@ -527,8 +515,6 @@ export async function fetchMultipleCampaignInsights(
   }
 
   const url = `${BASE_URL}/${adAccountId}/insights?${params}`;
-  console.log('📊 [fetchMultipleCampaignInsights] URL:', url.replace(accessToken, 'TOKEN_OCULTO'));
-  console.log('📊 [fetchMultipleCampaignInsights] Filtros aplicados:', filters);
 
   const response = await fetch(url);
 
@@ -538,7 +524,6 @@ export async function fetchMultipleCampaignInsights(
   }
 
   const data = await response.json();
-  console.log('📊 [fetchMultipleCampaignInsights] Total de insights:', data.data?.length || 0);
   return data.data || [];
 }
 
@@ -577,7 +562,6 @@ export async function fetchLiveCampaignsInsights(
         console.error('📊 [fetchLiveCampaignsInsights] ❌ Período de datas inválido:', validation.error);
         throw new Error(validation.error);
       }
-      console.log('📊 [fetchLiveCampaignsInsights] ✅ Período de datas válido:', dateRange);
     }
 
     // MELHORADO: Usar as opções EXATAS que o usuário selecionou no modal
@@ -600,10 +584,6 @@ export async function fetchLiveCampaignsInsights(
       searchTerm // Passar termo de busca
     };
 
-    console.log('📊 [fetchLiveCampaignsInsights] Fazendo UMA única requisição com:', {
-      ...requestOptions,
-      filtering: requestOptions.filtering?.map(f => ({ ...f, value: Array.isArray(f.value) ? f.value.length : f.value }))
-    });
 
     // Fazer apenas UMA requisição baseada no level escolhido
     let results: any[];
@@ -616,20 +596,17 @@ export async function fetchLiveCampaignsInsights(
           f.field !== 'campaign.id'
         );
       }
-      console.log('📊 [fetchLiveCampaignsInsights] Level=account: removendo filtro campaign.id');
       results = await fetchAccountLevelInsights(adAccountId, accessToken, accountOptions);
     } else {
       results = await fetchMultipleCampaignInsights(adAccountId, accessToken, requestOptions);
     }
 
-    console.log('📊 [fetchLiveCampaignsInsights] Resultados encontrados:', results.length);
     
     // MELHORADO: Log adicional para debug do filtro
     if (searchTerm) {
       const filteredResults = results.filter(result => 
         result.campaign_name && result.campaign_name.toUpperCase().includes(searchTerm.toUpperCase())
       );
-      console.log('🔍 [fetchLiveCampaignsInsights] Resultados após filtro local:', filteredResults.length);
     }
 
     return {
@@ -700,13 +677,8 @@ export async function fetchMetaInsights(
     throw new Error('timeRange ou datePreset é obrigatório');
   }
 
-  // VALIDAÇÃO: Se timeRange fornecido, validar limite de 1 ano
-  if (timeRange) {
-    const validation = validateMetaTimeRange(timeRange);
-    if (!validation.isValid) {
-      throw new Error(validation.error);
-    }
-  }
+  // NOTA: Validação de 1 ano removida daqui para permitir visualização de dados históricos
+  // A validação deve ser aplicada apenas na criação/edição de Lives
 
   // CAMPOS MÍNIMOS OBRIGATÓRIOS
   const minimumFields = ['campaign_name', 'impressions', 'spend'];
@@ -743,14 +715,6 @@ export async function fetchMetaInsights(
   // Construir URL
   const url = `${BASE_URL}/${targetId}/insights?${params}`;
   
-  console.log('📊 [fetchMetaInsights] Requisição:', {
-    targetId,
-    level,
-    fields: finalFields,
-    timeRange: timeRange || datePreset,
-    filtering: filtering.length,
-    limit
-  });
 
   try {
     const response = await fetch(url);
@@ -762,10 +726,6 @@ export async function fetchMetaInsights(
 
     const data = await response.json();
     
-    console.log('📊 [fetchMetaInsights] ✅ Sucesso:', {
-      targetId,
-      resultsCount: data.data?.length || 0
-    });
 
     return data.data || [];
   } catch (error) {
