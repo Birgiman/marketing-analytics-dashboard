@@ -1,10 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Calculator as CalculatorIcon, Plus } from "lucide-react";
+import { Calculator as CalculatorIcon, Plus, Trash2, TrendingUp, Users, Target, DollarSign } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { 
+  calculateLiveShopProjection, 
+  validateCalculatorInputs, 
+  formatCurrency, 
+  formatPercentage, 
+  formatNumber,
+  generateSimulationName,
+  type CalculatorInputs,
+  type CalculatorResults 
+} from "@/utils/calculations";
+import { toast } from "@/hooks/use-toast";
 
 interface CalculationData {
   ticketMedio: string;
@@ -17,11 +29,11 @@ interface CalculationData {
 
 interface SavedCalculation {
   id: string;
-  nome: string;
-  data: string;
-  orcamento: string;
-  cpl: string;
-  faturamento: string;
+  name: string;
+  inputs: CalculatorInputs;
+  results: CalculatorResults;
+  created_at: string;
+  updated_at: string;
 }
 
 export default function Calculator() {
@@ -35,6 +47,36 @@ export default function Calculator() {
   });
 
   const [savedCalculations, setSavedCalculations] = useState<SavedCalculation[]>([]);
+  const [currentResults, setCurrentResults] = useState<CalculatorResults | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isCalculating, setIsCalculating] = useState(false);
+
+  // Load saved calculations on component mount
+  useEffect(() => {
+    loadSavedCalculations();
+  }, []);
+
+  const loadSavedCalculations = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('calculator-history', {
+        method: 'GET'
+      });
+
+      if (error) throw error;
+
+      setSavedCalculations(data.data || []);
+    } catch (error) {
+      console.error('Error loading saved calculations:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os cálculos salvos.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleInputChange = (field: keyof CalculationData, value: string) => {
     setFormData(prev => ({
@@ -43,14 +85,109 @@ export default function Calculator() {
     }));
   };
 
-  const handleCalculate = () => {
-    // TODO: Implement calculation logic
-    console.log("Calculating with data:", formData);
+  const handleCalculate = async () => {
+    setIsCalculating(true);
+    
+    try {
+      // Convert string inputs to numbers
+      const inputs: CalculatorInputs = {
+        ticketMedio: parseFloat(formData.ticketMedio.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        diasCaptacao: parseInt(formData.diasCaptacao) || 0,
+        orcamento: parseFloat(formData.orcamento.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        cplLiquido: parseFloat(formData.cplLiquido.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        comparecimento: parseFloat(formData.comparecimento.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        conversao: parseFloat(formData.conversao.replace(/[^\d,]/g, '').replace(',', '.')) || 0
+      };
+
+      // Validate inputs
+      const validation = validateCalculatorInputs(inputs);
+      if (!validation.isValid) {
+        toast({
+          title: "Dados inválidos",
+          description: validation.errors.join(', '),
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Calculate results
+      const results = calculateLiveShopProjection(inputs);
+      setCurrentResults(results);
+
+      // Save to history
+      const simulationName = generateSimulationName(inputs);
+      await saveCalculation(simulationName, inputs, results);
+
+      toast({
+        title: "Cálculo realizado!",
+        description: "Projeção calculada e salva com sucesso.",
+      });
+
+    } catch (error) {
+      console.error('Error calculating:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível realizar o cálculo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCalculating(false);
+    }
+  };
+
+  const saveCalculation = async (name: string, inputs: CalculatorInputs, results: CalculatorResults) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('calculator-history', {
+        method: 'POST',
+        body: { name, inputs, results }
+      });
+
+      if (error) throw error;
+
+      // Reload saved calculations
+      await loadSavedCalculations();
+    } catch (error) {
+      console.error('Error saving calculation:', error);
+      throw error;
+    }
+  };
+
+  const handleDeleteCalculation = async (id: string) => {
+    try {
+      const { error } = await supabase.functions.invoke('calculator-history', {
+        method: 'DELETE',
+        body: { id }
+      });
+
+      if (error) throw error;
+
+      // Reload saved calculations
+      await loadSavedCalculations();
+
+      toast({
+        title: "Cálculo removido",
+        description: "O cálculo foi removido com sucesso.",
+      });
+    } catch (error) {
+      console.error('Error deleting calculation:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível remover o cálculo.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleNewCalculation = () => {
-    // TODO: Implement new calculation modal
-    console.log("Opening new calculation modal");
+    setFormData({
+      ticketMedio: "",
+      diasCaptacao: "",
+      orcamento: "",
+      cplLiquido: "",
+      comparecimento: "",
+      conversao: ""
+    });
+    setCurrentResults(null);
   };
 
   return (
@@ -144,12 +281,103 @@ export default function Calculator() {
               onClick={handleCalculate}
               className="w-full md:w-auto px-8"
               size="lg"
+              disabled={isCalculating}
             >
-              Calcular
+              {isCalculating ? "Calculando..." : "Calcular"}
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Results Section */}
+      {currentResults && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center space-x-2">
+              <TrendingUp className="h-5 w-5" />
+              <CardTitle>Resultados da Projeção</CardTitle>
+            </div>
+            <CardDescription>
+              Projeções baseadas nos dados inseridos
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <Users className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-800">Leads Previstos</span>
+                </div>
+                <p className="text-2xl font-bold text-blue-900 mt-1">
+                  {formatNumber(currentResults.leadsPrevistos)}
+                </p>
+              </div>
+
+              <div className="bg-green-50 p-4 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <Target className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-medium text-green-800">Participantes</span>
+                </div>
+                <p className="text-2xl font-bold text-green-900 mt-1">
+                  {formatNumber(currentResults.participantesPrevistos)}
+                </p>
+              </div>
+
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <TrendingUp className="h-4 w-4 text-purple-600" />
+                  <span className="text-sm font-medium text-purple-800">Vendas Previstas</span>
+                </div>
+                <p className="text-2xl font-bold text-purple-900 mt-1">
+                  {formatNumber(currentResults.vendasPrevistas)}
+                </p>
+              </div>
+
+              <div className="bg-orange-50 p-4 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <DollarSign className="h-4 w-4 text-orange-600" />
+                  <span className="text-sm font-medium text-orange-800">Receita Prevista</span>
+                </div>
+                <p className="text-2xl font-bold text-orange-900 mt-1">
+                  {formatCurrency(currentResults.receitaPrevista)}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <TrendingUp className="h-4 w-4 text-gray-600" />
+                  <span className="text-sm font-medium text-gray-800">ROI</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {formatPercentage(currentResults.roi)}
+                </p>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <DollarSign className="h-4 w-4 text-gray-600" />
+                  <span className="text-sm font-medium text-gray-800">Lucro</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {formatCurrency(currentResults.lucro)}
+                </p>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <Target className="h-4 w-4 text-gray-600" />
+                  <span className="text-sm font-medium text-gray-800">Margem de Lucro</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {formatPercentage(currentResults.margemLucro)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Saved Calculations */}
       <Card>
@@ -168,9 +396,13 @@ export default function Calculator() {
           </div>
         </CardHeader>
         <CardContent>
-          {savedCalculations.length === 0 ? (
+          {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">
-              Nenhum cálculo salvo ainda. Calcule uma projeção e salve-a.
+              Carregando cálculos salvos...
+            </div>
+          ) : savedCalculations.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Nenhum cálculo salvo ainda. Calcule uma projeção e ela será salva automaticamente.
             </div>
           ) : (
             <Table>
@@ -179,22 +411,31 @@ export default function Calculator() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Data</TableHead>
                   <TableHead>Orçamento</TableHead>
-                  <TableHead>CPL</TableHead>
-                  <TableHead>Faturamento</TableHead>
+                  <TableHead>CPL Líquido</TableHead>
+                  <TableHead>Receita Prevista</TableHead>
+                  <TableHead>ROI</TableHead>
                   <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {savedCalculations.map((calc) => (
                   <TableRow key={calc.id}>
-                    <TableCell className="font-medium">{calc.nome}</TableCell>
-                    <TableCell>{calc.data}</TableCell>
-                    <TableCell>{calc.orcamento}</TableCell>
-                    <TableCell>{calc.cpl}</TableCell>
-                    <TableCell>{calc.faturamento}</TableCell>
+                    <TableCell className="font-medium">{calc.name}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm">
-                        Editar
+                      {new Date(calc.created_at).toLocaleDateString('pt-BR')}
+                    </TableCell>
+                    <TableCell>{formatCurrency(calc.inputs.orcamento)}</TableCell>
+                    <TableCell>{formatCurrency(calc.inputs.cplLiquido)}</TableCell>
+                    <TableCell>{formatCurrency(calc.results.receitaPrevista)}</TableCell>
+                    <TableCell>{formatPercentage(calc.results.roi)}</TableCell>
+                    <TableCell>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleDeleteCalculation(calc.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>
                   </TableRow>
