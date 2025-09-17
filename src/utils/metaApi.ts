@@ -359,15 +359,19 @@ export async function fetchAccountLevelInsights(
     dateRange,
     datePreset = MetaDatePreset.LAST_30D,
     filtering = [],
-    limit = 100
+    limit
   } = options;
 
   const params = new URLSearchParams({
     fields: fields.join(','),
     access_token: accessToken,
-    level: level,
-    limit: limit.toString()
+    level: level
   });
+
+  // Só adicionar limit se fornecido
+  if (limit) {
+    params.append('limit', limit.toString());
+  }
 
   // Add date range or preset
   if (dateRange) {
@@ -420,7 +424,7 @@ export async function fetchMultipleCampaignInsights(
     campaignIds,
     campaignStatuses = [MetaCampaignStatus.ACTIVE, MetaCampaignStatus.PAUSED],
     searchTerm,
-    limit = 100
+    limit
   } = options;
 
   const filters: MetaApiFilter[] = [];
@@ -443,9 +447,13 @@ export async function fetchMultipleCampaignInsights(
   const params = new URLSearchParams({
     fields: fields.join(','),
     access_token: accessToken,
-    level: level,
-    limit: limit.toString()
+    level: level
   });
+
+  // Só adicionar limit se fornecido
+  if (limit) {
+    params.append('limit', limit.toString());
+  }
 
   // Add date range or preset
   if (dateRange) {
@@ -488,51 +496,45 @@ export async function fetchLiveCampaignsInsights(
   accessToken: string,
   options: MetaInsightsOptions = {}
 ): Promise<{
-  aggregated: any[];
-  individual: any[];
+  results: any[];
 }> {
   const {
+    level = MetaInsightLevel.CAMPAIGN,
+    fields = MetaApiFields.CAMPAIGN_INSIGHTS,
     dateRange,
-    datePreset = MetaDatePreset.LAST_30D
+    datePreset = MetaDatePreset.LAST_30D,
+    filtering = [],
+    limit
   } = options;
 
   try {
-    // 1. Buscar insights agregados (level=account) com filtro dos IDs específicos
-    const aggregatedOptions: MetaInsightsOptions = {
-      level: MetaInsightLevel.ACCOUNT,
-      fields: MetaApiFields.ACCOUNT_INSIGHTS,
+    // Usar as opções EXATAS que o usuário selecionou no modal
+    const requestOptions: MetaInsightsOptions = {
+      level,
+      fields, // Usar os campos selecionados pelo usuário
       dateRange,
       datePreset,
-      filtering: [createCampaignIdFilter(campaignIds)]
+      filtering: [
+        createCampaignIdFilter(campaignIds), // Sempre filtrar pelos IDs das campanhas da Live
+        ...filtering // Adicionar filtros extras (status, nome, etc.)
+      ],
+      limit
     };
 
-    const aggregated = await fetchAccountLevelInsights(
-      adAccountId,
-      accessToken,
-      aggregatedOptions
-    );
+    console.log('📊 [fetchLiveCampaignsInsights] Fazendo UMA única requisição com:', requestOptions);
 
-    // 2. Buscar insights individuais (level=campaign) dos mesmos IDs
-    const individualOptions: MetaInsightsOptions = {
-      level: MetaInsightLevel.CAMPAIGN,
-      fields: MetaApiFields.CAMPAIGN_INSIGHTS,
-      dateRange,
-      datePreset,
-      filtering: [createCampaignIdFilter(campaignIds)]
-    };
+    // Fazer apenas UMA requisição baseada no level escolhido
+    let results: any[];
+    if (level === MetaInsightLevel.ACCOUNT) {
+      results = await fetchAccountLevelInsights(adAccountId, accessToken, requestOptions);
+    } else {
+      results = await fetchMultipleCampaignInsights(adAccountId, accessToken, requestOptions);
+    }
 
-    const individual = await fetchMultipleCampaignInsights(
-      adAccountId,
-      accessToken,
-      individualOptions
-    );
-
-    console.log('📊 [fetchLiveCampaignsInsights] Insights agregados:', aggregated.length);
-    console.log('📊 [fetchLiveCampaignsInsights] Insights individuais:', individual.length);
+    console.log('📊 [fetchLiveCampaignsInsights] Resultados:', results.length);
 
     return {
-      aggregated,
-      individual
+      results
     };
 
   } catch (error) {

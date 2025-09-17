@@ -55,15 +55,15 @@ className="text-sm text-muted-foreground"
 
 #### Estilos Customizados:
 ```css
-DialogContent: "max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+DialogContent: "max-w-4xl max-h-[850px] overflow-y-auto flex flex-col"
 DialogTitle: "flex items-center gap-2"
 ```
 
 #### Características:
 - **Largura**: Extra grande (`max-w-4xl` = 56rem)
-- **Altura**: Máxima 90% da viewport
+- **Altura**: Fixa em 850px (padronizada)
 - **Layout**: Flexbox coluna
-- **Overflow**: Oculto no container principal
+- **Overflow**: Scroll vertical permitido
 - **Funcionalidade**: Seleção de campanhas Meta em 2 etapas
   1. Seleção de conta publicitária
   2. Seleção de campanhas específicas
@@ -112,14 +112,15 @@ DialogContent: "max-w-2xl w-full overflow-y-auto overflow-x-hidden ${
 
 #### Estilos Customizados:
 ```css
-DialogContent: "max-w-4xl max-h-[80vh] overflow-hidden flex flex-col"
+DialogContent: "max-w-4xl max-h-[850px] overflow-y-auto flex flex-col"
 DialogTitle: "flex items-center gap-2"
 ```
 
 #### Características:
 - **Largura**: Extra grande (`max-w-4xl` = 56rem)
-- **Altura**: Máxima 80% da viewport
+- **Altura**: Fixa em 850px (padronizada)
 - **Layout**: Flexbox coluna
+- **Overflow**: Scroll vertical permitido
 - **Funcionalidade**: Busca e seleção de grupos WhatsApp
 
 #### Telas que utilizam:
@@ -232,7 +233,41 @@ DialogTitle: "flex items-center gap-2"
 
 ---
 
-### 9. AddressModal
+### 9. MetaApiTestModal
+**Arquivo**: `src/components/MetaApiTestModal.tsx`
+**Usado em**: Dashboard (LivesListModal), CreateLiveModal
+
+#### Estilos Customizados:
+```css
+DialogContent: "max-w-4xl max-h-[850px] overflow-y-auto flex flex-col"
+DialogTitle: "🧪 Teste de API Meta - Configurar Parâmetros"
+```
+
+#### Características:
+- **Largura**: Extra grande (`max-w-4xl` = 56rem)
+- **Altura**: Fixa em 850px (otimizada para formulários extensos)
+- **Layout**: Flexbox coluna
+- **Overflow**: Scroll vertical permitido
+- **Funcionalidade**: Interface completa para testes da API Meta
+  - Seleção de campos com botões rápidos (Mínimo/Padrão/Todos/Limpar)
+  - Configuração de level (Campaign vs Account)
+  - Seleção de período com botões rápidos (30 dias, 3 meses, 1 ano)
+  - Campo para termo de busca das campanhas
+  - Validação em tempo real de parâmetros
+  - Logs detalhados para debugging
+
+#### Validações implementadas:
+- **Período máximo**: 365 dias para evitar erro "número excessivo de linhas"
+- **Limites dinâmicos**: Baseados no período e número de campos
+- **Auto-carregamento**: Dados salvos da Live (período, termo de busca)
+
+#### Telas que utilizam:
+- Dashboard → Lives List → Botão "🧪 API"
+- Dashboard → Criar Live → Modal de testes
+
+---
+
+### 10. AddressModal
 **Arquivo**: `src/components/AddressModal.tsx`
 **Usado em**: SalesHeader
 
@@ -266,6 +301,7 @@ DialogTitle: "text-lg font-semibold"
 - CampaignSelector
 - GroupSearchSelector
 - MetaAdsConnection
+- MetaApiTestModal
 
 ### Extra Grandes (`max-w-6xl` - 72rem)
 - LivesListModal
@@ -275,15 +311,18 @@ DialogTitle: "text-lg font-semibold"
 ## Padrões de Altura
 
 ### 80% da Viewport (`max-h-[80vh]`)
-- GroupSearchSelector
 - MetaAdsConnection
 - LivesListModal
 - WhatsAppAdvancedSettings
 
 ### 85-90% da Viewport
 - CreateLiveModal (dinâmico: 85vh → 90vh)
-- CampaignSelector (90vh)
 - AccountSettingsModal (90vh)
+
+### Altura Fixa (850px - padronizada)
+- CampaignSelector
+- GroupSearchSelector
+- MetaApiTestModal
 
 ### Sem altura específica
 - ConfirmationModal
@@ -298,10 +337,11 @@ DialogTitle: "text-lg font-semibold"
 - MetaAdsConnection
 - LivesListModal
 - AccountSettingsModal
-
-### Overflow Oculto (`overflow-hidden`)
+- MetaApiTestModal
 - CampaignSelector
 - GroupSearchSelector
+
+### Overflow Oculto (`overflow-hidden`)
 - WhatsAppAdvancedSettings
 
 ### Sem overflow específico

@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { MetaInsightLevel } from '@/types/metaApi';
+import { MetaInsightLevel, MetaCampaignStatus } from '@/types/metaApi';
 import { fetchLiveCampaignsInsights } from '@/utils/metaApi';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -63,6 +63,7 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
     until: ''
   });
   const [searchTerm, setSearchTerm] = useState('');
+  const [campaignStatus, setCampaignStatus] = useState<string[]>(['ACTIVE', 'PAUSED']);
   const [isLoading, setIsLoading] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
 
@@ -137,6 +138,11 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
   const handleTest = async () => {
     if (selectedFields.length === 0) {
       alert('⚠️ Selecione pelo menos um campo para testar');
+      return;
+    }
+
+    if (searchTerm.trim().length < 2) {
+      alert('⚠️ Termo de busca deve ter pelo menos 2 caracteres');
       return;
     }
 
@@ -254,9 +260,7 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
 
       console.log('🧪 [TESTE META API] Período de dias:', diffDays);
 
-      if (diffDays > 365) {
-        throw new Error(`Período muito longo (${diffDays} dias). Para evitar erro de "número excessivo de linhas", limite o período para no máximo 1 ano (365 dias).`);
-      }
+      // Removed 365 days limit - user can choose any period
 
       // Determinar limite baseado no período e número de campos
       let apiLimit = 25;
@@ -276,20 +280,38 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
       console.log('🧪 [TESTE META API] Limite calculado:', apiLimit);
 
       // Fazer a requisição para a API Meta com os parâmetros selecionados
+      // Criar filtros dinâmicos baseados na seleção do usuário
+      const filters = [];
+
+      // Filtro de status (sempre presente, baseado na seleção)
+      if (campaignStatus.length > 0) {
+        filters.push({
+          "field": "campaign.effective_status",
+          "operator": "IN",
+          "value": campaignStatus
+        });
+      }
+
+      // Filtro de nome (só se termo for fornecido)
+      if (searchTerm.trim()) {
+        filters.push({
+          "field": "campaign.name",
+          "operator": "CONTAIN",
+          "value": searchTerm.trim()
+        });
+      }
+
       const options = {
         level: level,
-        fields: selectedFields,
+        fields: selectedFields, // Usar campos selecionados pelo usuário
         dateRange: {
           since: dateRange.since,
           until: dateRange.until
         },
-        limit: apiLimit,
-        // Adicionar filtro por termo de busca se especificado
-        ...(searchTerm.trim() && {
-          searchTerm: searchTerm.trim(),
-          campaignStatuses: [MetaCampaignStatus.ACTIVE, MetaCampaignStatus.PAUSED]
-        })
+        filtering: filters
       };
+
+      console.log('🧪 [TESTE META API] Filtros dinâmicos criados:', filters);
 
       console.log('🧪 [TESTE META API] Chamando fetchLiveCampaignsInsights com:', {
         adAccountId: accountId,
@@ -319,15 +341,14 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
       });
 
       // Mostrar alerta com resumo
-      const aggregatedCount = result.aggregated?.length || 0;
-      const individualCount = result.individual?.length || 0;
+      const resultsCount = result.results?.length || 0;
 
       alert(`✅ Teste concluído com sucesso!\n\n` +
-            `📊 Insights agregados: ${aggregatedCount}\n` +
-            `📈 Insights individuais: ${individualCount}\n` +
+            `📊 Resultados encontrados: ${resultsCount}\n` +
             `🎯 Level: ${level}\n` +
             `📅 Período: ${dateRange.since} até ${dateRange.until}\n` +
-            `🔍 Campos: ${selectedFields.length} selecionados\n\n` +
+            `🔍 Campos: ${selectedFields.length} selecionados\n` +
+            `🔍 Termo: "${searchTerm.trim()}"\n\n` +
             `Verifique o console para detalhes completos.`);
 
     } catch (error: any) {
@@ -372,6 +393,46 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
                 </p>
               </div>
             )}
+          </div>
+
+          {/* Status das Campanhas */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">
+              Status das Campanhas
+            </Label>
+            <div className="flex gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="active"
+                  checked={campaignStatus.includes('ACTIVE')}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setCampaignStatus(prev => [...prev.filter(s => s !== 'ACTIVE'), 'ACTIVE']);
+                    } else {
+                      setCampaignStatus(prev => prev.filter(s => s !== 'ACTIVE'));
+                    }
+                  }}
+                />
+                <Label htmlFor="active" className="text-sm text-green-600">✅ Ativas</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="paused"
+                  checked={campaignStatus.includes('PAUSED')}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setCampaignStatus(prev => [...prev.filter(s => s !== 'PAUSED'), 'PAUSED']);
+                    } else {
+                      setCampaignStatus(prev => prev.filter(s => s !== 'PAUSED'));
+                    }
+                  }}
+                />
+                <Label htmlFor="paused" className="text-sm text-orange-600">⏸️ Pausadas</Label>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">
+              Selecione quais status de campanhas incluir na busca ({campaignStatus.length} selecionados)
+            </p>
           </div>
 
           {/* Seleção de Level */}
@@ -452,7 +513,7 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
                   }}
                   className="text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
                 >
-                  📅 1 ano (máximo)
+                  📅 1 ano
                 </Button>
               </div>
             </div>
@@ -477,9 +538,9 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
             <p className="text-xs text-gray-500">
               Período configurado na Live será carregado automaticamente
             </p>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mt-2">
-              <p className="text-xs text-amber-800">
-                ⚠️ <strong>Limite de período:</strong> Máximo 1 ano (365 dias) para evitar erro de "número excessivo de linhas"
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mt-2">
+              <p className="text-xs text-blue-800">
+                💡 <strong>Dica:</strong> Períodos longos podem retornar muitos dados. Use os limites dinâmicos para otimizar.
               </p>
             </div>
           </div>
@@ -582,8 +643,7 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
                   <div>
                     <p className="font-medium text-green-800">✅ Teste concluído com sucesso!</p>
                     <p className="text-green-700 mt-1">
-                      Insights agregados: {testResult.data.aggregated?.length || 0} |
-                      Insights individuais: {testResult.data.individual?.length || 0}
+                      Resultados encontrados: {testResult.data.results?.length || 0}
                     </p>
                     <p className="text-green-600 mt-1">
                       Verifique o console para dados completos
@@ -612,7 +672,7 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
             <Button
               type="button"
               onClick={handleTest}
-              disabled={isLoading || selectedFields.length === 0}
+              disabled={isLoading || selectedFields.length === 0 || searchTerm.trim().length < 2}
               className="min-w-32"
             >
               {isLoading ? (

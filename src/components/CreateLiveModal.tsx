@@ -288,6 +288,13 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
       leadsTarget: '',
       adsBudget: ''
     });
+    // Reset dateRange para valores padrão
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    setDateRange({
+      since: firstDayOfMonth.toISOString().split('T')[0],
+      until: now.toISOString().split('T')[0]
+    });
     onOpenChange(false);
   };
 

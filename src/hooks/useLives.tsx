@@ -11,6 +11,8 @@ interface LiveData {
   sales_goal?: number
   leads_goal?: number
   ad_budget?: number
+  insights_date_since?: string
+  insights_date_until?: string
 }
 
 interface LiveGroup {
@@ -56,7 +58,9 @@ export function useLives() {
           ta_rolando_end: liveData.ta_rolando_end || null,
           sales_goal: liveData.sales_goal || 0,
           leads_goal: liveData.leads_goal || 0,
-          ad_budget: liveData.ad_budget || 0
+          ad_budget: liveData.ad_budget || 0,
+          insights_date_since: liveData.insights_date_since || null,
+          insights_date_until: liveData.insights_date_until || null
         })
         .select()
         .single()
@@ -201,7 +205,9 @@ export function useLives() {
           ta_rolando_end: liveData.ta_rolando_end || null,
           sales_goal: liveData.sales_goal || 0,
           leads_goal: liveData.leads_goal || 0,
-          ad_budget: liveData.ad_budget || 0
+          ad_budget: liveData.ad_budget || 0,
+          insights_date_since: liveData.insights_date_since || null,
+          insights_date_until: liveData.insights_date_until || null
         })
         .eq('id', liveId)
         .eq('user_id', session.session.user.id)
