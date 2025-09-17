@@ -83,7 +83,8 @@ const Details = () => {
     }, 0);
     
     // Para o CPL Líquido, usamos a soma do tamanho dos grupos vinculados
-    const totalEntrou = groups.reduce((sum, group) => sum + group.group_size, 0);
+    // NOTA: Usar group_size para consistência com PerformanceAnalysis
+    const totalEntrou = groups.reduce((sum, group) => sum + (group.group_size || 0), 0);
     return totalEntrou > 0 ? totalSpent / totalEntrou : 0;
   };
 

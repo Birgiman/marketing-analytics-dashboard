@@ -1,4 +1,4 @@
-import { MetricsCard } from "@/components/MetricsCard";
+import { MetricCard } from "@/components/MetricCard";
 import { Activity, Target, TrendingUp, TrendingDown, Users } from "lucide-react";
 
 interface LiveMetricsCardsProps {
@@ -24,42 +24,42 @@ export function LiveMetricsCards({
 }: LiveMetricsCardsProps) {
   return (
     <div className={`grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6 ${className}`}>
-      <MetricsCard
+      <MetricCard
         title="CPL Líquido"
         value={cplLiquido > 0 ? `R$ ${cplLiquido.toFixed(2)}` : 'R$ 0,00'}
         icon={Target}
         isLoading={isLoading}
       />
       
-      <MetricsCard
+      <MetricCard
         title="CPL Meta"
         value={cplMeta > 0 ? `R$ ${cplMeta.toFixed(2)}` : 'R$ 0,00'}
         icon={Target}
         isLoading={isLoading}
       />
       
-      <MetricsCard
+      <MetricCard
         title="Tx de Retenção"
         value={`${retentionRate}%`}
         icon={Activity}
         isLoading={isLoading}
       />
       
-      <MetricsCard
+      <MetricCard
         title="Entrou no Grupo"
         value={groupMembers.toLocaleString('pt-BR')}
         icon={TrendingUp}
         isLoading={isLoading}
       />
       
-      <MetricsCard
+      <MetricCard
         title="Saiu do Grupo"
         value={groupExits.toLocaleString('pt-BR')}
         icon={TrendingDown}
         isLoading={isLoading}
       />
       
-      <MetricsCard
+      <MetricCard
         title="Leads Ativos"
         value={activeLeads.toLocaleString('pt-BR')}
         icon={Users}

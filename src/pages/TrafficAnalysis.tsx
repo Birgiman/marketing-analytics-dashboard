@@ -2,8 +2,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
+import { LiveMetricsCards } from "@/components/LiveMetricsCards";
+import { useLiveDataCache } from "@/hooks/useLiveDataCache";
+import { useLiveCampaignData } from "@/hooks/useLiveCampaignData";
 import { toast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { Activity, TrendingUp, TrendingDown, BarChart3, Eye, Users, DollarSign, Target, TrendingUp as ProjectionIcon, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Filter } from "lucide-react";
@@ -15,6 +18,28 @@ import { Creative, Group } from "@/types";
 import { DEMO_MODE } from "@/lib/demo-mode";
 
 const TrafficAnalysis = () => {
+  const [searchParams] = useSearchParams();
+  const liveId = searchParams.get('live');
+  
+  // Usar hook de cache para dados da Live
+  const {
+    live,
+    groups,
+    campaigns,
+    isLoading: cacheLoading,
+    error: cacheError
+  } = useLiveDataCache({ liveId: liveId || '' });
+
+  // Usar hook para dados das campanhas específicas da Live
+  const {
+    campaigns: campaignData,
+    isLoading: campaignsLoading,
+    error: campaignsError
+  } = useLiveCampaignData(liveId || '');
+
+  // Usar dados do hook que tem insights, senão usar dados do cache
+  const finalCampaigns = campaignData.length > 0 ? campaignData : campaigns;
+
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [adSetSortField, setAdSetSortField] = useState<string | null>(null);
@@ -239,17 +264,82 @@ const TrafficAnalysis = () => {
     return totalsData.totalLeads > 0 ? totalSpent / totalsData.totalLeads : 0;
   };
 
-  // Calcular CPL Líquido (Total investido / Total de pessoas que entraram no grupo)
+  // Calcular CPL Líquido usando dados do cache
   const calculateCPLLiquido = () => {
-    const totalSpent = calculateTotalSpent();
-    const totalsData = calculateTotals();
-    return totalsData.totalGroup > 0 ? totalSpent / totalsData.totalGroup : 0;
+    if (!finalCampaigns || !groups || finalCampaigns.length === 0 || groups.length === 0) return 0;
+    
+    // Usar dados reais de spend dos insights
+    const totalSpent = finalCampaigns.reduce((sum, campaign) => {
+      const spend = parseFloat(campaign.insights?.spend || '0');
+      return sum + spend;
+    }, 0);
+    
+    // Para o CPL Líquido, usamos a soma do tamanho dos grupos vinculados
+    const totalEntrou = groups.reduce((sum, group) => sum + (group.group_size || 0), 0);
+    return totalEntrou > 0 ? totalSpent / totalEntrou : 0;
+  };
+
+  // Calcular CPL Meta usando dados do cache
+  const calculateCPLMeta = () => {
+    if (!finalCampaigns || finalCampaigns.length === 0) return 0;
+    
+    const totalSpent = finalCampaigns.reduce((sum, campaign) => {
+      const spend = parseFloat(campaign.insights?.spend || '0');
+      return sum + spend;
+    }, 0);
+    
+    const totalLeads = finalCampaigns.reduce((sum, campaign) => {
+      const actions = campaign.insights?.actions || [];
+      const leadAction = actions.find(action =>
+        action.action_type === 'lead' ||
+        action.action_type === 'submit_application' ||
+        action.action_type === 'complete_registration'
+      );
+      return sum + (leadAction ? parseInt(leadAction.value) : 0);
+    }, 0);
+    
+    return totalLeads > 0 ? totalSpent / totalLeads : 0;
+  };
+
+  // Calcular taxa de retenção usando dados do cache
+  const calculateRetentionRate = () => {
+    if (!finalCampaigns || finalCampaigns.length === 0) return 0;
+    
+    const totalLeads = finalCampaigns.reduce((sum, campaign) => {
+      const actions = campaign.insights?.actions || [];
+      const leadAction = actions.find(action => 
+        action.action_type === 'lead' || 
+        action.action_type === 'submit_application' ||
+        action.action_type === 'complete_registration'
+      );
+      return sum + (leadAction ? parseInt(leadAction.value) : 0);
+    }, 0);
+    
+    const totalEntrou = groups.reduce((sum, group) => sum + (group.group_size || 0), 0);
+    return totalLeads > 0 ? Math.round(totalEntrou / totalLeads * 100) : 0;
+  };
+
+  // Calcular dados dos grupos
+  const calculateGroupData = () => {
+    if (!groups || groups.length === 0) {
+      return { entrou: 0, saiu: 0, ativos: 0 };
+    }
+    
+    const totalMembros = groups.reduce((sum, group) => sum + (group.group_size || 0), 0);
+    
+    return {
+      entrou: totalMembros,
+      saiu: 0, // TODO: Implementar tracking de saídas
+      ativos: totalMembros 
+    };
   };
 
   const totals = calculateTotals();
   const totalSpent = calculateTotalSpent();
   const cplMeta = calculateCPLMeta();
   const cplLiquido = calculateCPLLiquido();
+  const retentionRate = calculateRetentionRate();
+  const groupData = calculateGroupData();
 
   // Calcular dados diários
   const calculateDailyData = () => {
@@ -483,66 +573,15 @@ const TrafficAnalysis = () => {
       <Header />
       <div className="container mx-auto p-6 space-y-8">
       {/* Métricas Principais */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">CPL Líquido</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              R$ {cplLiquido.toLocaleString('pt-BR', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-              })}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">CPL Meta</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              R$ {cplMeta.toFixed(2)}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tx de Retenção</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {totals.totalLeads > 0 ? Math.round(totals.totalGroup / totals.totalLeads * 100) : 0}%
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cadastro Meta</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totals.totalLeads.toLocaleString('pt-BR')}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Entrou no Grupo</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totals.totalGroup.toLocaleString('pt-BR')}</div>
-          </CardContent>
-        </Card>
-      </div>
+      <LiveMetricsCards
+        cplLiquido={cplLiquido}
+        cplMeta={cplMeta}
+        retentionRate={retentionRate}
+        groupMembers={groupData.entrou}
+        groupExits={groupData.saiu}
+        activeLeads={groupData.ativos}
+        isLoading={cacheLoading || campaignsLoading}
+      />
 
       {/* Tabela de Dados Diários */}
       <Card>
