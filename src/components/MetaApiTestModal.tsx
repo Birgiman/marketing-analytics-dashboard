@@ -310,7 +310,7 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
         },
         filtering: filters,
         searchTerm: searchTerm.trim(), // MELHORADO: Passar termo de busca explicitamente
-        campaignStatuses: campaignStatuses // MELHORADO: Passar status das campanhas
+        campaignStatuses: campaignStatus // CORRIGIDO: Usar variável correta (singular)
       };
 
       console.log('🧪 [TESTE META API] Filtros dinâmicos criados:', filters);
