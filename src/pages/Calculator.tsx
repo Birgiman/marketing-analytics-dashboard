@@ -66,16 +66,21 @@ export default function Calculator() {
         method: 'GET'
       });
 
-      if (error) throw error;
+      if (error) {
+        // Se é erro de CORS ou função não encontrada, não mostrar erro
+        if (error.message?.includes('CORS') || error.message?.includes('Failed to send a request')) {
+          console.log('Edge Function não disponível, continuando sem histórico');
+          setSavedCalculations([]);
+          return;
+        }
+        throw error;
+      }
 
       setSavedCalculations(data.data || []);
     } catch (error) {
       console.error('Error loading saved calculations:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar os cálculos salvos.",
-        variant: "destructive",
-      });
+      // Não mostrar toast de erro para evitar spam
+      setSavedCalculations([]);
     } finally {
       setIsLoading(false);
     }
@@ -164,7 +169,14 @@ export default function Calculator() {
         body: { name, inputs, results }
       });
 
-      if (error) throw error;
+      if (error) {
+        // Se é erro de CORS ou função não encontrada, não mostrar erro
+        if (error.message?.includes('CORS') || error.message?.includes('Failed to send a request')) {
+          console.log('Edge Function não disponível, salvamento não realizado');
+          throw new Error('Serviço de salvamento temporariamente indisponível');
+        }
+        throw error;
+      }
 
       // Reload saved calculations
       await loadSavedCalculations();

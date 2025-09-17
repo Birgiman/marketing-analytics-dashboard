@@ -12,6 +12,7 @@ interface PercentageInputProps {
 export const PercentageInput = forwardRef<HTMLInputElement, PercentageInputProps>(
   ({ value, onChange, placeholder = "0%", className, disabled }, ref) => {
     const [displayValue, setDisplayValue] = useState("");
+    const [isFocused, setIsFocused] = useState(false);
 
     // Função para formatar valor como porcentagem
     const formatPercentage = (val: string): string => {
@@ -54,17 +55,30 @@ export const PercentageInput = forwardRef<HTMLInputElement, PercentageInputProps
       if (newNumbers.length > currentNumbers.length) {
         // Adiciona o novo dígito
         const updatedNumbers = newNumbers;
-        const formatted = formatPercentage(updatedNumbers);
-        setDisplayValue(formatted);
+        // Durante a digitação, não mostra o símbolo %
+        if (isFocused) {
+          setDisplayValue(updatedNumbers);
+        } else {
+          const formatted = formatPercentage(updatedNumbers);
+          setDisplayValue(formatted);
+        }
         onChange(updatedNumbers);
       } else if (newNumbers.length < currentNumbers.length) {
         // Se o usuário está apagando
         if (newNumbers === "") {
-          setDisplayValue("0%");
+          if (isFocused) {
+            setDisplayValue("");
+          } else {
+            setDisplayValue("0%");
+          }
           onChange("0");
         } else {
-          const formatted = formatPercentage(newNumbers);
-          setDisplayValue(formatted);
+          if (isFocused) {
+            setDisplayValue(newNumbers);
+          } else {
+            const formatted = formatPercentage(newNumbers);
+            setDisplayValue(formatted);
+          }
           onChange(newNumbers);
         }
       }
@@ -88,15 +102,24 @@ export const PercentageInput = forwardRef<HTMLInputElement, PercentageInputProps
     };
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-      // Seleciona todo o texto quando foca
+      setIsFocused(true);
+      // Remove o símbolo % durante a digitação
+      const numbers = displayValue.replace(/\D/g, "");
+      setDisplayValue(numbers);
       e.target.select();
     };
 
     const handleBlur = () => {
-      // Garante que sempre há um valor válido
-      if (displayValue === "0%" || displayValue === "") {
+      setIsFocused(false);
+      // Adiciona o símbolo % quando perde o foco
+      const numbers = displayValue.replace(/\D/g, "");
+      if (numbers === "" || numbers === "0") {
         setDisplayValue("0%");
         onChange("0");
+      } else {
+        const formatted = formatPercentage(numbers);
+        setDisplayValue(formatted);
+        onChange(numbers);
       }
     };
 
