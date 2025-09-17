@@ -67,11 +67,11 @@ export function calculateReceitaPrevista(vendasPrevistas: number, ticketMedio: n
  * Calcula ROI (Return on Investment) baseado na receita e orçamento
  * @param receitaPrevista - Receita prevista em reais
  * @param orcamento - Orçamento investido em reais
- * @returns ROI em porcentagem
+ * @returns ROI em porcentagem (limitado a 2 casas decimais)
  */
 export function calculateROI(receitaPrevista: number, orcamento: number): number {
   if (orcamento <= 0) return 0;
-  return ((receitaPrevista - orcamento) / orcamento) * 100;
+  return Math.round(((receitaPrevista - orcamento) / orcamento) * 100 * 100) / 100;
 }
 
 /**
@@ -88,11 +88,11 @@ export function calculateLucro(receitaPrevista: number, orcamento: number): numb
  * Calcula margem de lucro baseado na receita e orçamento
  * @param receitaPrevista - Receita prevista em reais
  * @param orcamento - Orçamento investido em reais
- * @returns Margem de lucro em porcentagem
+ * @returns Margem de lucro em porcentagem (limitado a 2 casas decimais)
  */
 export function calculateMargemLucro(receitaPrevista: number, orcamento: number): number {
   if (receitaPrevista <= 0) return 0;
-  return ((receitaPrevista - orcamento) / receitaPrevista) * 100;
+  return Math.round(((receitaPrevista - orcamento) / receitaPrevista) * 100 * 100) / 100;
 }
 
 /**

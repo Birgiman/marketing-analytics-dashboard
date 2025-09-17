@@ -106,7 +106,19 @@ serve(async (req) => {
 
     // POST - Save new calculation
     if (method === 'POST') {
-      const body = await req.json()
+      let body;
+      try {
+        body = await req.json()
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid JSON body' }),
+          { 
+            status: 400, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
       const { name, inputs, results } = body
 
       // Validate required fields
@@ -148,6 +160,9 @@ serve(async (req) => {
         }
       }
 
+      console.log('Saving calculation for user:', user.id)
+      console.log('Data to save:', { name, inputs, results })
+
       const { data, error } = await supabaseClient
         .from('calculator_history')
         .insert({
@@ -162,13 +177,15 @@ serve(async (req) => {
       if (error) {
         console.error('Error saving calculator history:', error)
         return new Response(
-          JSON.stringify({ error: 'Failed to save calculation' }),
+          JSON.stringify({ error: 'Failed to save calculation', details: error.message }),
           { 
             status: 500, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         )
       }
+
+      console.log('Successfully saved calculation:', data)
 
       return new Response(
         JSON.stringify({ data }),
