@@ -24,6 +24,7 @@ const TrafficAnalysis = () => {
     live,
     groups,
     campaigns,
+    metrics,
     isLoading: cacheLoading,
     error: cacheError
   } = useLiveDataCache({ liveId: liveId || '' });
@@ -556,7 +557,7 @@ const TrafficAnalysis = () => {
       {/* Métricas Principais */}
       <LiveMetricsCards
         cplLiquido={cplLiquido}
-        cplMeta={cplMeta}
+        cplMeta={metrics?.cpl_meta || cplMeta}
         retentionRate={retentionRate}
         groupMembers={groupData.entrou}
         groupExits={groupData.saiu}
