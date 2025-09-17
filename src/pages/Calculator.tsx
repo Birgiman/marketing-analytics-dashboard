@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calculator as CalculatorIcon, Plus, Trash2, TrendingUp, Users, Target, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { CurrencyInput } from "@/components/CurrencyInput";
 import { 
   calculateLiveShopProjection, 
   validateCalculatorInputs, 
@@ -90,24 +91,47 @@ export default function Calculator() {
     
     try {
       // Convert string inputs to numbers
+      // Para CurrencyInput, o valor já vem como string de números (ex: "1000" para R$ 10,00)
       const inputs: CalculatorInputs = {
-        ticketMedio: parseFloat(formData.ticketMedio.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        ticketMedio: parseFloat(formData.ticketMedio) / 100 || 0, // Converte centavos para reais
         diasCaptacao: parseInt(formData.diasCaptacao) || 0,
-        orcamento: parseFloat(formData.orcamento.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
-        cplLiquido: parseFloat(formData.cplLiquido.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        orcamento: parseFloat(formData.orcamento) / 100 || 0, // Converte centavos para reais
+        cplLiquido: parseFloat(formData.cplLiquido) / 100 || 0, // Converte centavos para reais
         comparecimento: parseFloat(formData.comparecimento.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
         conversao: parseFloat(formData.conversao.replace(/[^\d,]/g, '').replace(',', '.')) || 0
       };
 
-      // Validate inputs
-      const validation = validateCalculatorInputs(inputs);
-      if (!validation.isValid) {
+      // Check if at least some basic inputs are provided
+      const hasBasicInputs = inputs.orcamento > 0 && inputs.cplLiquido > 0;
+      
+      if (!hasBasicInputs) {
         toast({
-          title: "Dados inválidos",
-          description: validation.errors.join(', '),
+          title: "Dados insuficientes",
+          description: "É necessário preencher pelo menos Orçamento e CPL Líquido para realizar o cálculo.",
           variant: "destructive",
         });
         return;
+      }
+
+      // Validate inputs (mais flexível)
+      const validation = validateCalculatorInputs(inputs);
+      if (!validation.isValid) {
+        // Se há erros, mas temos inputs básicos, vamos calcular mesmo assim
+        // mas mostrar um aviso
+        if (hasBasicInputs) {
+          toast({
+            title: "Aviso",
+            description: "Alguns campos estão vazios. Cálculo realizado com valores padrão para campos não preenchidos.",
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Dados inválidos",
+            description: validation.errors.join(', '),
+            variant: "destructive",
+          });
+          return;
+        }
       }
 
       // Calculate results
@@ -217,11 +241,10 @@ export default function Calculator() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="ticketMedio">Ticket Médio</Label>
-              <Input
-                id="ticketMedio"
-                placeholder="R$ 0,00"
+              <CurrencyInput
                 value={formData.ticketMedio}
-                onChange={(e) => handleInputChange("ticketMedio", e.target.value)}
+                onChange={(value) => handleInputChange("ticketMedio", value)}
+                placeholder="R$ 0,00"
               />
             </div>
             
@@ -237,21 +260,19 @@ export default function Calculator() {
             
             <div className="space-y-2">
               <Label htmlFor="orcamento">Orçamento</Label>
-              <Input
-                id="orcamento"
-                placeholder="R$ 0,00"
+              <CurrencyInput
                 value={formData.orcamento}
-                onChange={(e) => handleInputChange("orcamento", e.target.value)}
+                onChange={(value) => handleInputChange("orcamento", value)}
+                placeholder="R$ 0,00"
               />
             </div>
             
             <div className="space-y-2">
               <Label htmlFor="cplLiquido">CPL Líquido</Label>
-              <Input
-                id="cplLiquido"
-                placeholder="R$ 0,00"
+              <CurrencyInput
                 value={formData.cplLiquido}
-                onChange={(e) => handleInputChange("cplLiquido", e.target.value)}
+                onChange={(value) => handleInputChange("cplLiquido", value)}
+                placeholder="R$ 0,00"
               />
             </div>
             

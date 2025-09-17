@@ -101,13 +101,23 @@ export function calculateMargemLucro(receitaPrevista: number, orcamento: number)
  * @returns Objeto com todos os resultados calculados
  */
 export function calculateLiveShopProjection(inputs: CalculatorInputs): CalculatorResults {
-  const leadsPrevistos = calculateLeadsPrevistos(inputs.orcamento, inputs.cplLiquido);
-  const participantesPrevistos = calculateParticipantesPrevistos(leadsPrevistos, inputs.comparecimento);
-  const vendasPrevistas = calculateVendasPrevistas(participantesPrevistos, inputs.conversao);
-  const receitaPrevista = calculateReceitaPrevista(vendasPrevistas, inputs.ticketMedio);
-  const lucro = calculateLucro(receitaPrevista, inputs.orcamento);
-  const roi = calculateROI(receitaPrevista, inputs.orcamento);
-  const margemLucro = calculateMargemLucro(receitaPrevista, inputs.orcamento);
+  // Aplicar valores padrão para campos não preenchidos
+  const processedInputs: CalculatorInputs = {
+    ticketMedio: inputs.ticketMedio > 0 ? inputs.ticketMedio : 100, // R$ 100,00 padrão
+    diasCaptacao: inputs.diasCaptacao > 0 ? inputs.diasCaptacao : 7, // 7 dias padrão
+    orcamento: inputs.orcamento,
+    cplLiquido: inputs.cplLiquido,
+    comparecimento: inputs.comparecimento > 0 ? inputs.comparecimento : 80, // 80% padrão
+    conversao: inputs.conversao > 0 ? inputs.conversao : 15 // 15% padrão
+  };
+
+  const leadsPrevistos = calculateLeadsPrevistos(processedInputs.orcamento, processedInputs.cplLiquido);
+  const participantesPrevistos = calculateParticipantesPrevistos(leadsPrevistos, processedInputs.comparecimento);
+  const vendasPrevistas = calculateVendasPrevistas(participantesPrevistos, processedInputs.conversao);
+  const receitaPrevista = calculateReceitaPrevista(vendasPrevistas, processedInputs.ticketMedio);
+  const lucro = calculateLucro(receitaPrevista, processedInputs.orcamento);
+  const roi = calculateROI(receitaPrevista, processedInputs.orcamento);
+  const margemLucro = calculateMargemLucro(receitaPrevista, processedInputs.orcamento);
 
   return {
     leadsPrevistos,
@@ -131,20 +141,22 @@ export function validateCalculatorInputs(inputs: CalculatorInputs): {
 } {
   const errors: string[] = [];
 
-  if (inputs.ticketMedio <= 0) {
-    errors.push('Ticket médio deve ser maior que zero');
-  }
-
-  if (inputs.diasCaptacao <= 0) {
-    errors.push('Dias de captação deve ser maior que zero');
-  }
-
+  // Validações obrigatórias (para cálculo básico)
   if (inputs.orcamento <= 0) {
     errors.push('Orçamento deve ser maior que zero');
   }
 
   if (inputs.cplLiquido <= 0) {
     errors.push('CPL líquido deve ser maior que zero');
+  }
+
+  // Validações opcionais (com valores padrão se não preenchidos)
+  if (inputs.ticketMedio < 0) {
+    errors.push('Ticket médio não pode ser negativo');
+  }
+
+  if (inputs.diasCaptacao < 0) {
+    errors.push('Dias de captação não pode ser negativo');
   }
 
   if (inputs.comparecimento < 0 || inputs.comparecimento > 100) {
