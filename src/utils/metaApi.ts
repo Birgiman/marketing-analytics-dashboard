@@ -355,15 +355,18 @@ export async function fetchAccountLevelInsights(
 ): Promise<any[]> {
   const {
     level = MetaInsightLevel.ACCOUNT,
-    fields = MetaApiFields.ACCOUNT_INSIGHTS,
+    fields = [], // CORRIGIDO: Usar campos vazios por padrão
     dateRange,
     datePreset = MetaDatePreset.LAST_30D,
     filtering = [],
     limit
   } = options;
 
+  // CORRIGIDO: Se não há campos especificados, usar campos mínimos
+  const finalFields = fields.length > 0 ? fields : ['campaign_id', 'campaign_name', 'spend'];
+
   const params = new URLSearchParams({
-    fields: fields.join(','),
+    fields: finalFields.join(','),
     access_token: accessToken,
     level: level
   });
@@ -419,7 +422,7 @@ export async function fetchMultipleCampaignInsights(
 ): Promise<any[]> {
   const {
     level = MetaInsightLevel.CAMPAIGN,
-    fields = MetaApiFields.CAMPAIGN_INSIGHTS,
+    fields = [], // CORRIGIDO: Usar campos vazios por padrão
     dateRange,
     datePreset = MetaDatePreset.LAST_30D,
     campaignIds,
@@ -427,6 +430,9 @@ export async function fetchMultipleCampaignInsights(
     searchTerm,
     limit
   } = options;
+
+  // CORRIGIDO: Se não há campos especificados, usar campos mínimos
+  const finalFields = fields.length > 0 ? fields : ['campaign_id', 'campaign_name', 'spend'];
 
   const filters: MetaApiFilter[] = [];
 
@@ -449,7 +455,7 @@ export async function fetchMultipleCampaignInsights(
   }
 
   const params = new URLSearchParams({
-    fields: fields.join(','),
+    fields: finalFields.join(','),
     access_token: accessToken,
     level: level
   });
@@ -508,7 +514,7 @@ export async function fetchLiveCampaignsInsights(
 }> {
   const {
     level = MetaInsightLevel.CAMPAIGN,
-    fields = MetaApiFields.CAMPAIGN_INSIGHTS,
+    fields = [], // CORRIGIDO: Usar campos vazios por padrão, será preenchido pelas opções
     dateRange,
     datePreset = MetaDatePreset.LAST_30D,
     filtering = [],
@@ -546,7 +552,16 @@ export async function fetchLiveCampaignsInsights(
     // Fazer apenas UMA requisição baseada no level escolhido
     let results: any[];
     if (level === MetaInsightLevel.ACCOUNT) {
-      results = await fetchAccountLevelInsights(adAccountId, accessToken, requestOptions);
+      // CORRIGIDO: Para level=account, não podemos filtrar por campaign.id
+      // Remover filtro de campaign.id quando level=account
+      const accountOptions = { ...requestOptions };
+      if (accountOptions.filtering) {
+        accountOptions.filtering = accountOptions.filtering.filter(f => 
+          f.field !== 'campaign.id'
+        );
+      }
+      console.log('📊 [fetchLiveCampaignsInsights] Level=account: removendo filtro campaign.id');
+      results = await fetchAccountLevelInsights(adAccountId, accessToken, accountOptions);
     } else {
       results = await fetchMultipleCampaignInsights(adAccountId, accessToken, requestOptions);
     }
