@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useLiveCampaignData } from "@/hooks/useLiveCampaignData";
 import { useLiveDataCache } from "@/hooks/useLiveDataCache";
+import { useLiveMetrics } from "@/hooks/useLiveMetrics";
 import { supabase } from "@/integrations/supabase/client";
 import { DEMO_MODE } from "@/lib/demo-mode";
 import { Creative } from "@/types";
@@ -38,6 +39,19 @@ const TrafficAnalysis = () => {
 
   // Usar dados do hook que tem insights, senão usar dados do cache
   const finalCampaigns = campaignData.length > 0 ? campaignData : campaigns;
+
+  // Usar hook para métricas em tempo real com dados salvos da Live
+  const {
+    metrics: liveMetrics,
+    isLoading: metricsLoading,
+    error: metricsError,
+    refetch: refetchMetrics
+  } = useLiveMetrics({
+    liveId: liveId || '',
+    since: live?.insights_date_since || '',
+    until: live?.insights_date_until || '',
+    enabled: !!liveId && !!live?.insights_date_since && !!live?.insights_date_until
+  });
 
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -557,19 +571,20 @@ const TrafficAnalysis = () => {
       {/* Métricas Principais */}
       <LiveMetricsCards
         cplLiquido={cplLiquido}
-        cplMeta={metrics?.cpl_meta || cplMeta}
+        cplMeta={liveMetrics?.cpl_meta || cplMeta}
         retentionRate={retentionRate}
         groupMembers={groupData.entrou}
         groupExits={groupData.saiu}
         activeLeads={groupData.ativos}
-        isLoading={cacheLoading || campaignsLoading}
+        isLoading={cacheLoading || campaignsLoading || metricsLoading}
       />
       
       {/* DEBUG: Log temporário para verificar métricas */}
       {console.log('🔍 [TrafficAnalysis] DEBUG Métricas:', {
         metrics,
+        liveMetrics,
         cplMeta,
-        finalValue: metrics?.cpl_meta || cplMeta
+        finalValue: liveMetrics?.cpl_meta || cplMeta
       })}
 
       {/* Tabela de Dados Diários */}
