@@ -85,6 +85,16 @@ const Details = () => {
     // Para o CPL Líquido, usamos a soma do tamanho dos grupos vinculados
     // NOTA: Usar group_size para consistência com PerformanceAnalysis
     const totalEntrou = groups.reduce((sum, group) => sum + (group.group_size || 0), 0);
+    
+    // DEBUG: Log temporário para verificar valores
+    console.log('🔍 [Details] DEBUG CPL Líquido:', {
+      totalSpent,
+      totalEntrou,
+      finalCampaigns: finalCampaigns.length,
+      groups: groups.length,
+      cplLiquido: totalEntrou > 0 ? totalSpent / totalEntrou : 0
+    });
+    
     return totalEntrou > 0 ? totalSpent / totalEntrou : 0;
   };
 
