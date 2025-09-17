@@ -345,6 +345,51 @@ export function isValidAccessToken(token: string): boolean {
 }
 
 /**
+ * Valida se o período de datas está dentro do limite da API Meta (37 meses)
+ * Baseado no erro 3018: "The start date of the time range cannot be beyond 37 months from the current date"
+ */
+export function validateMetaTimeRange(dateRange: { since: string; until: string }): {
+  isValid: boolean;
+  error?: string;
+  maxAllowedDate?: string;
+} {
+  const currentDate = new Date();
+  const sinceDate = new Date(dateRange.since);
+  const untilDate = new Date(dateRange.until);
+  
+  // Calcular 37 meses a partir da data atual
+  const maxAllowedDate = new Date(currentDate);
+  maxAllowedDate.setMonth(maxAllowedDate.getMonth() - 37);
+  
+  // Verificar se a data de início está dentro do limite
+  if (sinceDate < maxAllowedDate) {
+    return {
+      isValid: false,
+      error: `A data de início (${dateRange.since}) está além do limite de 37 meses da API Meta. Data máxima permitida: ${maxAllowedDate.toISOString().split('T')[0]}`,
+      maxAllowedDate: maxAllowedDate.toISOString().split('T')[0]
+    };
+  }
+  
+  // Verificar se a data de fim não é futura
+  if (untilDate > currentDate) {
+    return {
+      isValid: false,
+      error: `A data de fim (${dateRange.until}) não pode ser futura. Data atual: ${currentDate.toISOString().split('T')[0]}`
+    };
+  }
+  
+  // Verificar se a data de início não é posterior à data de fim
+  if (sinceDate > untilDate) {
+    return {
+      isValid: false,
+      error: `A data de início (${dateRange.since}) não pode ser posterior à data de fim (${dateRange.until})`
+    };
+  }
+  
+  return { isValid: true };
+}
+
+/**
  * Busca insights agregados a nível de conta (múltiplas campanhas)
  * Usado para obter dados consolidados de todas as campanhas selecionadas
  */
@@ -524,6 +569,16 @@ export async function fetchLiveCampaignsInsights(
   } = options;
 
   try {
+    // VALIDAÇÃO: Verificar se o período de datas está dentro do limite da API Meta (37 meses)
+    if (dateRange) {
+      const validation = validateMetaTimeRange(dateRange);
+      if (!validation.isValid) {
+        console.error('📊 [fetchLiveCampaignsInsights] ❌ Período de datas inválido:', validation.error);
+        throw new Error(validation.error);
+      }
+      console.log('📊 [fetchLiveCampaignsInsights] ✅ Período de datas válido:', dateRange);
+    }
+
     // MELHORADO: Usar as opções EXATAS que o usuário selecionou no modal
     const requestOptions: MetaInsightsOptions & {
       campaignIds?: string[];

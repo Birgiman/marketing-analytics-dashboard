@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { MetaInsightLevel, MetaCampaignStatus } from '@/types/metaApi';
-import { fetchLiveCampaignsInsights } from '@/utils/metaApi';
+import { fetchLiveCampaignsInsights, validateMetaTimeRange } from '@/utils/metaApi';
 import { supabase } from '@/integrations/supabase/client';
 
 interface MetaApiTestModalProps {
@@ -148,6 +148,13 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
 
     if (!dateRange.since || !dateRange.until) {
       alert('⚠️ Informe o período de datas');
+      return;
+    }
+
+    // VALIDAÇÃO: Verificar se o período de datas está dentro do limite da API Meta (37 meses)
+    const timeRangeValidation = validateMetaTimeRange(dateRange);
+    if (!timeRangeValidation.isValid) {
+      alert(`⚠️ Período de datas inválido:\n\n${timeRangeValidation.error}\n\n${timeRangeValidation.maxAllowedDate ? `Data máxima permitida: ${timeRangeValidation.maxAllowedDate}` : ''}`);
       return;
     }
 
@@ -517,6 +524,24 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
                 >
                   📅 1 ano
                 </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const today = new Date();
+                    const maxAllowedDate = new Date();
+                    maxAllowedDate.setMonth(maxAllowedDate.getMonth() - 37);
+
+                    setDateRange({
+                      since: maxAllowedDate.toISOString().split('T')[0],
+                      until: today.toISOString().split('T')[0]
+                    });
+                  }}
+                  className="text-xs text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  ⚠️ 37 meses (máximo)
+                </Button>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -543,6 +568,11 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mt-2">
               <p className="text-xs text-blue-800">
                 💡 <strong>Dica:</strong> Períodos longos podem retornar muitos dados. Use os limites dinâmicos para otimizar.
+              </p>
+            </div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 mt-2">
+              <p className="text-xs text-yellow-800">
+                ⚠️ <strong>Limite da API Meta:</strong> O período máximo permitido é de 37 meses a partir da data atual. Períodos maiores resultarão em erro 3018.
               </p>
             </div>
           </div>
