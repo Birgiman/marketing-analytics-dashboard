@@ -564,6 +564,13 @@ const TrafficAnalysis = () => {
         activeLeads={groupData.ativos}
         isLoading={cacheLoading || campaignsLoading}
       />
+      
+      {/* DEBUG: Log temporário para verificar métricas */}
+      {console.log('🔍 [TrafficAnalysis] DEBUG Métricas:', {
+        metrics,
+        cplMeta,
+        finalValue: metrics?.cpl_meta || cplMeta
+      })}
 
       {/* Tabela de Dados Diários */}
       <Card>
