@@ -1,21 +1,19 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Link, useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import { LiveMetricsCards } from "@/components/LiveMetricsCards";
-import { useLiveDataCache } from "@/hooks/useLiveDataCache";
-import { useLiveCampaignData } from "@/hooks/useLiveCampaignData";
-import { toast } from "@/hooks/use-toast";
-import { useState, useEffect } from "react";
-import { Activity, TrendingUp, TrendingDown, BarChart3, Eye, Users, DollarSign, Target, TrendingUp as ProjectionIcon, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Filter } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from "recharts";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useLiveCampaignData } from "@/hooks/useLiveCampaignData";
+import { useLiveDataCache } from "@/hooks/useLiveDataCache";
 import { supabase } from "@/integrations/supabase/client";
-import { Creative, Group } from "@/types";
 import { DEMO_MODE } from "@/lib/demo-mode";
+import { Creative } from "@/types";
+import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
 const TrafficAnalysis = () => {
   const [searchParams] = useSearchParams();
@@ -58,7 +56,6 @@ const TrafficAnalysis = () => {
   
   // Estados para dados
   const [creatives, setCreatives] = useState<Creative[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   
@@ -106,28 +103,7 @@ const TrafficAnalysis = () => {
             }
           ]);
           
-          setGroups([
-            {
-              id: '1',
-              nome_grupo: 'Grupo VIP ⭐',
-              evento: 'ENTROU',
-              telefone: '11999999999',
-              data: new Date().toLocaleDateString('pt-BR'),
-              data_hora: new Date().toISOString(),
-              created_at: new Date().toISOString(),
-              user_id: 'demo-user'
-            },
-            {
-              id: '2',
-              nome_grupo: 'Grupo Premium 🔥',
-              evento: 'ENTROU',
-              telefone: '11888888888',
-              data: new Date().toLocaleDateString('pt-BR'),
-              data_hora: new Date().toISOString(),
-              created_at: new Date().toISOString(),
-              user_id: 'demo-user'
-            }
-          ]);
+          // Dados de grupos agora vêm do cache
           
           setLoading(false);
           return;
@@ -157,7 +133,7 @@ const TrafficAnalysis = () => {
           .eq('user_id', session.user.id);
 
         if (groupsError) throw groupsError;
-        setGroups(groupsData || []);
+        // Dados de grupos agora vêm do cache
 
       } catch (error) {
         console.error('Erro ao buscar dados:', error);
@@ -257,12 +233,7 @@ const TrafficAnalysis = () => {
     }, 0);
   };
 
-  // Calcular CPL Meta (Total investido / Total de cadastros do Meta)
-  const calculateCPLMeta = () => {
-    const totalSpent = calculateTotalSpent();
-    const totalsData = calculateTotals();
-    return totalsData.totalLeads > 0 ? totalSpent / totalsData.totalLeads : 0;
-  };
+  // Função calculateCPLMeta movida para baixo para usar dados do cache
 
   // Calcular CPL Líquido usando dados do cache
   const calculateCPLLiquido = () => {
