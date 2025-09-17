@@ -524,24 +524,6 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
                 >
                   📅 1 ano
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const today = new Date();
-                    const maxAllowedDate = new Date();
-                    maxAllowedDate.setMonth(maxAllowedDate.getMonth() - 36); // CORRIGIDO: 36 meses (desconsiderando mês atual)
-
-                    setDateRange({
-                      since: maxAllowedDate.toISOString().split('T')[0],
-                      until: today.toISOString().split('T')[0]
-                    });
-                  }}
-                  className="text-xs text-red-600 border-red-200 hover:bg-red-50"
-                >
-                  ⚠️ 36 meses (máximo)
-                </Button>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -572,7 +554,7 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
             </div>
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 mt-2">
               <p className="text-xs text-yellow-800">
-                ⚠️ <strong>Limite da API Meta:</strong> O período máximo permitido é de 36 meses a partir da data atual. Períodos maiores resultarão em erro 3018.
+                ⚠️ <strong>Limite da API Meta:</strong> O período máximo permitido é de 1 ano a partir da data atual. Períodos maiores resultarão em erro 3018.
               </p>
             </div>
           </div>

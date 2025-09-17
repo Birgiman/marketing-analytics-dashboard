@@ -345,8 +345,9 @@ export function isValidAccessToken(token: string): boolean {
 }
 
 /**
- * Valida se o período de datas está dentro do limite da API Meta (37 meses)
+ * Valida se o período de datas está dentro do limite da API Meta (1 ano)
  * Baseado no erro 3018: "The start date of the time range cannot be beyond 37 months from the current date"
+ * ATUALIZADO: Usar 1 ano como limite máximo para simplificar
  */
 export function validateMetaTimeRange(dateRange: { since: string; until: string }): {
   isValid: boolean;
@@ -357,15 +358,15 @@ export function validateMetaTimeRange(dateRange: { since: string; until: string 
   const sinceDate = new Date(dateRange.since);
   const untilDate = new Date(dateRange.until);
   
-  // CORRIGIDO: Calcular 36 meses a partir da data atual (desconsiderando mês atual)
+  // ATUALIZADO: Calcular 1 ano a partir da data atual
   const maxAllowedDate = new Date(currentDate);
-  maxAllowedDate.setMonth(maxAllowedDate.getMonth() - 36);
+  maxAllowedDate.setFullYear(maxAllowedDate.getFullYear() - 1);
   
   // Verificar se a data de início está dentro do limite
   if (sinceDate < maxAllowedDate) {
     return {
       isValid: false,
-      error: `A data de início (${dateRange.since}) está além do limite de 36 meses da API Meta. Data máxima permitida: ${maxAllowedDate.toISOString().split('T')[0]}`,
+      error: `A data de início (${dateRange.since}) está além do limite de 1 ano da API Meta. Data máxima permitida: ${maxAllowedDate.toISOString().split('T')[0]}`,
       maxAllowedDate: maxAllowedDate.toISOString().split('T')[0]
     };
   }
