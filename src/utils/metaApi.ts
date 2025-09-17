@@ -357,15 +357,15 @@ export function validateMetaTimeRange(dateRange: { since: string; until: string 
   const sinceDate = new Date(dateRange.since);
   const untilDate = new Date(dateRange.until);
   
-  // Calcular 37 meses a partir da data atual
+  // CORRIGIDO: Calcular 36 meses a partir da data atual (desconsiderando mês atual)
   const maxAllowedDate = new Date(currentDate);
-  maxAllowedDate.setMonth(maxAllowedDate.getMonth() - 37);
+  maxAllowedDate.setMonth(maxAllowedDate.getMonth() - 36);
   
   // Verificar se a data de início está dentro do limite
   if (sinceDate < maxAllowedDate) {
     return {
       isValid: false,
-      error: `A data de início (${dateRange.since}) está além do limite de 37 meses da API Meta. Data máxima permitida: ${maxAllowedDate.toISOString().split('T')[0]}`,
+      error: `A data de início (${dateRange.since}) está além do limite de 36 meses da API Meta. Data máxima permitida: ${maxAllowedDate.toISOString().split('T')[0]}`,
       maxAllowedDate: maxAllowedDate.toISOString().split('T')[0]
     };
   }
