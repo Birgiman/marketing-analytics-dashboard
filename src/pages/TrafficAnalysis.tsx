@@ -755,61 +755,61 @@ const TrafficAnalysis = () => {
               }} 
               className="h-80"
             >
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart 
-                  data={sortedData.map(day => ({
-                    dia: day.date,
-                    cplMeta: day.cplMeta,
-                    cplLiquido: day.cplLiquido
-                  }))} 
-                  margin={{
-                    top: 5,
-                    right: 30,
-                    left: 20,
-                    bottom: 5
-                  }}
-                >
-                  <XAxis dataKey="dia" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <YAxis 
-                    stroke="hsl(var(--muted-foreground))" 
-                    fontSize={12} 
-                    tickFormatter={value => `R$ ${value.toFixed(2)}`} 
-                  />
-                  <ChartTooltip 
-                    content={<ChartTooltipContent />} 
-                    formatter={(value, name) => [
-                      `R$ ${Number(value).toLocaleString('pt-BR', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}`, 
-                      name === 'cplLiquido' ? 'CPL Líquido' : 'CPL Meta'
-                    ]} 
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="cplLiquido" 
-                    stroke="hsl(var(--destructive))" 
-                    strokeWidth={4} 
-                    dot={false} 
-                    activeDot={{
-                      r: 6,
-                      fill: "hsl(var(--destructive))"
-                    }} 
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="cplMeta" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={2} 
-                    strokeDasharray="8 4" 
-                    dot={false} 
-                    activeDot={{
-                      r: 4,
-                      fill: "hsl(var(--primary))"
-                    }} 
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <LineChart 
+                data={sortedData.map(day => ({
+                  dia: day.date,
+                  cplMeta: day.cplMeta,
+                  cplLiquido: day.cplLiquido
+                }))} 
+                width={800}
+                height={320}
+                margin={{
+                  top: 5,
+                  right: 30,
+                  left: 20,
+                  bottom: 5
+                }}
+              >
+                <XAxis dataKey="dia" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <YAxis 
+                  stroke="hsl(var(--muted-foreground))" 
+                  fontSize={12} 
+                  tickFormatter={value => `R$ ${value.toFixed(2)}`} 
+                />
+                <ChartTooltip 
+                  content={<ChartTooltipContent />} 
+                  formatter={(value, name) => [
+                    `R$ ${Number(value).toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })}`, 
+                    name === 'cplLiquido' ? 'CPL Líquido' : 'CPL Meta'
+                  ]} 
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="cplLiquido" 
+                  stroke="hsl(var(--destructive))" 
+                  strokeWidth={4} 
+                  dot={false} 
+                  activeDot={{
+                    r: 6,
+                    fill: "hsl(var(--destructive))"
+                  }} 
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="cplMeta" 
+                  stroke="hsl(var(--primary))" 
+                  strokeWidth={2} 
+                  strokeDasharray="8 4" 
+                  dot={false} 
+                  activeDot={{
+                    r: 4,
+                    fill: "hsl(var(--primary))"
+                  }} 
+                />
+              </LineChart>
             </ChartContainer>
           </CardContent>
         </Card>
