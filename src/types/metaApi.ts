@@ -246,13 +246,19 @@ export function createCampaignStatusFilter(
 }
 
 // Utility function to create campaign name filter
+// MELHORADO: Filtro mais robusto que funciona corretamente com a API Meta
 export function createCampaignNameFilter(
   searchTerm: string
 ): MetaApiFilter {
+  // Limpar e normalizar o termo de busca
+  const cleanTerm = searchTerm.trim().toUpperCase();
+  
+  console.log('🔍 [createCampaignNameFilter] Criando filtro para termo:', cleanTerm);
+  
   return {
     field: 'campaign.name',
     operator: MetaFilterOperator.CONTAIN,
-    value: searchTerm
+    value: cleanTerm
   };
 }
 

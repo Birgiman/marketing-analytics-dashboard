@@ -406,6 +406,7 @@ export async function fetchAccountLevelInsights(
 /**
  * Busca insights específicos de múltiplas campanhas com filtros avançados
  * Suporta filtros por status, nome e IDs específicos
+ * MELHORADO: Filtro por termo de busca agora funciona corretamente
  */
 export async function fetchMultipleCampaignInsights(
   adAccountId: string,
@@ -434,13 +435,16 @@ export async function fetchMultipleCampaignInsights(
     filters.push(createCampaignStatusFilter(campaignStatuses));
   }
 
-  // Add campaign name filter if search term provided
+  // MELHORADO: Add campaign name filter if search term provided
+  // Agora usa filtro mais robusto que funciona com a API Meta
   if (searchTerm && searchTerm.trim()) {
+    console.log('🔍 [fetchMultipleCampaignInsights] Aplicando filtro de busca:', searchTerm.trim());
     filters.push(createCampaignNameFilter(searchTerm.trim()));
   }
 
   // Add campaign ID filter if specific IDs provided
   if (campaignIds && campaignIds.length > 0) {
+    console.log('🎯 [fetchMultipleCampaignInsights] Aplicando filtro de IDs:', campaignIds.length, 'campanhas');
     filters.push(createCampaignIdFilter(campaignIds));
   }
 
@@ -489,12 +493,16 @@ export async function fetchMultipleCampaignInsights(
 /**
  * Função para buscar insights agregados de campanhas específicas de uma Live
  * Combina os dados de campanhas individuais com insights agregados
+ * MELHORADO: Filtro por termo de busca agora funciona corretamente
  */
 export async function fetchLiveCampaignsInsights(
   adAccountId: string,
   campaignIds: string[],
   accessToken: string,
-  options: MetaInsightsOptions = {}
+  options: MetaInsightsOptions & {
+    searchTerm?: string;
+    campaignStatuses?: MetaCampaignStatus[];
+  } = {}
 ): Promise<{
   results: any[];
 }> {
@@ -504,12 +512,18 @@ export async function fetchLiveCampaignsInsights(
     dateRange,
     datePreset = MetaDatePreset.LAST_30D,
     filtering = [],
-    limit
+    limit,
+    searchTerm,
+    campaignStatuses
   } = options;
 
   try {
-    // Usar as opções EXATAS que o usuário selecionou no modal
-    const requestOptions: MetaInsightsOptions = {
+    // MELHORADO: Usar as opções EXATAS que o usuário selecionou no modal
+    const requestOptions: MetaInsightsOptions & {
+      campaignIds?: string[];
+      campaignStatuses?: MetaCampaignStatus[];
+      searchTerm?: string;
+    } = {
       level,
       fields, // Usar os campos selecionados pelo usuário
       dateRange,
@@ -518,10 +532,16 @@ export async function fetchLiveCampaignsInsights(
         createCampaignIdFilter(campaignIds), // Sempre filtrar pelos IDs das campanhas da Live
         ...filtering // Adicionar filtros extras (status, nome, etc.)
       ],
-      limit
+      limit,
+      campaignIds, // Passar IDs das campanhas
+      campaignStatuses, // Passar status das campanhas
+      searchTerm // Passar termo de busca
     };
 
-    console.log('📊 [fetchLiveCampaignsInsights] Fazendo UMA única requisição com:', requestOptions);
+    console.log('📊 [fetchLiveCampaignsInsights] Fazendo UMA única requisição com:', {
+      ...requestOptions,
+      filtering: requestOptions.filtering?.map(f => ({ ...f, value: Array.isArray(f.value) ? f.value.length : f.value }))
+    });
 
     // Fazer apenas UMA requisição baseada no level escolhido
     let results: any[];
@@ -531,7 +551,15 @@ export async function fetchLiveCampaignsInsights(
       results = await fetchMultipleCampaignInsights(adAccountId, accessToken, requestOptions);
     }
 
-    console.log('📊 [fetchLiveCampaignsInsights] Resultados:', results.length);
+    console.log('📊 [fetchLiveCampaignsInsights] Resultados encontrados:', results.length);
+    
+    // MELHORADO: Log adicional para debug do filtro
+    if (searchTerm) {
+      const filteredResults = results.filter(result => 
+        result.campaign_name && result.campaign_name.toUpperCase().includes(searchTerm.toUpperCase())
+      );
+      console.log('🔍 [fetchLiveCampaignsInsights] Resultados após filtro local:', filteredResults.length);
+    }
 
     return {
       results

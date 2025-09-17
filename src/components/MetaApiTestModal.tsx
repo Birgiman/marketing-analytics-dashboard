@@ -308,7 +308,9 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
           since: dateRange.since,
           until: dateRange.until
         },
-        filtering: filters
+        filtering: filters,
+        searchTerm: searchTerm.trim(), // MELHORADO: Passar termo de busca explicitamente
+        campaignStatuses: campaignStatuses // MELHORADO: Passar status das campanhas
       };
 
       console.log('🧪 [TESTE META API] Filtros dinâmicos criados:', filters);
