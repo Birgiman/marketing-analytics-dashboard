@@ -287,7 +287,7 @@ const Details = () => {
         {/* Métricas Principais */}
         <LiveMetricsCards
           cplLiquido={cplLiquido}
-          cplMeta={cplMeta}
+          cplMeta={metrics?.cpl_meta || cplMeta}
           retentionRate={retentionRate}
           groupMembers={groupData.entrou}
           groupExits={groupData.saiu}
