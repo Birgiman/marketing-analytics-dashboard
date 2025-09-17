@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Calculator as CalculatorIcon, Plus, Trash2, TrendingUp, Users, Target, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { CurrencyInput } from "@/components/CurrencyInput";
+import { PercentageInput } from "@/components/PercentageInput";
 import { 
   calculateLiveShopProjection, 
   validateCalculatorInputs, 
@@ -51,6 +52,7 @@ export default function Calculator() {
   const [currentResults, setCurrentResults] = useState<CalculatorResults | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Load saved calculations on component mount
   useEffect(() => {
@@ -138,13 +140,9 @@ export default function Calculator() {
       const results = calculateLiveShopProjection(inputs);
       setCurrentResults(results);
 
-      // Save to history
-      const simulationName = generateSimulationName(inputs);
-      await saveCalculation(simulationName, inputs, results);
-
       toast({
         title: "Cálculo realizado!",
-        description: "Projeção calculada e salva com sucesso.",
+        description: "Projeção calculada com sucesso. Clique em 'Salvar Cálculo' para registrar no histórico.",
       });
 
     } catch (error) {
@@ -199,6 +197,61 @@ export default function Calculator() {
         description: "Não foi possível remover o cálculo.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleClearForm = () => {
+    setFormData({
+      ticketMedio: "",
+      diasCaptacao: "",
+      orcamento: "",
+      cplLiquido: "",
+      comparecimento: "",
+      conversao: ""
+    });
+    setCurrentResults(null);
+  };
+
+  const handleSaveCalculation = async () => {
+    if (!currentResults) {
+      toast({
+        title: "Erro",
+        description: "Nenhum cálculo para salvar. Execute um cálculo primeiro.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    
+    try {
+      // Convert string inputs to numbers for saving
+      const inputs: CalculatorInputs = {
+        ticketMedio: parseFloat(formData.ticketMedio) / 100 || 0,
+        diasCaptacao: parseInt(formData.diasCaptacao) || 0,
+        orcamento: parseFloat(formData.orcamento) / 100 || 0,
+        cplLiquido: parseFloat(formData.cplLiquido) / 100 || 0,
+        comparecimento: parseFloat(formData.comparecimento) || 0,
+        conversao: parseFloat(formData.conversao) || 0
+      };
+
+      const simulationName = generateSimulationName(inputs);
+      await saveCalculation(simulationName, inputs, currentResults);
+
+      toast({
+        title: "Cálculo salvo!",
+        description: "Projeção registrada no histórico com sucesso.",
+      });
+
+    } catch (error) {
+      console.error('Error saving calculation:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar o cálculo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -278,26 +331,24 @@ export default function Calculator() {
             
             <div className="space-y-2">
               <Label htmlFor="comparecimento">Comparecimento</Label>
-              <Input
-                id="comparecimento"
-                placeholder="0%"
+              <PercentageInput
                 value={formData.comparecimento}
-                onChange={(e) => handleInputChange("comparecimento", e.target.value)}
+                onChange={(value) => handleInputChange("comparecimento", value)}
+                placeholder="0%"
               />
             </div>
             
             <div className="space-y-2">
               <Label htmlFor="conversao">Conversão</Label>
-              <Input
-                id="conversao"
-                placeholder="0%"
+              <PercentageInput
                 value={formData.conversao}
-                onChange={(e) => handleInputChange("conversao", e.target.value)}
+                onChange={(value) => handleInputChange("conversao", value)}
+                placeholder="0%"
               />
             </div>
           </div>
           
-          <div className="flex justify-start">
+          <div className="flex justify-start gap-3">
             <Button 
               onClick={handleCalculate}
               className="w-full md:w-auto px-8"
@@ -305,6 +356,15 @@ export default function Calculator() {
               disabled={isCalculating}
             >
               {isCalculating ? "Calculando..." : "Calcular"}
+            </Button>
+            <Button 
+              onClick={handleClearForm}
+              variant="outline"
+              className="w-full md:w-auto px-8"
+              size="lg"
+              disabled={isCalculating}
+            >
+              Limpar
             </Button>
           </div>
         </CardContent>
@@ -314,9 +374,19 @@ export default function Calculator() {
       {currentResults && (
         <Card>
           <CardHeader>
-            <div className="flex items-center space-x-2">
-              <TrendingUp className="h-5 w-5" />
-              <CardTitle>Resultados da Projeção</CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <TrendingUp className="h-5 w-5" />
+                <CardTitle>Resultados da Projeção</CardTitle>
+              </div>
+              <Button 
+                onClick={handleSaveCalculation}
+                variant="outline"
+                size="sm"
+                disabled={isSaving}
+              >
+                {isSaving ? "Salvando..." : "Salvar Cálculo"}
+              </Button>
             </div>
             <CardDescription>
               Projeções baseadas nos dados inseridos
