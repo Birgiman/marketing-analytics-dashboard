@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { MetaInsightLevel, MetaCampaignStatus } from '@/types/metaApi';
-import { fetchLiveCampaignsInsights, validateMetaTimeRange } from '@/utils/metaApi';
+import { fetchMetaInsights, validateMetaTimeRange } from '@/utils/metaApi';
 import { supabase } from '@/integrations/supabase/client';
 
 interface MetaApiTestModalProps {
@@ -308,29 +308,27 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
         });
       }
 
+      // REFATORADO: Usar função centralizada fetchMetaInsights
       const options = {
-        level: level,
+        level: level as 'campaign' | 'account' | 'adset' | 'ad',
         fields: selectedFields, // Usar campos selecionados pelo usuário
-        dateRange: {
+        timeRange: {
           since: dateRange.since,
           until: dateRange.until
         },
         filtering: filters,
-        searchTerm: searchTerm.trim(), // MELHORADO: Passar termo de busca explicitamente
-        campaignStatuses: campaignStatus // CORRIGIDO: Usar variável correta (singular)
+        limit: limit
       };
 
       console.log('🧪 [TESTE META API] Filtros dinâmicos criados:', filters);
 
-      console.log('🧪 [TESTE META API] Chamando fetchLiveCampaignsInsights com:', {
-        adAccountId: accountId,
-        campaignIds: campaignIds,
+      console.log('🧪 [TESTE META API] Chamando fetchMetaInsights com:', {
+        targetId: accountId,
         options: options
       });
 
-      const result = await fetchLiveCampaignsInsights(
+      const result = await fetchMetaInsights(
         accountId,
-        campaignIds,
         metaIntegration.access_token,
         options
       );

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchCampaignById, fetchCampaignInsightsById } from '@/utils/metaApi';
+import { fetchCampaignById, fetchMetaInsights } from '@/utils/metaApi';
 
 interface LiveCampaign {
   id: string;
@@ -119,18 +119,21 @@ export function useLiveCampaignData(liveId: string): UseLiveCampaignDataReturn {
               metaIntegration.access_token
             );
 
-            // Buscar insights da campanha
-            const options: any = {};
+            // REFATORADO: Usar função centralizada fetchMetaInsights
+            const options: any = {
+              level: 'campaign',
+              fields: ['campaign_name', 'impressions', 'spend', 'clicks', 'reach', 'frequency', 'cpm', 'ctr', 'cpp', 'cost_per_unique_click', 'actions', 'ad_name', 'date_start', 'date_stop']
+            };
 
             // Usar dateRange da Live se disponível
             if (liveData.insights_date_since && liveData.insights_date_until) {
-              options.dateRange = {
+              options.timeRange = {
                 since: liveData.insights_date_since,
                 until: liveData.insights_date_until
               };
             }
 
-            const insightsData = await fetchCampaignInsightsById(
+            const insightsData = await fetchMetaInsights(
               campaign.campaign_id,
               metaIntegration.access_token,
               options

@@ -641,3 +641,135 @@ export async function fetchLiveCampaignsInsights(
     throw error;
   }
 }
+
+/**
+ * FUNÇÃO CENTRALIZADA PARA BUSCAR INSIGHTS DA API META
+ * 
+ * Esta é a função principal e reutilizável para buscar insights de campanhas, contas ou anúncios
+ * da API Meta Marketing. Substitui todas as funções duplicadas existentes.
+ * 
+ * @param targetId - ID do recurso (campaign_id, ad_account_id, ad_id, etc.)
+ * @param accessToken - Token de acesso da API Meta
+ * @param options - Opções de configuração
+ * @returns Promise com os dados de insights
+ * 
+ * @example
+ * // Buscar insights de uma campanha específica
+ * const insights = await fetchMetaInsights('123456789', token, {
+ *   level: 'campaign',
+ *   fields: ['impressions', 'spend', 'clicks'],
+ *   timeRange: { since: '2024-01-01', until: '2024-01-31' }
+ * });
+ * 
+ * @example
+ * // Buscar insights de uma conta (múltiplas campanhas)
+ * const accountInsights = await fetchMetaInsights('act_123456789', token, {
+ *   level: 'account',
+ *   fields: ['campaign_name', 'impressions', 'spend'],
+ *   filtering: [{ field: 'campaign.status', operator: 'IN', value: ['ACTIVE'] }]
+ * });
+ */
+export async function fetchMetaInsights(
+  targetId: string,
+  accessToken: string,
+  options: {
+    // OBRIGATÓRIOS
+    level: 'campaign' | 'account' | 'adset' | 'ad';
+    
+    // OPCIONAIS COM VALORES PADRÃO
+    fields?: string[];
+    timeRange?: { since: string; until: string };
+    datePreset?: 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'this_quarter' | 'last_quarter' | 'this_year' | 'last_year' | 'last_3_months' | 'last_6_months' | 'last_12_months' | 'last_7_days' | 'last_14_days' | 'last_30_days' | 'last_90_days' | 'this_week_mon_today' | 'this_week_sun_today' | 'last_2_weeks' | 'last_28_days';
+    filtering?: Array<{ field: string; operator: 'IN' | 'NOT_IN' | 'EQUAL' | 'NOT_EQUAL' | 'GREATER_THAN' | 'LESS_THAN' | 'CONTAIN' | 'NOT_CONTAIN'; value: string | string[] | number }>;
+    limit?: number;
+    timeIncrement?: number | '1' | '7' | '30';
+  } = {}
+): Promise<any[]> {
+  const {
+    level,
+    fields = [], // Campos vazios por padrão
+    timeRange,
+    datePreset = 'last_30_days', // Valor padrão: últimos 30 dias
+    filtering = [],
+    limit,
+    timeIncrement = '1'
+  } = options;
+
+  // VALIDAÇÃO: time_range é obrigatório, mas com valor padrão
+  if (!timeRange && !datePreset) {
+    throw new Error('timeRange ou datePreset é obrigatório');
+  }
+
+  // VALIDAÇÃO: Se timeRange fornecido, validar limite de 1 ano
+  if (timeRange) {
+    const validation = validateMetaTimeRange(timeRange);
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
+  }
+
+  // CAMPOS MÍNIMOS OBRIGATÓRIOS
+  const minimumFields = ['campaign_name', 'impressions', 'spend'];
+  const finalFields = fields.length > 0 ? fields : minimumFields;
+
+  // Construir parâmetros da requisição
+  const params = new URLSearchParams({
+    fields: finalFields.join(','),
+    access_token: accessToken,
+    level: level,
+    time_increment: timeIncrement.toString()
+  });
+
+  // Adicionar time_range ou date_preset
+  if (timeRange) {
+    params.append('time_range', JSON.stringify({
+      since: timeRange.since,
+      until: timeRange.until
+    }));
+  } else {
+    params.append('date_preset', datePreset);
+  }
+
+  // Adicionar filtros se fornecidos
+  if (filtering.length > 0) {
+    params.append('filtering', JSON.stringify(filtering));
+  }
+
+  // Adicionar limite se fornecido
+  if (limit) {
+    params.append('limit', limit.toString());
+  }
+
+  // Construir URL
+  const url = `${BASE_URL}/${targetId}/insights?${params}`;
+  
+  console.log('📊 [fetchMetaInsights] Requisição:', {
+    targetId,
+    level,
+    fields: finalFields,
+    timeRange: timeRange || datePreset,
+    filtering: filtering.length,
+    limit
+  });
+
+  try {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || `Erro ao buscar insights: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    console.log('📊 [fetchMetaInsights] ✅ Sucesso:', {
+      targetId,
+      resultsCount: data.data?.length || 0
+    });
+
+    return data.data || [];
+  } catch (error) {
+    console.error('📊 [fetchMetaInsights] ❌ Erro:', error);
+    throw error;
+  }
+}
