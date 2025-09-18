@@ -8,9 +8,9 @@ import {
   LiveCampaignWithInsights,
   LiveMetrics,
   LiveCacheData,
-  MetaInsightsOptions,
   MetaAction
 } from '@/types/live';
+import { MetaInsightsOptions } from '@/types/metaApi';
 
 // Interface já importada de @/types/live
 
