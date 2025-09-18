@@ -36,6 +36,7 @@ export function useLiveLocalStorageCache({
   const [isLoading, setIsLoading] = useState(false);
   const [isMetaLoading, setIsMetaLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [forceUpdate, setForceUpdate] = useState(0);
 
   const cacheKey = `${CACHE_KEY_PREFIX}${liveId}`;
 
@@ -92,46 +93,63 @@ export function useLiveLocalStorageCache({
     const totalLeads = campaignsWithInsights.reduce((sum, campaign) => {
       const actions = campaign.insights?.actions || [];
 
-      // DEBUG: Log para investigar estrutura das actions
-      console.log('🔍 [calculateMetrics] DEBUG Actions para campanha:', campaign.campaign_name, {
-        actions,
-        actionsLength: actions.length,
-        actionsTypes: actions.map((a: any) => a.action_type),
-        actionsDetalhes: actions.map((a: any) => ({ type: a.action_type, value: a.value })),
-        campanha: campaign.campaign_id
-      });
+      // Log apenas se não encontrar leads (para debug futuro)
+      if (actions.length === 0) {
+        console.log('⚠️ [calculateMetrics] Nenhuma action encontrada para campanha:', campaign.campaign_name);
+      }
 
-      // Procurar por diferentes tipos de ações de lead
-      const leadAction = actions.find((action: any) =>
+      // PRIORIDADE 1: Leads específicos (conversões reais)
+      const trueLead = actions.find((action: any) =>
         action.action_type === 'lead' ||
         action.action_type === 'submit_application' ||
         action.action_type === 'complete_registration' ||
         action.action_type === 'offsite_conversion.fb_pixel_lead' ||
         action.action_type === 'omni_complete_registration' ||
         action.action_type === 'offsite_conversion' ||
-        action.action_type === 'offsite_conversion.custom' ||
+        action.action_type === 'offsite_conversion.custom'
+      );
+
+      // PRIORIDADE 2: Se não houver leads reais, usar engajamento como proxy
+      const engagementAction = !trueLead ? actions.find((action: any) =>
         action.action_type === 'landing_page_view' ||
-        action.action_type === 'link_click' ||
+        action.action_type === 'link_click'
+      ) : null;
+
+      // PRIORIDADE 3: Último recurso - engajamento social (com peso menor)
+      const socialAction = !trueLead && !engagementAction ? actions.find((action: any) =>
         action.action_type === 'post_engagement' ||
         action.action_type === 'comment' ||
         action.action_type === 'like' ||
         action.action_type === 'page_engagement'
-      );
+      ) : null;
 
-      // Se não encontrou nada específico, pegar a primeira action com value > 0
-      const fallbackAction = !leadAction ? actions.find((action: any) => parseInt(action.value) > 0) : null;
+      // Escolher a melhor action disponível com peso apropriado
+      let finalAction = trueLead;
+      let weight = 1; // Peso normal para leads reais
 
-      const finalAction = leadAction || fallbackAction;
-      const leadValue = finalAction ? parseInt(finalAction.value) || 0 : 0;
+      if (!finalAction && engagementAction) {
+        finalAction = engagementAction;
+        weight = 0.3; // Peso menor para engajamento (30% de conversão estimada)
+      }
 
-      console.log('🔍 [calculateMetrics] Lead encontrado:', {
-        campanha: campaign.campaign_name,
-        leadAction,
-        fallbackAction,
-        finalAction,
-        leadValue,
-        totalAtual: sum + leadValue
-      });
+      if (!finalAction && socialAction) {
+        finalAction = socialAction;
+        weight = 0.05; // Peso muito menor para social (5% de conversão estimada)
+      }
+
+      const rawValue = finalAction ? parseInt(finalAction.value) || 0 : 0;
+      const leadValue = Math.round(rawValue * weight);
+
+      // Log para debug do cálculo
+      if (leadValue > 0) {
+        console.log(`📊 [calculateMetrics] ${campaign.campaign_name}:`, {
+          actionType: finalAction?.action_type,
+          rawValue,
+          weight,
+          leadValue,
+          fonte: trueLead ? 'LEAD_REAL' : engagementAction ? 'ENGAJAMENTO' : 'SOCIAL'
+        });
+      }
 
       return sum + leadValue;
     }, 0);
@@ -141,15 +159,15 @@ export function useLiveLocalStorageCache({
     // Taxa de Retenção = (Membros dos Grupos / Leads do Meta) * 100
     const retentionRate = totalLeads > 0 ? Math.round(totalGroupMembers / totalLeads * 100) : 0;
 
-    // DEBUG: Log final das métricas calculadas
-    console.log('📊 [calculateMetrics] Métricas finais calculadas:', {
-      cplLiquido,
-      cplMeta,
-      retentionRate,
-      totalSpent,
+    // Log sucesso do cálculo
+    console.log('✅ [calculateMetrics] Métricas calculadas:', {
+      cplLiquido: `R$ ${cplLiquido.toFixed(2)}`,
+      cplMeta: `R$ ${cplMeta.toFixed(2)}`,
+      retentionRate: `${retentionRate}%`,
+      totalSpent: `R$ ${totalSpent.toFixed(2)}`,
       totalLeads,
       totalGroupMembers,
-      campanhasAnalisadas: campaignsWithInsights.length
+      calculoCPL: totalLeads > 0 ? `R$ ${totalSpent.toFixed(2)} / ${totalLeads} leads = R$ ${cplMeta.toFixed(2)}` : 'Sem leads'
     });
 
     return {
@@ -380,6 +398,7 @@ export function useLiveLocalStorageCache({
       // Salvar no localStorage e state
       saveCacheToStorage(newCache);
       setCache(newCache);
+      setForceUpdate(prev => prev + 1); // Forçar re-render
 
       console.log('✅ [useLiveLocalStorageCache] Dados carregados e cacheados');
 
@@ -408,24 +427,6 @@ export function useLiveLocalStorageCache({
     }
   }, [cacheKey]);
 
-  // Função para forçar recálculo das métricas
-  const recalculateMetrics = useCallback(() => {
-    const cachedData = loadCacheFromStorage();
-    if (cachedData && cachedData.live && cachedData.groups && cachedData.campaignsWithInsights) {
-      console.log('🔄 [useLiveLocalStorageCache] Recalculando métricas...');
-      const newMetrics = calculateMetrics(cachedData.live, cachedData.groups, cachedData.campaignsWithInsights);
-
-      const updatedCache = {
-        ...cachedData,
-        metrics: newMetrics,
-        lastUpdated: Date.now()
-      };
-
-      saveCacheToStorage(updatedCache);
-      setCache(updatedCache);
-      console.log('✅ [useLiveLocalStorageCache] Métricas recalculadas');
-    }
-  }, [loadCacheFromStorage, calculateMetrics, saveCacheToStorage]);
 
   // Carregar dados na inicialização
   useEffect(() => {
@@ -452,7 +453,6 @@ export function useLiveLocalStorageCache({
     // Ações
     refreshData,
     clearCache,
-    recalculateMetrics,
     clearError: () => setError(null)
   };
 }
