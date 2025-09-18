@@ -111,16 +111,6 @@ export interface LiveCacheData {
   lastMetaFetch: number;
 }
 
-// Interface para opções de insights do Meta
-export interface MetaInsightsOptions {
-  level: 'campaign' | 'account' | 'adset' | 'ad';
-  fields?: string[];
-  timeRange?: {
-    since: string;
-    until: string;
-  };
-  datePreset?: string;
-}
 
 // Interface para instância do WhatsApp
 export interface WhatsAppInstance {

@@ -5,6 +5,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { fetchCampaigns, fetchCampaignInsightsById, MetaCampaign, MetaInsight } from './metaApi';
+import { MetaInsightsOptions } from '@/types/metaApi';
 
 export interface LiveDataResponse {
   live: {
