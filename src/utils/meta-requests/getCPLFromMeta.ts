@@ -67,7 +67,7 @@ export async function getCPLFromMeta(request: MetaCPLRequest): Promise<MetaCPLRe
     
     // 3. Preparar parâmetros da requisição
     const params = new URLSearchParams({
-      fields: 'campaign_id,campaign_name,spend,actions,cost_per_action_type',
+      fields: 'campaign_id,campaign_name,spend,results,actions,cost_per_action_type',
       access_token: request.accessToken,
       level: 'account'
     });
@@ -145,6 +145,9 @@ export async function getCPLFromMeta(request: MetaCPLRequest): Promise<MetaCPLRe
 
 /**
  * 🔧 Processa dados do Meta Insights e calcula métricas
+ * 
+ * IMPORTANTE: Usa o campo 'results' que já traz o valor correto
+ * de leads/actions calculado pelo Meta (mais preciso que somar actions manualmente)
  */
 function processMetaInsightsData(insights: any[]): {
   cpl: number;
@@ -169,13 +172,9 @@ function processMetaInsightsData(insights: any[]): {
       campaignIds.add(insight.campaign_id);
     }
     
-    // Processar ações (leads)
-    if (insight.actions && Array.isArray(insight.actions)) {
-      insight.actions.forEach((action: any) => {
-        if (action.action_type === 'lead' || action.action_type === 'link_click') {
-          totalLeads += parseInt(action.value) || 0;
-        }
-      });
+    // Usar campo 'results' diretamente (já calculado pelo Meta)
+    if (insight.results) {
+      totalLeads += parseInt(insight.results) || 0;
     }
   });
   

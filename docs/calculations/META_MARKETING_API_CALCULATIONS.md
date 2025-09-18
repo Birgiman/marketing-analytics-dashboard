@@ -14,8 +14,17 @@ Este documento define como usar a Meta Marketing API v23 para obter dados espec�
 
 ### **Campos Obrigatórios para CPL:**
 - `spend` - Valor gasto total
-- `actions` - Ações realizadas (leads, conversões)
-- `cost_per_action_type` - Custo por tipo de ação
+- `results` - **RECOMENDADO**: Já traz o valor correto de leads/actions (soma automática)
+- `actions` - Ações detalhadas (opcional, para análise)
+- `cost_per_action_type` - Custo por tipo de ação (opcional, para análise)
+
+### **⚠️ IMPORTANTE - Diferença entre Campos:**
+- **`results`**: Campo agregado que já soma todas as ações relevantes (RECOMENDADO)
+- **`actions`**: Array detalhado com cada tipo de ação individual
+- **`link_click`**: Apenas cliques em links (mais específico)
+- **`cost_per_action_type`**: Custo por cada tipo de ação
+
+**Para LiveShop (tráfego pago)**: Use `results` - mais preciso e já calculado pelo Meta.
 
 ### **Campos Adicionais Úteis:**
 - `campaign_id` - ID da campanha
@@ -82,7 +91,7 @@ CPL Líquido do Planejamento = Valor investido ÷ Número de pessoas que entrou 
 ```javascript
 const url = `https://graph.facebook.com/v23.0/act_269382281240887/insights`;
 const params = {
-  fields: 'campaign_id,campaign_name,spend,actions,cost_per_action_type',
+  fields: 'campaign_id,campaign_name,spend,results,actions,cost_per_action_type',
   access_token: 'SEU_TOKEN',
   level: 'account',
   filtering: JSON.stringify([
@@ -103,6 +112,15 @@ const params = {
   })
 };
 ```
+
+## 🎯 **Descoberta Importante - Campo `results`**
+
+**✅ DESCOBERTO**: O campo `results` já traz o valor correto de leads/actions calculado pelo Meta!
+
+- **Antes**: Somávamos `actions` manualmente (link_click, etc.)
+- **Agora**: Usamos `results` diretamente (mais preciso)
+- **Vantagem**: Meta já faz o cálculo correto internamente
+- **Resultado**: Dados mais precisos e consistentes
 
 ## ⚠️ **Observações Importantes**
 
