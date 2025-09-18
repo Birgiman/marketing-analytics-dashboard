@@ -37,6 +37,9 @@ export interface MetaCampaign {
   stop_time?: string;
   created_time: string;
   updated_time: string;
+  effective_status?: string;
+  buying_type?: string;
+  bid_strategy?: string;
 }
 
 export interface MetaInsight {
