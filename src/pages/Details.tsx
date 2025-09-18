@@ -302,6 +302,10 @@ const Details = () => {
         } : undefined
       };
 
+      // Debug: verificar se o termo está sendo passado
+      console.log('🔍 [META-API-DIRECT] Termo de busca da live:', live.campaign_search_term);
+      console.log('🔍 [META-API-DIRECT] Filtros preparados:', filters);
+
       // Fazer requisição direta ao Meta
       const result = await getCPLFromMeta({
         accountId,

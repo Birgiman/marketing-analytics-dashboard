@@ -120,6 +120,7 @@ export async function getCPLFromMeta(request: MetaCPLRequest): Promise<MetaCPLRe
     // 6. Processar dados e calcular CPL
     const processedData = processMetaInsightsData(responseData.data || []);
     logs.push(`🧮 [META-CPL] CPL calculado: R$ ${processedData.cpl.toFixed(2)}`);
+    logs.push(`📊 [META-CPL] Dados processados: ${processedData.totalLeads} leads, R$ ${processedData.totalSpend} gasto`);
     
     return {
       success: true,
@@ -172,9 +173,23 @@ function processMetaInsightsData(insights: any[]): {
       campaignIds.add(insight.campaign_id);
     }
     
-    // Usar campo 'results' diretamente (já calculado pelo Meta)
-    if (insight.results) {
-      totalLeads += parseInt(insight.results) || 0;
+    // Usar campo 'results' se disponível, senão calcular manualmente
+    if (insight.results && Array.isArray(insight.results) && insight.results.length > 0) {
+      // Se results tem valor numérico direto
+      if (typeof insight.results === 'number') {
+        totalLeads += insight.results;
+      } else if (insight.results[0] && insight.results[0].value) {
+        totalLeads += parseInt(insight.results[0].value) || 0;
+      }
+    } else {
+      // Fallback: calcular manualmente usando actions
+      if (insight.actions && Array.isArray(insight.actions)) {
+        insight.actions.forEach((action: any) => {
+          if (action.action_type === 'lead' || action.action_type === 'link_click') {
+            totalLeads += parseInt(action.value) || 0;
+          }
+        });
+      }
     }
   });
   
