@@ -40,6 +40,8 @@ export interface MetaCampaign {
   effective_status?: string;
   buying_type?: string;
   bid_strategy?: string;
+  account_id?: string;
+  account_name?: string;
 }
 
 export interface MetaInsight {

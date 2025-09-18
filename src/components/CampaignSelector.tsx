@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { fetchAdAccounts, fetchCampaigns, MetaCampaign } from '@/utils/metaApi';
+import { fetchAdAccounts, fetchCampaigns, MetaCampaign, MetaAdAccount } from '@/utils/metaApi';
 import { getUserMetaToken } from '@/utils/metaApiLives';
 import { AlertCircle, ArrowLeft, Building2, Calendar, DollarSign, Loader2, Search, Target } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
@@ -11,9 +11,9 @@ import React, { useEffect, useState } from 'react';
 interface CampaignSelectorProps {
   isOpen: boolean;
   onClose: () => void;
-  onCampaignsSelected: (campaigns: any[]) => void;
+  onCampaignsSelected: (campaigns: MetaCampaign[]) => void;
   userId?: string;
-  alreadySelected?: any[];
+  alreadySelected?: MetaCampaign[];
   linkedCampaigns?: string[];
   dateRange?: {
     since: string;
@@ -33,8 +33,8 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   onDateRangeChange
 }) => {
   const [step, setStep] = useState(1); // 1 = Select Account, 2 = Select Campaigns
-  const [adAccounts, setAdAccounts] = useState<any[]>([]);
-  const [selectedAccount, setSelectedAccount] = useState<any | null>(null);
+  const [adAccounts, setAdAccounts] = useState<MetaAdAccount[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<MetaAdAccount | null>(null);
   const [campaigns, setCampaigns] = useState<MetaCampaign[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -167,7 +167,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
     }
   };
 
-  const loadCampaignsFromAccount = async (account: any, accessToken?: string) => {
+  const loadCampaignsFromAccount = async (account: MetaAdAccount, accessToken?: string) => {
     setLoading(true);
     setError(null);
 
@@ -181,7 +181,11 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
       }
 
       // Preparar opções da requisição
-      const options: any = {
+      const options: {
+        limit: number;
+        fields: string[];
+        status: string[];
+      } = {
         limit: 50,
         fields: ['id', 'name', 'status', 'objective', 'daily_budget', 'lifetime_budget', 'created_time', 'updated_time'],
         status: [] // Sem filtro de status na API para evitar erros
@@ -218,7 +222,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
         const data = await response.json();
         console.log('✅ Resposta da API (com filtro):', data);
 
-        const campaignsWithAccount = (data.data || []).map((campaign: any) => ({
+        const campaignsWithAccount = (data.data || []).map((campaign: MetaCampaign) => ({
           ...campaign,
           account_name: account.name,
           account_id: account.id
@@ -248,7 +252,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
     }
   };
 
-  const handleAccountSelect = (account: any) => {
+  const handleAccountSelect = (account: MetaAdAccount) => {
     setSelectedAccount(account);
     setStep(2);
     // Não carrega campanhas automaticamente - aguarda ação do usuário

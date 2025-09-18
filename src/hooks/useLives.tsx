@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
+import { LiveGroup } from '@/types/live'
 
 interface LiveData {
   name: string
@@ -99,8 +100,8 @@ export function useLives() {
           live_id: liveResult.id,
           campaign_id: campaign.id,
           campaign_name: campaign.name,
-          account_id: (campaign as any).account_id || null,
-          account_name: (campaign as any).account_name || null,
+          account_id: campaign.account_id || null,
+          account_name: campaign.account_name || null,
           objective: campaign.objective || null,
           status: campaign.status,
           daily_budget: campaign.daily_budget ? parseFloat(campaign.daily_budget) : null,
@@ -255,8 +256,8 @@ export function useLives() {
           live_id: liveId,
           campaign_id: campaign.id,
           campaign_name: campaign.name,
-          account_id: (campaign as any).account_id || null,
-          account_name: (campaign as any).account_name || null,
+          account_id: campaign.account_id || null,
+          account_name: campaign.account_name || null,
           objective: campaign.objective || null,
           status: campaign.status,
           daily_budget: campaign.daily_budget ? parseFloat(campaign.daily_budget) : null,
@@ -349,7 +350,7 @@ export function useLives() {
 
       // Insert live groups into deleted_live_groups table
       if (liveData.live_groups && liveData.live_groups.length > 0) {
-        const deletedGroups = liveData.live_groups.map((group: any) => ({
+        const deletedGroups = liveData.live_groups.map((group: LiveGroup) => ({
           original_live_group_id: group.id,
           original_live_id: liveData.id,
           user_id: session.session.user.id,

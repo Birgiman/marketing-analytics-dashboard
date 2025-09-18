@@ -1,24 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchCampaignById, fetchMetaInsights } from '@/utils/metaApi';
+import {
+  Live,
+  LiveGroup,
+  LiveCampaign,
+  LiveCampaignWithInsights,
+  LiveMetrics,
+  LiveCacheData,
+  MetaInsightsOptions,
+  MetaAction
+} from '@/types/live';
 
-interface LiveCacheData {
-  liveId: string;
-  live: any;
-  groups: any[];
-  campaigns: any[];
-  campaignsWithInsights: any[];
-  metrics: {
-    cplLiquido: number;
-    cplMeta: number;
-    retentionRate: number;
-    totalSpent: number;
-    totalLeads: number;
-    totalGroupMembers: number;
-  };
-  lastUpdated: number;
-  lastMetaFetch: number;
-}
+// Interface já importada de @/types/live
 
 interface UseLiveLocalStorageCacheOptions {
   liveId: string;
@@ -79,7 +73,7 @@ export function useLiveLocalStorageCache({
   }, [cacheKey]);
 
   // Calcular métricas baseado nos dados
-  const calculateMetrics = useCallback((live: any, groups: any[], campaignsWithInsights: any[]) => {
+  const calculateMetrics = useCallback((live: Live, groups: LiveGroup[], campaignsWithInsights: LiveCampaignWithInsights[]): LiveMetrics => {
     // CPL Líquido = Total Gasto / Total de Membros dos Grupos
     const totalSpent = campaignsWithInsights.reduce((sum, campaign) => {
       const spend = parseFloat(campaign.insights?.spend || '0');
@@ -99,7 +93,7 @@ export function useLiveLocalStorageCache({
       }
 
       // PRIORIDADE 1: Leads específicos (conversões reais)
-      const trueLead = actions.find((action: any) =>
+      const trueLead = actions.find((action: MetaAction) =>
         action.action_type === 'lead' ||
         action.action_type === 'submit_application' ||
         action.action_type === 'complete_registration' ||
@@ -110,13 +104,13 @@ export function useLiveLocalStorageCache({
       );
 
       // PRIORIDADE 2: Se não houver leads reais, usar engajamento como proxy
-      const engagementAction = !trueLead ? actions.find((action: any) =>
+      const engagementAction = !trueLead ? actions.find((action: MetaAction) =>
         action.action_type === 'landing_page_view' ||
         action.action_type === 'link_click'
       ) : null;
 
       // PRIORIDADE 3: Último recurso - engajamento social (com peso menor)
-      const socialAction = !trueLead && !engagementAction ? actions.find((action: any) =>
+      const socialAction = !trueLead && !engagementAction ? actions.find((action: MetaAction) =>
         action.action_type === 'post_engagement' ||
         action.action_type === 'comment' ||
         action.action_type === 'like' ||
@@ -219,7 +213,7 @@ export function useLiveLocalStorageCache({
   }, [liveId]);
 
   // Buscar dados do Meta Ads
-  const fetchMetaData = useCallback(async (live: any, campaigns: any[]) => {
+  const fetchMetaData = useCallback(async (live: Live, campaigns: LiveCampaign[]): Promise<LiveCampaignWithInsights[]> => {
     if (!campaigns || campaigns.length === 0) return [];
 
     console.log('📡 [useLiveLocalStorageCache] Buscando dados do Meta para', campaigns.length, 'campanhas');
@@ -250,11 +244,7 @@ export function useLiveLocalStorageCache({
             );
 
             // Buscar insights
-            const options: {
-              level: 'campaign' | 'account' | 'adset' | 'ad';
-              fields?: string[];
-              timeRange?: { since: string; until: string };
-            } = {
+            const options: MetaInsightsOptions = {
               level: 'campaign',
               fields: ['campaign_name', 'impressions', 'spend', 'clicks', 'reach', 'frequency', 'cpm', 'ctr', 'cpp', 'cost_per_unique_click', 'actions', 'ad_name', 'date_start', 'date_stop']
             };
@@ -406,9 +396,10 @@ export function useLiveLocalStorageCache({
 
       console.log('✅ [useLiveLocalStorageCache] Dados carregados e cacheados');
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ [useLiveLocalStorageCache] Erro:', err);
-      setError(err.message || 'Erro ao carregar dados da Live');
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar dados da Live';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

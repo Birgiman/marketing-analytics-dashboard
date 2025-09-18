@@ -13,24 +13,19 @@ import { useLives } from '@/hooks/useLives';
 import { supabase } from '@/integrations/supabase/client';
 import { AlertTriangle, ChevronLeft, ChevronRight, Target, Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Live, LiveGroup, LiveCampaign, WhatsAppInstance } from '@/types/live';
+import { MetaCampaign } from '@/utils/metaApi';
 
 interface CreateLiveModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  currentInstance?: any;
+  currentInstance?: WhatsAppInstance;
   onLiveCreated?: () => void;
-  editingLive?: any;
+  editingLive?: Live;
 }
 
-interface GroupResult {
-  id: string;
-  group_id: string;
-  group_name: string;
-  group_size: number;
-  group_owner?: string;
-  group_created_at?: string;
-  group_created_formatted: string;
-  group_owner_formatted?: string;
+// GroupResult é equivalente a LiveGroup com selectable
+interface GroupResult extends LiveGroup {
   selectable: boolean;
 }
 
@@ -48,10 +43,10 @@ const pluralize = (count: number, singular: string, plural: string) => {
 export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCreated, editingLive }: CreateLiveModalProps) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedGroups, setSelectedGroups] = useState<GroupResult[]>([]);
-  const [selectedCampaigns, setSelectedCampaigns] = useState<any[]>([]);
+  const [selectedCampaigns, setSelectedCampaigns] = useState<MetaCampaign[]>([]);
   const [showGroupSelector, setShowGroupSelector] = useState(false);
   const [showCampaignSelector, setShowCampaignSelector] = useState(false);
-  const [linkedCampaigns, setLinkedCampaigns] = useState<any[]>([]);
+  const [linkedCampaigns, setLinkedCampaigns] = useState<LiveCampaign[]>([]);
   const [selectedCampaignsToDelete, setSelectedCampaignsToDelete] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [showTestModal, setShowTestModal] = useState(false);
@@ -134,7 +129,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
 
       // Set selected groups if editing
       if (editingLive.live_groups) {
-        const groups = editingLive.live_groups.map((group: any) => ({
+        const groups = editingLive.live_groups.map((group: LiveGroup) => ({
           id: group.id,
           group_id: group.group_id,
           group_name: group.group_name,
@@ -179,7 +174,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
     setSelectedGroups(prev => prev.filter(g => g.id !== groupId));
   };
 
-  const handleCampaignsSelected = (campaigns: any[]) => {
+  const handleCampaignsSelected = (campaigns: MetaCampaign[]) => {
     setSelectedCampaigns(campaigns);
     setShowCampaignSelector(false);
   };
