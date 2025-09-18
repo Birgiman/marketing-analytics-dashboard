@@ -250,16 +250,6 @@ const Details = () => {
               )}
             </div>
             
-            {/* Botão Refresh */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={refreshCampaigns}
-              disabled={campaignsLoading}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${campaignsLoading ? 'animate-spin' : ''}`} />
-              Atualizar
-            </Button>
           </div>
         </div>
         

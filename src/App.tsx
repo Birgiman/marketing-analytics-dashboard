@@ -14,7 +14,9 @@ import Leads from "./pages/Leads";
 import Profile from "./pages/Profile";
 import Calculator from "./pages/Calculator";
 import Admin from "./pages/Admin";
-import LiveDetailsLayout from "./components/LiveDetailsLayout";
+import Details from "./pages/Details";
+import TrafficAnalysis from "./pages/TrafficAnalysis";
+import ResearchInsights from "./pages/ResearchInsights";
 import SalesByGroup from "./pages/SalesByGroup";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
@@ -54,12 +56,9 @@ function AppContent() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/lives" element={<Lives />} />
-
-            {/* Rotas unificadas para detalhes da Live */}
-            <Route path="/details" element={<LiveDetailsLayout defaultTab="details" />} />
-            <Route path="/traffic-analysis" element={<LiveDetailsLayout defaultTab="traffic" />} />
-            <Route path="/research-insights" element={<LiveDetailsLayout defaultTab="insights" />} />
-
+            <Route path="/details" element={<Details />} />
+            <Route path="/traffic-analysis" element={<TrafficAnalysis />} />
+            <Route path="/research-insights" element={<ResearchInsights />} />
             <Route path="/sales-by-group" element={<SalesByGroup />} />
             <Route path="/calculator" element={<Calculator />} />
             <Route path="/analytics" element={<Analytics />} />

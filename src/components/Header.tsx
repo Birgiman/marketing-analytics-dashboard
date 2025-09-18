@@ -1,11 +1,40 @@
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { RefreshCw, TrendingUp } from "lucide-react";
+import { Link, useLocation, useSearchParams, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useLiveDataCache } from "@/hooks/useLiveDataCache";
+import { useLiveCampaignData } from "@/hooks/useLiveCampaignData";
+import { useLiveMetrics } from "@/hooks/useLiveMetrics";
 
 const Header = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const liveId = searchParams.get('live');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // ===============================================
+  // HOOKS DE CACHE PARA CONTROLE DE ATUALIZAÇÃO
+  // ===============================================
+
+  // Hook de cache principal (apenas se estivermos em uma página de Live)
+  const isLivePage = liveId && ['/details', '/traffic-analysis', '/research-insights'].includes(location.pathname);
+
+  const { refresh: refreshCache } = useLiveDataCache({
+    liveId: liveId || '',
+    enabled: !!isLivePage
+  });
+
+  const { refreshData: refreshCampaigns } = useLiveCampaignData(
+    isLivePage ? liveId || '' : ''
+  );
+
+  const { refetch: refetchMetrics } = useLiveMetrics({
+    liveId: liveId || '',
+    since: '',
+    until: '',
+    enabled: false // Apenas para ter acesso ao refetch
+  });
 
   const navigationTabs = [
     {
@@ -35,6 +64,57 @@ const Header = () => {
     return location.pathname === path;
   };
 
+  // ===============================================
+  // FUNÇÃO DE ATUALIZAÇÃO CENTRALIZADA
+  // ===============================================
+
+  const handleAnalyzeData = async () => {
+    if (!isLivePage || !liveId) return;
+
+    setIsRefreshing(true);
+    try {
+      console.log('🔄 [Header] Atualizando dados completos da Live:', liveId);
+
+      // Atualizar cache principal
+      if (refreshCache) {
+        refreshCache();
+      }
+
+      // Atualizar dados das campanhas (busca fresh no Meta)
+      if (refreshCampaigns) {
+        await refreshCampaigns();
+      }
+
+      // Buscar métricas atualizadas
+      if (refetchMetrics) {
+        await refetchMetrics();
+      }
+
+      console.log('✅ [Header] Dados atualizados com sucesso');
+
+    } catch (error) {
+      console.error('❌ [Header] Erro ao atualizar dados:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // ===============================================
+  // NAVEGAÇÃO OTIMIZADA SEM RECARREGAMENTO
+  // ===============================================
+
+  const handleTabNavigation = (event: React.MouseEvent, path: string) => {
+    event.preventDefault();
+
+    // Se estivermos indo para uma página de Live, usar navigate para preservar cache
+    if (path.includes('live=')) {
+      navigate(path);
+    } else {
+      // Para outras páginas, usar navegação normal
+      window.location.href = path;
+    }
+  };
+
   return (
     <div>
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -46,10 +126,27 @@ const Header = () => {
           </div>
           
           <div className="flex items-center space-x-2 md:space-x-4">
-            <Button variant="outline" size="sm" className="gap-2">
-              <RefreshCw className="h-4 w-4" />
-              Atualizar Dados
-            </Button>
+            {/* Botão Analisar Dados - apenas para páginas de Live */}
+            {isLivePage && (
+              <Button
+                onClick={handleAnalyzeData}
+                disabled={isRefreshing}
+                className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                size="sm"
+              >
+                {isRefreshing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Atualizando...
+                  </>
+                ) : (
+                  <>
+                    <TrendingUp className="h-4 w-4" />
+                    Analisar Dados
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -63,10 +160,11 @@ const Header = () => {
                 <Link
                   key={tab.path}
                   to={tab.path}
+                  onClick={(e) => handleTabNavigation(e, tab.path)}
                   className={`
                     px-3 py-1.5 text-sm font-medium transition-colors
-                    ${isTabActive(tab.path) 
-                      ? 'text-primary border-b-2 border-primary' 
+                    ${isTabActive(tab.path)
+                      ? 'text-primary border-b-2 border-primary'
                       : 'text-muted-foreground hover:text-foreground'
                     }
                   `}
