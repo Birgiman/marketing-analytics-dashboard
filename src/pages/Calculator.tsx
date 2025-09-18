@@ -31,9 +31,20 @@ interface CalculationData {
 
 interface SavedCalculation {
   id: string;
-  name: string;
-  inputs: CalculatorInputs;
-  results: CalculatorResults;
+  user_id: string;
+  ticket_medio: number;
+  total_dias: number;
+  orcamento: number;
+  cpl_liquido: number;
+  comparecimento: number;
+  conversao: number;
+  leads_previstos: number;
+  participantes: number;
+  vendas_previstas: number;
+  receita_prevista: number;
+  roi: number;
+  lucro: number;
+  margem_lucro: number;
   created_at: string;
   updated_at: string;
 }
@@ -62,24 +73,20 @@ export default function Calculator() {
   const loadSavedCalculations = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('calculator-history', {
-        method: 'GET'
-      });
+      const { data, error } = await supabase
+        .from('calculator_history')
+        .select('*')
+        .order('created_at', { ascending: false });
 
       if (error) {
-        // Se é erro de CORS ou função não encontrada, não mostrar erro
-        if (error.message?.includes('CORS') || error.message?.includes('Failed to send a request')) {
-          console.log('Edge Function não disponível, continuando sem histórico');
-          setSavedCalculations([]);
-          return;
-        }
-        throw error;
+        console.error('Error loading saved calculations:', error);
+        setSavedCalculations([]);
+        return;
       }
 
-      setSavedCalculations(data.data || []);
+      setSavedCalculations(data || []);
     } catch (error) {
       console.error('Error loading saved calculations:', error);
-      // Não mostrar toast de erro para evitar spam
       setSavedCalculations([]);
     } finally {
       setIsLoading(false);
@@ -162,24 +169,36 @@ export default function Calculator() {
     }
   };
 
-  const saveCalculation = async (name: string, inputs: CalculatorInputs, results: CalculatorResults) => {
+  const saveCalculation = async (inputs: CalculatorInputs, results: CalculatorResults) => {
     try {
-      const { data, error } = await supabase.functions.invoke('calculator-history', {
-        method: 'POST',
-        body: { name, inputs, results }
-      });
+      const { data, error } = await supabase
+        .from('calculator_history')
+        .insert({
+          ticket_medio: inputs.ticketMedio,
+          total_dias: inputs.diasCaptacao,
+          orcamento: inputs.orcamento,
+          cpl_liquido: inputs.cplLiquido,
+          comparecimento: inputs.comparecimento,
+          conversao: inputs.conversao,
+          leads_previstos: results.leadsPrevistos,
+          participantes: results.participantesPrevistos,
+          vendas_previstas: results.vendasPrevistas,
+          receita_prevista: results.receitaPrevista,
+          roi: results.roi,
+          lucro: results.lucro,
+          margem_lucro: results.margemLucro
+        })
+        .select()
+        .single();
 
       if (error) {
-        // Se é erro de CORS ou função não encontrada, não mostrar erro
-        if (error.message?.includes('CORS') || error.message?.includes('Failed to send a request')) {
-          console.log('Edge Function não disponível, salvamento não realizado');
-          throw new Error('Serviço de salvamento temporariamente indisponível');
-        }
+        console.error('Error saving calculation:', error);
         throw error;
       }
 
       // Reload saved calculations
       await loadSavedCalculations();
+      return data;
     } catch (error) {
       console.error('Error saving calculation:', error);
       throw error;
@@ -188,10 +207,10 @@ export default function Calculator() {
 
   const handleDeleteCalculation = async (id: string) => {
     try {
-      const { error } = await supabase.functions.invoke('calculator-history', {
-        method: 'DELETE',
-        body: { id }
-      });
+      const { error } = await supabase
+        .from('calculator_history')
+        .delete()
+        .eq('id', id);
 
       if (error) throw error;
 
@@ -247,8 +266,7 @@ export default function Calculator() {
         conversao: parseFloat(formData.conversao) || 0
       };
 
-      const simulationName = generateSimulationName(inputs);
-      await saveCalculation(simulationName, inputs, currentResults);
+      await saveCalculation(inputs, currentResults);
 
       toast({
         title: "Cálculo salvo!",
@@ -511,7 +529,6 @@ export default function Calculator() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nome</TableHead>
                   <TableHead>Data</TableHead>
                   <TableHead>Orçamento</TableHead>
                   <TableHead>CPL Líquido</TableHead>
@@ -523,14 +540,13 @@ export default function Calculator() {
               <TableBody>
                 {savedCalculations.map((calc) => (
                   <TableRow key={calc.id}>
-                    <TableCell className="font-medium">{calc.name}</TableCell>
                     <TableCell>
                       {new Date(calc.created_at).toLocaleDateString('pt-BR')}
                     </TableCell>
-                    <TableCell>{formatCurrency(calc.inputs.orcamento)}</TableCell>
-                    <TableCell>{formatCurrency(calc.inputs.cplLiquido)}</TableCell>
-                    <TableCell>{formatCurrency(calc.results.receitaPrevista)}</TableCell>
-                    <TableCell>{formatPercentage(calc.results.roi)}</TableCell>
+                    <TableCell>{formatCurrency(calc.orcamento)}</TableCell>
+                    <TableCell>{formatCurrency(calc.cpl_liquido)}</TableCell>
+                    <TableCell>{formatCurrency(calc.receita_prevista)}</TableCell>
+                    <TableCell className="text-green-600 font-medium">{formatPercentage(calc.roi)}</TableCell>
                     <TableCell>
                       <Button 
                         variant="ghost" 
