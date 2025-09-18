@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache";
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
+// V2 IMPORTS - Novos cálculos
+import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 import { Activity, AlertCircle, RefreshCw, TrendingDown, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -17,6 +19,10 @@ const Details = () => {
   
   const [testLoading, setTestLoading] = useState(false);
 
+  // ============================================================================
+  // VERSÃO V1 (COMENTADA) - Código original
+  // ============================================================================
+  /*
   // Usar novo hook de cache localStorage compartilhado
   const {
     live,
@@ -32,6 +38,49 @@ const Details = () => {
     refreshData,
     clearError
   } = useLiveLocalStorageCache({ liveId: liveId || '' });
+  */
+
+  // ============================================================================
+  // VERSÃO V2 - Novos cálculos
+  // ============================================================================
+  
+  // Usar hook de cache para buscar dados básicos
+  const {
+    live,
+    groups,
+    campaigns,
+    campaignsWithInsights,
+    isLoading,
+    isMetaLoading,
+    error,
+    isFromCache,
+    canFetchMetaAgain,
+    refreshData,
+    clearError
+  } = useLiveLocalStorageCache({ liveId: liveId || '' });
+
+  // Estados para métricas V2
+  const [metricsV2, setMetricsV2] = useState<{
+    cplLiquido: number;
+    cplMeta: number;
+    retentionRate: number;
+    cplLiquidoPlanejamento: number;
+  } | null>(null);
+  const [extractedDataV2, setExtractedDataV2] = useState<{
+    groupData: { totalGroups: number; totalMembers: number };
+    metaData: { campaignCount: number; totalSpend: number; totalResults: number };
+  } | null>(null);
+  const [validationV2, setValidationV2] = useState<{
+    isValid: boolean;
+    warnings: string[];
+    errors: string[];
+  } | null>(null);
+  const [summaryV2, setSummaryV2] = useState<{
+    cplLiquidoFormatted: string;
+    cplMetaFormatted: string;
+    retentionRateFormatted: string;
+    cplLiquidoPlanejamentoFormatted: string;
+  } | null>(null);
 
 
   // Navegar para /lives se não há liveId
@@ -41,6 +90,45 @@ const Details = () => {
     }
   }, [liveId, navigate]);
 
+  // Calcular métricas V2 quando os dados estiverem disponíveis
+  useEffect(() => {
+    if (live && groups && campaignsWithInsights.length > 0) {
+      console.log('🔄 [Details V2] Calculando métricas com novos cálculos...');
+      
+      try {
+        // Preparar dados no formato esperado pelos novos cálculos
+        const liveData = {
+          live,
+          groups,
+          campaignInsights: campaignsWithInsights.map(campaign => ({
+            campaign_id: campaign.campaign_id,
+            insights: campaign.insights ? [campaign.insights] : []
+          }))
+        };
+
+        // Calcular métricas usando a nova função
+        const result = calculateCompleteLiveMetrics(liveData, {
+          enableLogging: true,
+          enableValidation: true,
+          orcamentoGasto: (live as any).ad_budget
+        });
+
+        setMetricsV2(result.metrics);
+        setExtractedDataV2(result.extractedData);
+        setValidationV2(result.validation);
+        setSummaryV2(result.summary);
+
+        console.log('✅ [Details V2] Métricas calculadas com sucesso:', result.summary);
+      } catch (error) {
+        console.error('❌ [Details V2] Erro ao calcular métricas:', error);
+      }
+    }
+  }, [live, groups, campaignsWithInsights]);
+
+  // ============================================================================
+  // VERSÃO V1 (COMENTADA) - Funções antigas
+  // ============================================================================
+  /*
   // Usar campanhas com insights do cache
   const finalCampaigns = campaignsWithInsights.length > 0 ? campaignsWithInsights : campaigns;
 
@@ -58,7 +146,34 @@ const Details = () => {
       ativos: totalMembros
     };
   };
+  */
 
+  // ============================================================================
+  // VERSÃO V2 - Novas funções
+  // ============================================================================
+  
+  // Usar campanhas com insights do cache
+  const finalCampaigns = campaignsWithInsights.length > 0 ? campaignsWithInsights : campaigns;
+
+  // Calcular dados dos grupos V2
+  const calculateGroupDataV2 = () => {
+    if (!groups || groups.length === 0) {
+      return { entrou: 0, saiu: 0, ativos: 0 };
+    }
+
+    const totalMembros = groups.reduce((sum, group) => sum + group.group_size, 0);
+
+    return {
+      entrou: totalMembros,
+      saiu: 0, // TODO: Implementar tracking de saídas
+      ativos: totalMembros
+    };
+  };
+
+  // ============================================================================
+  // VERSÃO V1 (COMENTADA) - Função de teste antiga
+  // ============================================================================
+  /*
   // Função para testar os dados completos da live
   const handleTestLiveData = async () => {
     if (!liveId) return;
@@ -80,11 +195,72 @@ const Details = () => {
       });
 
       const insights = completeData.summary.insights;
-      alert(`✅ Teste concluído com sucesso!\n\nLive: ${completeData.live.name}\nGrupos: ${completeData.summary.totalGroups} (${completeData.summary.totalGroupMembers} membros)\nCampanhas: ${completeData.summary.totalCampaigns} (${completeData.summary.activeCampaigns} ativas)\nGasto Total: $${completeData.summary.totalSpend}\nImpressões: ${completeData.summary.totalImpressions}\nCliques: ${completeData.summary.totalClicks}\n\nINSIGHTS (${insights.totalInsights} registros):\n• CPM Médio: $${insights.avgCPM}\n• CTR Médio: ${insights.avgCTR}%\n• CPP Médio: $${insights.avgCPP}\n• Custo por Clique Único: $${insights.avgCostPerUniqueClick}\n• Frequência Média: ${insights.avgFrequency}\n• Total de Ações: ${insights.totalActions}\n\nVeja o console para mais detalhes!`);
+      const live = completeData.live;
+
+      // Formatação de datas para o alert
+      const timeRangeText = live.insights_date_since && live.insights_date_until
+        ? `\nPeríodo: ${live.insights_date_since} até ${live.insights_date_until}`
+        : '\nPeríodo: Padrão (últimos 30 dias)';
+
+      const searchTermText = live.campaign_search_term
+        ? `\n🔍 Termo de busca: "${live.campaign_search_term}"`
+        : '\n🔍 Termo de busca: Não definido';
+
+      alert(`✅ Teste concluído com sucesso!\n\nLive: ${live.name}${timeRangeText}${searchTermText}\n\nGrupos: ${completeData.summary.totalGroups} (${completeData.summary.totalGroupMembers} membros)\nCampanhas: ${completeData.summary.totalCampaigns} (${completeData.summary.activeCampaigns} ativas)\nGasto Total: $${completeData.summary.totalSpend}\nImpressões: ${completeData.summary.totalImpressions}\nCliques: ${completeData.summary.totalClicks}\n\nINSIGHTS (${insights.totalInsights} registros):\n• CPM Médio: $${insights.avgCPM}\n• CTR Médio: ${insights.avgCTR}%\n• CPP Médio: $${insights.avgCPP}\n• Custo por Clique Único: $${insights.avgCostPerUniqueClick}\n• Frequência Média: ${insights.avgFrequency}\n• Total de Ações: ${insights.totalActions}\n\nVeja o console para mais detalhes!`);
 
     } catch (error) {
       console.error('🧪 [TESTE] ❌ Erro ao buscar dados:', error);
       alert(`❌ Erro no teste: ${error}`);
+    } finally {
+      setTestLoading(false);
+    }
+  };
+  */
+
+  // ============================================================================
+  // VERSÃO V2 - Nova função de teste
+  // ============================================================================
+  
+  // Função para testar os novos cálculos V2
+  const handleTestLiveDataV2 = async () => {
+    if (!liveId) return;
+
+    setTestLoading(true);
+    try {
+      console.log('🧪 [TESTE V2] Iniciando teste dos novos cálculos para Live:', liveId);
+      
+      // Buscar dados completos
+      const completeData = await fetchCompleteLiveData(liveId);
+      
+      // Calcular métricas usando a nova função
+      const liveData = {
+        live: completeData.live,
+        groups: completeData.groups,
+        campaignInsights: completeData.campaignInsights
+      };
+
+      const result = calculateCompleteLiveMetrics(liveData, {
+        enableLogging: true,
+        enableValidation: true,
+        orcamentoGasto: (completeData.live as any).ad_budget
+      });
+
+      console.log('🧪 [TESTE V2] ✅ Novos cálculos concluídos:', result);
+
+      // Formatação de datas para o alert
+      const timeRangeText = completeData.live.insights_date_since && completeData.live.insights_date_until
+        ? `\nPeríodo: ${completeData.live.insights_date_since} até ${completeData.live.insights_date_until}`
+        : '\nPeríodo: Padrão (últimos 30 dias)';
+
+      const searchTermText = completeData.live.campaign_search_term
+        ? `\n🔍 Termo de busca: "${completeData.live.campaign_search_term}"`
+        : '\n🔍 Termo de busca: Não definido';
+
+      alert(`✅ Teste V2 concluído com sucesso!\n\nLive: ${completeData.live.name}${timeRangeText}${searchTermText}\n\n📊 DADOS EXTRAÍDOS:\n• Grupos: ${result.extractedData.groupData.totalGroups} (${result.extractedData.groupData.totalMembers} membros)\n• Campanhas: ${result.extractedData.metaData.campaignCount}\n• Gasto Total: ${result.summary.cplLiquidoFormatted}\n• Leads Meta: ${result.extractedData.metaData.totalResults}\n\n🧮 NOVOS CÁLCULOS:\n• CPL Líquido: ${result.summary.cplLiquidoFormatted}\n• CPL Meta: ${result.summary.cplMetaFormatted}\n• Taxa de Retenção: ${result.summary.retentionRateFormatted}\n• CPL Planejamento: ${result.summary.cplLiquidoPlanejamentoFormatted}\n\n${result.validation.warnings.length > 0 ? `⚠️ Avisos: ${result.validation.warnings.join(', ')}\n` : ''}Veja o console para mais detalhes!`);
+
+    } catch (error) {
+      console.error('🧪 [TESTE V2] ❌ Erro ao testar novos cálculos:', error);
+      alert(`❌ Erro no teste V2: ${error}`);
     } finally {
       setTestLoading(false);
     }
@@ -114,6 +290,10 @@ const Details = () => {
     );
   }
 
+  // ============================================================================
+  // VERSÃO V1 (COMENTADA) - Dados antigos
+  // ============================================================================
+  /*
   const groupData = calculateGroupData();
 
   // Usar métricas do cache (já calculadas)
@@ -121,6 +301,19 @@ const Details = () => {
   const cplMeta = metrics?.cplMeta || 0;
   const retentionRate = metrics?.retentionRate || 0;
   const totalSpend = metrics?.totalSpent || 0;
+  */
+
+  // ============================================================================
+  // VERSÃO V2 - Novos dados
+  // ============================================================================
+  
+  const groupData = calculateGroupDataV2();
+
+  // Usar métricas V2 (novos cálculos)
+  const cplLiquido = metricsV2?.cplLiquido || 0;
+  const cplMeta = metricsV2?.cplMeta || 0;
+  const retentionRate = metricsV2?.retentionRate || 0;
+  const totalSpend = extractedDataV2?.metaData?.totalSpend || 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -182,24 +375,38 @@ const Details = () => {
           isLoading={isLoading || isMetaLoading}
         />
 
-        {/* Status dos Dados */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        {/* Status dos Dados V2 */}
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Activity className="h-5 w-5 text-blue-600" />
+            <div className="p-2 bg-green-100 rounded-lg">
+              <Activity className="h-5 w-5 text-green-600" />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-blue-900">Fontes de Dados</h3>
-              <div className="text-sm text-blue-700 space-y-1 mt-1">
-                <p>
-                  <strong>CPL Líquido & Meta:</strong> {finalCampaigns.length > 0 ? `Baseado em ${finalCampaigns.length === 1 ? '1 campanha vinculada' : `${finalCampaigns.length} campanhas vinculadas`}` : 'Nenhuma campanha vinculada'}
-                </p>
-                <p>
-                  <strong>Dados de Grupos:</strong> WhatsApp Business via Evolution API
-                </p>
-                <p>
-                  <strong>Total de Campanhas:</strong> {finalCampaigns.length === 0 ? 'Nenhum registro' : finalCampaigns.length === 1 ? '1 registro' : `${finalCampaigns.length} registros`}
-                </p>
+              <h3 className="font-semibold text-green-900">🧮 Novos Cálculos V2</h3>
+              <div className="text-sm text-green-700 space-y-1 mt-1">
+                {metricsV2 ? (
+                  <>
+                    <p>
+                      <strong>CPL Líquido:</strong> {summaryV2?.cplLiquidoFormatted || 'R$ 0,00'}
+                    </p>
+                    <p>
+                      <strong>CPL Meta:</strong> {summaryV2?.cplMetaFormatted || 'R$ 0,00'}
+                    </p>
+                    <p>
+                      <strong>Taxa de Retenção:</strong> {summaryV2?.retentionRateFormatted || '0%'}
+                    </p>
+                    <p>
+                      <strong>Dados Extraídos:</strong> {extractedDataV2 ? `${extractedDataV2.groupData.totalGroups} grupos, ${extractedDataV2.metaData.campaignCount} campanhas` : 'Carregando...'}
+                    </p>
+                    {validationV2?.warnings && validationV2.warnings.length > 0 && (
+                      <p className="text-orange-600">
+                        <strong>⚠️ Avisos:</strong> {validationV2.warnings.join(', ')}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p>🔄 Calculando métricas V2...</p>
+                )}
                 {isFromCache && (
                   <p>
                     <strong>Status:</strong> 📦 Dados carregados do cache localStorage
@@ -217,7 +424,7 @@ const Details = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => navigate('/dashboard')}
-                className="bg-white hover:bg-blue-50"
+                className="bg-white hover:bg-green-50"
               >
                 Vincular Campanhas
               </Button>
@@ -245,12 +452,12 @@ const Details = () => {
                       <div className="flex gap-4 text-sm text-gray-600">
                         <span>ID: {campaign.campaign_id}</span>
                         <span>Status: {campaign.status}</span>
-                        <span>Objetivo: {campaign.objective || '—'}</span>
+                        <span>Objetivo: {(campaign as any).objective || '—'}</span>
                       </div>
                       <div className="flex gap-4 text-sm">
-                        <span>Orçamento Diário: {campaign.daily_budget ? `R$ ${(Number(campaign.daily_budget) / 100).toFixed(2)}` : '—'}</span>
-                        {campaign.lifetime_budget && (
-                          <span>Orçamento Total: R$ {(Number(campaign.lifetime_budget) / 100).toFixed(2)}</span>
+                        <span>Orçamento Diário: {(campaign as any).daily_budget ? `R$ ${(Number((campaign as any).daily_budget) / 100).toFixed(2)}` : '—'}</span>
+                        {(campaign as any).lifetime_budget && (
+                          <span>Orçamento Total: R$ {(Number((campaign as any).lifetime_budget) / 100).toFixed(2)}</span>
                         )}
                       </div>
                       <div className="text-xs text-gray-500">
@@ -281,21 +488,21 @@ const Details = () => {
         />
       </div>
 
-      {/* Botão de Teste - Posição fixa no canto inferior direito */}
+      {/* Botão de Teste V2 - Posição fixa no canto inferior direito */}
       <Button
-        onClick={handleTestLiveData}
+        onClick={handleTestLiveDataV2}
         disabled={testLoading}
-        className="fixed bottom-6 right-6 z-50 bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-4 py-2 rounded-lg font-medium"
+        className="fixed bottom-6 right-6 z-50 bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-4 py-2 rounded-lg font-medium"
         size="sm"
       >
         {testLoading ? (
           <>
             <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-            Testando...
+            Testando V2...
           </>
         ) : (
           <>
-            🧪 Testar Dados
+            🧪 Testar V2
           </>
         )}
       </Button>
