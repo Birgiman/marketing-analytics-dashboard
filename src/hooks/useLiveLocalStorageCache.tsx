@@ -250,7 +250,11 @@ export function useLiveLocalStorageCache({
             );
 
             // Buscar insights
-            const options: any = {
+            const options: {
+              level: 'campaign' | 'account' | 'adset' | 'ad';
+              fields?: string[];
+              timeRange?: { since: string; until: string };
+            } = {
               level: 'campaign',
               fields: ['campaign_name', 'impressions', 'spend', 'clicks', 'reach', 'frequency', 'cpm', 'ctr', 'cpp', 'cost_per_unique_click', 'actions', 'ad_name', 'date_start', 'date_stop']
             };
