@@ -177,6 +177,11 @@ function processMetaInsightsData(insights: any[]): {
       campaignIds.add(insight.campaign_id);
     }
     
+    // Debug: mostrar campaign_id se disponível
+    if (insight.campaign_id) {
+      console.log(`📊 [META-CPL] Campaign ID encontrado: ${insight.campaign_id}`);
+    }
+    
     // Usar campo 'results' se disponível, senão calcular manualmente
     if (insight.results && Array.isArray(insight.results) && insight.results.length > 0) {
       // Formato correto: insight.results[0].values[0].value
