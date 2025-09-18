@@ -40,6 +40,7 @@ const [lives, setLives] = useState<any[]>([]);
   const [showEditModal, setShowEditModal] = useState(false);
   const [liveToDelete, setLiveToDelete] = useState<any>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const { currentInstance } = useWhatsAppInstances();
   const { fetchUserLives, softDeleteLive } = useLives();
   const [stats, setStats] = useState<DashboardStats>({
@@ -141,6 +142,11 @@ const [lives, setLives] = useState<any[]>([]);
     }
   };
 
+  // Filter lives based on search term
+  const filteredLives = lives.filter(live =>
+    live.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
@@ -224,6 +230,8 @@ const [lives, setLives] = useState<any[]>([]);
                 <Input
                   placeholder="Buscar lives..."
                   className="pl-9"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
             </div>
@@ -241,8 +249,8 @@ const [lives, setLives] = useState<any[]>([]);
               </div>
               
               {/* Lives List */}
-              {lives.length > 0 ? (
-                lives.map((live) => (
+              {filteredLives.length > 0 ? (
+                filteredLives.map((live) => (
                   <div key={live.id} className="grid grid-cols-7 gap-4 p-4 border-b items-center">
                     <div 
                       className="font-medium cursor-pointer hover:text-primary transition-colors" 
@@ -296,6 +304,15 @@ const [lives, setLives] = useState<any[]>([]);
                     </div>
                   </div>
                 ))
+              ) : lives.length > 0 ? (
+                /* No search results */
+                <div className="flex flex-col items-center justify-center py-16">
+                  <Search className="w-12 h-12 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground mb-4">Nenhuma live encontrada para "{searchTerm}"</p>
+                  <Button variant="outline" onClick={() => setSearchTerm("")}>
+                    Limpar busca
+                  </Button>
+                </div>
               ) : (
                 /* Empty State */
                 <div className="flex flex-col items-center justify-center py-16">
