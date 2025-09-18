@@ -61,7 +61,11 @@ export async function getCPLFromMeta(request: MetaCPLRequest): Promise<MetaCPLRe
     
     // 2. Construir URL da requisição
     const baseURL = 'https://graph.facebook.com/v23.0';
-    const url = `${baseURL}/act_${request.accountId}/insights`;
+    // Verificar se accountId já tem o prefixo 'act_'
+    const accountId = request.accountId.startsWith('act_') 
+      ? request.accountId 
+      : `act_${request.accountId}`;
+    const url = `${baseURL}/${accountId}/insights`;
     
     logs.push(`📡 [META-CPL] URL construída: ${url}`);
     
