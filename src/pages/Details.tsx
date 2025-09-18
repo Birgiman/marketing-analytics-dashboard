@@ -30,6 +30,8 @@ const Details = () => {
     isFromCache,
     canFetchMetaAgain,
     refreshData,
+    clearCache,
+    recalculateMetrics,
     clearError
   } = useLiveLocalStorageCache({ liveId: liveId || '' });
 
@@ -210,6 +212,24 @@ const Details = () => {
                     <strong>Meta Ads:</strong> ⏰ Disponível para nova atualização
                   </p>
                 )}
+                <div className="mt-3 flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearCache}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    🗑️ Limpar Cache (DEBUG)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={recalculateMetrics}
+                    className="text-blue-600 hover:text-blue-700"
+                  >
+                    🔄 Recalcular Métricas (DEBUG)
+                  </Button>
+                </div>
               </div>
             </div>
             {finalCampaigns.length === 0 && (
