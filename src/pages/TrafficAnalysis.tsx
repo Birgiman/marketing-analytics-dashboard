@@ -5,9 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useLiveCampaignData } from "@/hooks/useLiveCampaignData";
-import { useLiveDataCache } from "@/hooks/useLiveDataCache";
-import { useLiveMetrics } from "@/hooks/useLiveMetrics";
+import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache";
 import { supabase } from "@/integrations/supabase/client";
 import { DEMO_MODE } from "@/lib/demo-mode";
 import { Creative } from "@/types";
@@ -20,38 +18,21 @@ const TrafficAnalysis = () => {
   const [searchParams] = useSearchParams();
   const liveId = searchParams.get('live');
   
-  // Usar hook de cache para dados da Live
+  // Usar novo hook de cache localStorage compartilhado
   const {
     live,
     groups,
     campaigns,
+    campaignsWithInsights,
     metrics,
-    isLoading: cacheLoading,
-    error: cacheError
-  } = useLiveDataCache({ liveId: liveId || '' });
+    isLoading,
+    isMetaLoading,
+    error,
+    isFromCache
+  } = useLiveLocalStorageCache({ liveId: liveId || '' });
 
-  // Usar hook para dados das campanhas específicas da Live
-  const {
-    campaigns: campaignData,
-    isLoading: campaignsLoading,
-    error: campaignsError
-  } = useLiveCampaignData(liveId || '');
-
-  // Usar dados do hook que tem insights, senão usar dados do cache
-  const finalCampaigns = campaignData.length > 0 ? campaignData : campaigns;
-
-  // Usar hook para métricas em tempo real com dados salvos da Live
-  const {
-    metrics: liveMetrics,
-    isLoading: metricsLoading,
-    error: metricsError,
-    refetch: refetchMetrics
-  } = useLiveMetrics({
-    liveId: liveId || '',
-    since: live?.insights_date_since || '',
-    until: live?.insights_date_until || '',
-    enabled: !!liveId && !!live?.insights_date_since && !!live?.insights_date_until
-  });
+  // Usar campanhas com insights do cache
+  const finalCampaigns = campaignsWithInsights.length > 0 ? campaignsWithInsights : campaigns;
 
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -250,91 +231,29 @@ const TrafficAnalysis = () => {
 
   // Função calculateCPLMeta movida para baixo para usar dados do cache
 
-  // Calcular CPL Líquido usando dados do cache
-  const calculateCPLLiquido = () => {
-    if (!finalCampaigns || !groups || finalCampaigns.length === 0 || groups.length === 0) return 0;
-    
-    // Usar dados reais de spend dos insights
-    const totalSpent = finalCampaigns.reduce((sum, campaign) => {
-      const spend = parseFloat(campaign.insights?.spend || '0');
-      return sum + spend;
-    }, 0);
-    
-    // Para o CPL Líquido, usamos a soma do tamanho dos grupos vinculados
-    const totalEntrou = groups.reduce((sum, group) => sum + (group.group_size || 0), 0);
-    
-    // DEBUG: Log temporário para verificar valores
-    console.log('🔍 [TrafficAnalysis] DEBUG CPL Líquido:', {
-      totalSpent,
-      totalEntrou,
-      finalCampaigns: finalCampaigns.length,
-      groups: groups.length,
-      cplLiquido: totalEntrou > 0 ? totalSpent / totalEntrou : 0
-    });
-    
-    return totalEntrou > 0 ? totalSpent / totalEntrou : 0;
-  };
-
-  // Calcular CPL Meta usando dados do cache
-  const calculateCPLMeta = () => {
-    if (!finalCampaigns || finalCampaigns.length === 0) return 0;
-    
-    const totalSpent = finalCampaigns.reduce((sum, campaign) => {
-      const spend = parseFloat(campaign.insights?.spend || '0');
-      return sum + spend;
-    }, 0);
-    
-    const totalLeads = finalCampaigns.reduce((sum, campaign) => {
-      const actions = campaign.insights?.actions || [];
-      const leadAction = actions.find(action =>
-        action.action_type === 'lead' ||
-        action.action_type === 'submit_application' ||
-        action.action_type === 'complete_registration'
-      );
-      return sum + (leadAction ? parseInt(leadAction.value) : 0);
-    }, 0);
-    
-    return totalLeads > 0 ? totalSpent / totalLeads : 0;
-  };
-
-  // Calcular taxa de retenção usando dados do cache
-  const calculateRetentionRate = () => {
-    if (!finalCampaigns || finalCampaigns.length === 0) return 0;
-    
-    const totalLeads = finalCampaigns.reduce((sum, campaign) => {
-      const actions = campaign.insights?.actions || [];
-      const leadAction = actions.find(action => 
-        action.action_type === 'lead' || 
-        action.action_type === 'submit_application' ||
-        action.action_type === 'complete_registration'
-      );
-      return sum + (leadAction ? parseInt(leadAction.value) : 0);
-    }, 0);
-    
-    const totalEntrou = groups.reduce((sum, group) => sum + (group.group_size || 0), 0);
-    return totalLeads > 0 ? Math.round(totalEntrou / totalLeads * 100) : 0;
-  };
+  // Usar métricas já calculadas do cache
+  const cplMeta = metrics?.cplMeta || 0;
+  const cplLiquido = metrics?.cplLiquido || 0;
+  const retentionRate = metrics?.retentionRate || 0;
+  const totalSpentFromCache = metrics?.totalSpent || 0;
 
   // Calcular dados dos grupos
   const calculateGroupData = () => {
     if (!groups || groups.length === 0) {
       return { entrou: 0, saiu: 0, ativos: 0 };
     }
-    
+
     const totalMembros = groups.reduce((sum, group) => sum + (group.group_size || 0), 0);
-    
+
     return {
       entrou: totalMembros,
       saiu: 0, // TODO: Implementar tracking de saídas
-      ativos: totalMembros 
+      ativos: totalMembros
     };
   };
 
   const totals = calculateTotals();
   const totalSpent = calculateTotalSpent();
-  const cplMeta = calculateCPLMeta();
-  const cplLiquido = calculateCPLLiquido();
-  const retentionRate = calculateRetentionRate();
   const groupData = calculateGroupData();
 
   // Calcular dados diários
@@ -556,10 +475,23 @@ const TrafficAnalysis = () => {
     return 0;
   });
 
-  if (loading) {
+  if (loading || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Carregando análise de tráfego...</div>
+        <div className="text-center space-y-4">
+          <div className="text-xl">Carregando análise de tráfego...</div>
+          {isMetaLoading && (
+            <div className="text-sm text-gray-600 flex items-center justify-center gap-2">
+              <div className="h-4 w-4 animate-spin border-2 border-blue-600 border-t-transparent rounded-full"></div>
+              Atualizando dados do Meta Ads...
+            </div>
+          )}
+          {isFromCache && (
+            <div className="text-sm text-green-600">
+              📦 Dados carregados do cache localStorage
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -571,21 +503,22 @@ const TrafficAnalysis = () => {
       {/* Métricas Principais */}
       <LiveMetricsCards
         cplLiquido={cplLiquido}
-        cplMeta={liveMetrics?.cpl_meta || cplMeta}
+        cplMeta={cplMeta}
         retentionRate={retentionRate}
         groupMembers={groupData.entrou}
         groupExits={groupData.saiu}
         activeLeads={groupData.ativos}
-        isLoading={cacheLoading || campaignsLoading || metricsLoading}
+        isLoading={isLoading || isMetaLoading}
       />
-      
-      {/* DEBUG: Log temporário para verificar métricas */}
-      {console.log('🔍 [TrafficAnalysis] DEBUG Métricas:', {
-        metrics,
-        liveMetrics,
-        cplMeta,
-        finalValue: liveMetrics?.cpl_meta || cplMeta
-      })}
+
+      {/* Indicador de Status do Cache */}
+      {isFromCache && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+          <p className="text-sm text-green-700">
+            📦 Dados carregados do cache localStorage - Navegação otimizada
+          </p>
+        </div>
+      )}
 
       {/* Tabela de Dados Diários */}
       <Card>

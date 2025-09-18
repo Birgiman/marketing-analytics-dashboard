@@ -4,9 +4,7 @@ import PerformanceAnalysis from "@/components/PerformanceAnalysis";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useLiveCampaignData } from "@/hooks/useLiveCampaignData";
-import { useLiveDataCache } from "@/hooks/useLiveDataCache";
-import { useLiveMetrics } from "@/hooks/useLiveMetrics";
+import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache";
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 import { Activity, AlertCircle, RefreshCw, TrendingDown, Users } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -18,51 +16,22 @@ const Details = () => {
   const liveId = searchParams.get('live');
   
   const [testLoading, setTestLoading] = useState(false);
-  
-  // Usar hook de cache para dados da Live
+
+  // Usar novo hook de cache localStorage compartilhado
   const {
     live,
     groups,
     campaigns,
+    campaignsWithInsights,
     metrics,
-    isLoading: cacheLoading,
-    error: cacheError,
+    isLoading,
+    isMetaLoading,
+    error,
     isFromCache,
-    refresh: refreshCache,
-    updateMetrics
-  } = useLiveDataCache({ liveId: liveId || '' });
-
-  // Usar hook para dados das campanhas específicas da Live (com cache)
-  const {
-    campaigns: campaignData,
-    isLoading: campaignsLoading,
-    error: campaignsError,
-    refreshData: refreshCampaigns,
-    clearError: clearCampaignsError
-  } = useLiveCampaignData(liveId || '');
-
-  // Usar dados do hook que tem insights, senão usar dados do cache
-  const finalCampaigns = campaignData.length > 0 ? campaignData : campaigns;
-
-  // Usar hook para métricas em tempo real com dados salvos da Live
-  const {
-    metrics: liveMetrics,
-    isLoading: metricsLoading,
-    error: metricsError,
-    refetch: refetchMetrics
-  } = useLiveMetrics({
-    liveId: liveId || '',
-    since: live?.insights_date_since || '',
-    until: live?.insights_date_until || '',
-    enabled: !!liveId && !!live?.insights_date_since && !!live?.insights_date_until
-  });
-
-  // Atualizar métricas no cache quando recebidas
-  useEffect(() => {
-    if (liveMetrics) {
-      updateMetrics(liveMetrics);
-    }
-  }, [liveMetrics, updateMetrics]);
+    canFetchMetaAgain,
+    refreshData,
+    clearError
+  } = useLiveLocalStorageCache({ liveId: liveId || '' });
 
 
   // Navegar para /lives se não há liveId
@@ -72,91 +41,22 @@ const Details = () => {
     }
   }, [liveId, navigate]);
 
-  // Calcular CPL Líquido
-  const calculateCPLLiquido = () => {
-    if (!finalCampaigns || !groups || finalCampaigns.length === 0 || groups.length === 0) return 0;
-    
-    // Usar dados reais de spend dos insights
-    const totalSpent = finalCampaigns.reduce((sum, campaign) => {
-      const spend = parseFloat(campaign.insights?.spend || '0');
-      return sum + spend;
-    }, 0);
-    
-    // Para o CPL Líquido, usamos a soma do tamanho dos grupos vinculados
-    // NOTA: Usar group_size para consistência com PerformanceAnalysis
-    const totalEntrou = groups.reduce((sum, group) => sum + (group.group_size || 0), 0);
-    
-    // DEBUG: Log temporário para verificar valores
-    console.log('🔍 [Details] DEBUG CPL Líquido:', {
-      totalSpent,
-      totalEntrou,
-      finalCampaigns: finalCampaigns.length,
-      groups: groups.length,
-      cplLiquido: totalEntrou > 0 ? totalSpent / totalEntrou : 0
-    });
-    
-    return totalEntrou > 0 ? totalSpent / totalEntrou : 0;
-  };
+  // Usar campanhas com insights do cache
+  const finalCampaigns = campaignsWithInsights.length > 0 ? campaignsWithInsights : campaigns;
 
   // Calcular dados dos grupos
   const calculateGroupData = () => {
     if (!groups || groups.length === 0) {
       return { entrou: 0, saiu: 0, ativos: 0 };
     }
-    
-    // Com a nova estrutura, usamos o tamanho total dos grupos
+
     const totalMembros = groups.reduce((sum, group) => sum + group.group_size, 0);
-    const gruposMonitorados = groups.filter(group => group.monitoring).length;
-    
-    return { 
-      entrou: totalMembros, 
+
+    return {
+      entrou: totalMembros,
       saiu: 0, // TODO: Implementar tracking de saídas
-      ativos: totalMembros 
+      ativos: totalMembros
     };
-  };
-
-  // Calcular taxa de retenção
-  const calculateRetentionRate = () => {
-    if (!finalCampaigns || finalCampaigns.length === 0) return 0;
-    
-    // Extrair leads reais das actions dos insights
-    const totalLeads = finalCampaigns.reduce((sum, campaign) => {
-      const actions = campaign.insights?.actions || [];
-      const leadAction = actions.find(action => 
-        action.action_type === 'lead' || 
-        action.action_type === 'submit_application' ||
-        action.action_type === 'complete_registration'
-      );
-      return sum + (leadAction ? parseInt(leadAction.value) : 0);
-    }, 0);
-    
-    const { entrou } = calculateGroupData();
-    
-    return totalLeads > 0 ? Math.round(entrou / totalLeads * 100) : 0;
-  };
-
-  // Calcular CPL Meta
-  const calculateCPLMeta = () => {
-    if (!finalCampaigns || finalCampaigns.length === 0) return 0;
-
-    // Usar dados reais de spend dos insights
-    const totalSpent = finalCampaigns.reduce((sum, campaign) => {
-      const spend = parseFloat(campaign.insights?.spend || '0');
-      return sum + spend;
-    }, 0);
-
-    // Extrair leads reais das actions dos insights
-    const totalLeads = finalCampaigns.reduce((sum, campaign) => {
-      const actions = campaign.insights?.actions || [];
-      const leadAction = actions.find(action =>
-        action.action_type === 'lead' ||
-        action.action_type === 'submit_application' ||
-        action.action_type === 'complete_registration'
-      );
-      return sum + (leadAction ? parseInt(leadAction.value) : 0);
-    }, 0);
-
-    return totalLeads > 0 ? totalSpent / totalLeads : 0;
   };
 
   // Função para testar os dados completos da live
@@ -190,15 +90,15 @@ const Details = () => {
     }
   };
 
-  if (cacheLoading || campaignsLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="text-xl">Carregando detalhes...</div>
-          {campaignsLoading && (
+          {isMetaLoading && (
             <div className="text-sm text-gray-600 flex items-center justify-center gap-2">
               <RefreshCw className="h-4 w-4 animate-spin" />
-              Buscando dados das campanhas...
+              Buscando dados das campanhas do Meta...
             </div>
           )}
         </div>
@@ -214,16 +114,13 @@ const Details = () => {
     );
   }
 
-  const cplLiquido = calculateCPLLiquido();
   const groupData = calculateGroupData();
-  const retentionRate = calculateRetentionRate();
-  const cplMeta = calculateCPLMeta();
 
-  // Calculate total spend for PerformanceAnalysis
-  const totalSpend = finalCampaigns.reduce((sum, campaign) => {
-    const spend = parseFloat(campaign.insights?.spend || '0');
-    return sum + spend;
-  }, 0);
+  // Usar métricas do cache (já calculadas)
+  const cplLiquido = metrics?.cplLiquido || 0;
+  const cplMeta = metrics?.cplMeta || 0;
+  const retentionRate = metrics?.retentionRate || 0;
+  const totalSpend = metrics?.totalSpent || 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -252,19 +149,19 @@ const Details = () => {
             
           </div>
         </div>
-        
+
         {/* Error Alert */}
-        {campaignsError && (
+        {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-red-600" />
               <div>
-                <p className="text-sm font-medium text-red-800">Erro ao carregar dados das campanhas</p>
-                <p className="text-xs text-red-600 mt-1">{campaignsError}</p>
+                <p className="text-sm font-medium text-red-800">Erro ao carregar dados</p>
+                <p className="text-xs text-red-600 mt-1">{error}</p>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={clearCampaignsError}
+                  onClick={clearError}
                   className="mt-2 text-red-600 hover:text-red-700"
                 >
                   Fechar
@@ -277,12 +174,12 @@ const Details = () => {
         {/* Métricas Principais */}
         <LiveMetricsCards
           cplLiquido={cplLiquido}
-          cplMeta={metrics?.cpl_meta || cplMeta}
+          cplMeta={cplMeta}
           retentionRate={retentionRate}
           groupMembers={groupData.entrou}
           groupExits={groupData.saiu}
           activeLeads={groupData.ativos}
-          isLoading={metricsLoading || cacheLoading}
+          isLoading={isLoading || isMetaLoading}
         />
 
         {/* Status dos Dados */}
@@ -303,6 +200,16 @@ const Details = () => {
                 <p>
                   <strong>Total de Campanhas:</strong> {finalCampaigns.length === 0 ? 'Nenhum registro' : finalCampaigns.length === 1 ? '1 registro' : `${finalCampaigns.length} registros`}
                 </p>
+                {isFromCache && (
+                  <p>
+                    <strong>Status:</strong> 📦 Dados carregados do cache localStorage
+                  </p>
+                )}
+                {canFetchMetaAgain && (
+                  <p>
+                    <strong>Meta Ads:</strong> ⏰ Disponível para nova atualização
+                  </p>
+                )}
               </div>
             </div>
             {finalCampaigns.length === 0 && (

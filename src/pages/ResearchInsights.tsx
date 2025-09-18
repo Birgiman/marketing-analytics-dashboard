@@ -6,6 +6,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
+import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache";
+import { useSearchParams } from "react-router-dom";
 
 interface SurveyData {
   id: string;
@@ -18,6 +20,16 @@ interface SurveyData {
 }
 
 const ResearchInsights = () => {
+  const [searchParams] = useSearchParams();
+  const liveId = searchParams.get('live');
+
+  // Usar cache localStorage para dados da Live (mesmo que não use campanhas)
+  const {
+    live,
+    isFromCache,
+    canFetchMetaAgain
+  } = useLiveLocalStorageCache({ liveId: liveId || '' });
+
   const [surveyData, setSurveyData] = useState<SurveyData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -158,6 +170,16 @@ const ResearchInsights = () => {
     <div>
       <Header />
       <div className="container mx-auto p-6 space-y-8">
+
+      {/* Indicador de Status do Cache */}
+      {isFromCache && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+          <p className="text-sm text-green-700">
+            📦 Dados da Live carregados do cache localStorage - Navegação otimizada
+          </p>
+        </div>
+      )}
+
       {/* Overview da Pesquisa */}
       <Card>
         <CardHeader>

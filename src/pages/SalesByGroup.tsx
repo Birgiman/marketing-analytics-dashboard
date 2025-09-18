@@ -10,6 +10,7 @@ import { toast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { LiveGroup, Live } from "@/types";
+import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache";
 
 // These interfaces are no longer used as we now use LiveGroup from types
 
@@ -25,7 +26,16 @@ const SalesByGroup = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const liveId = searchParams.get('live');
-  
+
+  // Usar cache localStorage para dados da Live
+  const {
+    live,
+    groups,
+    isLoading: cacheLoading,
+    isFromCache,
+    canFetchMetaAgain
+  } = useLiveLocalStorageCache({ liveId: liveId || '' });
+
   const [searchTerm, setSearchTerm] = useState("");
   const [publicoFilter, setPublicoFilter] = useState("all");
   const [sortField, setSortField] = useState<string | null>(null);
@@ -34,7 +44,6 @@ const SalesByGroup = () => {
 
   // Data states for Live-specific groups
   const [liveGroups, setLiveGroups] = useState<LiveGroup[]>([]);
-  const [live, setLive] = useState<Live | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   
   // Sales data upload
@@ -63,11 +72,11 @@ const SalesByGroup = () => {
     groupEmoji: ""
   });
 
-  // Fetch Live-specific data from Supabase
+  // Fetch Live-specific data from Supabase (agora usa cache principalmente)
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      
+
       // Check authentication
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
@@ -82,33 +91,23 @@ const SalesByGroup = () => {
         return;
       }
 
-      // Fetch Live data
-      const { data: liveData, error: liveError } = await supabase
-        .from('lives')
-        .select('*')
-        .eq('id', liveId)
-        .eq('user_id', session.user.id)
-        .single();
-
-      if (liveError || !liveData) {
-        console.error('Error fetching live:', liveError);
-        navigate('/lives');
-        return;
-      }
-      setLive(liveData);
-
-      // Fetch Live groups - only groups linked to this specific Live
-      const { data: groupsResult, error: groupsError } = await supabase
-        .from('live_groups')
-        .select('*')
-        .eq('live_id', liveId)
-        .order('created_at', { ascending: false });
-
-      if (groupsError) {
-        console.error('Error fetching live groups:', groupsError);
-        setLiveGroups([]);
+      // Dados da Live e grupos agora vêm do cache localStorage
+      if (groups && groups.length > 0) {
+        setLiveGroups(groups);
       } else {
-        setLiveGroups(groupsResult || []);
+        // Fallback: buscar diretamente se cache estiver vazio
+        const { data: groupsResult, error: groupsError } = await supabase
+          .from('live_groups')
+          .select('*')
+          .eq('live_id', liveId)
+          .order('created_at', { ascending: false });
+
+        if (groupsError) {
+          console.error('Error fetching live groups:', groupsError);
+          setLiveGroups([]);
+        } else {
+          setLiveGroups(groupsResult || []);
+        }
       }
 
     } catch (error) {
@@ -122,6 +121,13 @@ const SalesByGroup = () => {
   useEffect(() => {
     fetchData();
   }, [liveId]);
+
+  // Atualizar grupos quando cache mudar
+  useEffect(() => {
+    if (groups && groups.length > 0) {
+      setLiveGroups(groups);
+    }
+  }, [groups]);
 
   // Calculate statistics from Live groups
   const totalGroupMembers = liveGroups.reduce((sum, group) => sum + group.group_size, 0);
@@ -299,7 +305,7 @@ const SalesByGroup = () => {
 
   const averageTicketTotal = subtotals.sales > 0 ? subtotals.revenue / subtotals.sales : 0;
 
-  if (isLoading) {
+  if (isLoading || cacheLoading) {
     return (
       <div>
         <Header />
@@ -330,6 +336,16 @@ const SalesByGroup = () => {
     <div>
       <Header />
       <div className="container mx-auto p-6 space-y-8">
+
+        {/* Indicador de Status do Cache */}
+        {isFromCache && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+            <p className="text-sm text-green-700">
+              📦 Dados carregados do cache localStorage - Navegação otimizada
+            </p>
+          </div>
+        )}
+
         {/* Overview Geral */}
         <div className="grid gap-6 md:grid-cols-5">
           <Card>

@@ -2,9 +2,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, TrendingUp } from "lucide-react";
 import { Link, useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { useLiveDataCache } from "@/hooks/useLiveDataCache";
-import { useLiveCampaignData } from "@/hooks/useLiveCampaignData";
-import { useLiveMetrics } from "@/hooks/useLiveMetrics";
+import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache";
 
 const Header = () => {
   const location = useLocation();
@@ -18,22 +16,10 @@ const Header = () => {
   // ===============================================
 
   // Hook de cache principal (apenas se estivermos em uma página de Live)
-  const isLivePage = liveId && ['/details', '/traffic-analysis', '/research-insights'].includes(location.pathname);
+  const isLivePage = liveId && ['/details', '/traffic-analysis', '/research-insights', '/sales-by-group'].includes(location.pathname);
 
-  const { refresh: refreshCache } = useLiveDataCache({
-    liveId: liveId || '',
-    enabled: !!isLivePage
-  });
-
-  const { refreshData: refreshCampaigns } = useLiveCampaignData(
-    isLivePage ? liveId || '' : ''
-  );
-
-  const { refetch: refetchMetrics } = useLiveMetrics({
-    liveId: liveId || '',
-    since: '',
-    until: '',
-    enabled: false // Apenas para ter acesso ao refetch
+  const { refreshData } = useLiveLocalStorageCache({
+    liveId: liveId || ''
   });
 
   const navigationTabs = [
@@ -75,19 +61,9 @@ const Header = () => {
     try {
       console.log('🔄 [Header] Atualizando dados completos da Live:', liveId);
 
-      // Atualizar cache principal
-      if (refreshCache) {
-        refreshCache();
-      }
-
-      // Atualizar dados das campanhas (busca fresh no Meta)
-      if (refreshCampaigns) {
-        await refreshCampaigns();
-      }
-
-      // Buscar métricas atualizadas
-      if (refetchMetrics) {
-        await refetchMetrics();
+      // Atualizar cache localStorage completo (inclui Meta Ads)
+      if (refreshData) {
+        await refreshData();
       }
 
       console.log('✅ [Header] Dados atualizados com sucesso');
