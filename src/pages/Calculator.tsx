@@ -6,17 +6,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calculator as CalculatorIcon, Plus, Trash2, TrendingUp, Users, Target, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 import { CurrencyInput } from "@/components/CurrencyInput";
 import { PercentageInput } from "@/components/PercentageInput";
-import { 
-  calculateLiveShopProjection, 
-  validateCalculatorInputs, 
-  formatCurrency, 
-  formatPercentage, 
+import {
+  calculateLiveShopProjection,
+  validateCalculatorInputs,
+  formatCurrency,
+  formatPercentage,
   formatNumber,
   generateSimulationName,
   type CalculatorInputs,
-  type CalculatorResults 
+  type CalculatorResults
 } from "@/utils/calculations";
 import { toast } from "@/hooks/use-toast";
 
@@ -50,6 +51,7 @@ interface SavedCalculation {
 }
 
 export default function Calculator() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<CalculationData>({
     ticketMedio: "",
     diasCaptacao: "",
@@ -64,11 +66,34 @@ export default function Calculator() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
-  // Load saved calculations on component mount
+  // Check authentication and load saved calculations on component mount
   useEffect(() => {
-    loadSavedCalculations();
+    checkAuthAndLoadData();
   }, []);
+
+  const checkAuthAndLoadData = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session?.user) {
+        toast({
+          title: "Acesso negado",
+          description: "Você precisa estar logado para usar a calculadora.",
+          variant: "destructive",
+        });
+        navigate('/auth/signin');
+        return;
+      }
+
+      setCurrentUser(session.user);
+      await loadSavedCalculations();
+    } catch (error) {
+      console.error('Error checking authentication:', error);
+      navigate('/auth/signin');
+    }
+  };
 
   const loadSavedCalculations = async () => {
     setIsLoading(true);
@@ -80,6 +105,11 @@ export default function Calculator() {
 
       if (error) {
         console.error('Error loading saved calculations:', error);
+        toast({
+          title: "Erro ao carregar cálculos",
+          description: `Não foi possível carregar os cálculos salvos: ${error.message}`,
+          variant: "destructive",
+        });
         setSavedCalculations([]);
         return;
       }
@@ -87,6 +117,11 @@ export default function Calculator() {
       setSavedCalculations(data || []);
     } catch (error) {
       console.error('Error loading saved calculations:', error);
+      toast({
+        title: "Erro ao carregar cálculos",
+        description: "Erro inesperado ao carregar cálculos salvos.",
+        variant: "destructive",
+      });
       setSavedCalculations([]);
     } finally {
       setIsLoading(false);
@@ -171,9 +206,15 @@ export default function Calculator() {
 
   const saveCalculation = async (inputs: CalculatorInputs, results: CalculatorResults) => {
     try {
+      // Check if user is authenticated
+      if (!currentUser) {
+        throw new Error('Usuário não autenticado');
+      }
+
       const { data, error } = await supabase
         .from('calculator_history')
         .insert({
+          user_id: currentUser.id,
           ticket_medio: inputs.ticketMedio,
           total_dias: inputs.diasCaptacao,
           orcamento: inputs.orcamento,
@@ -273,11 +314,11 @@ export default function Calculator() {
         description: "Projeção registrada no histórico com sucesso.",
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving calculation:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível salvar o cálculo.",
+        description: `Não foi possível salvar o cálculo: ${error.message || error}`,
         variant: "destructive",
       });
     } finally {
