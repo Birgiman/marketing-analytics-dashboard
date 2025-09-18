@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { MaskedInput } from '@/components/ui/masked-input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useLives } from '@/hooks/useLives';
@@ -120,7 +121,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         liveEnd: editingLive.ta_rolando_end ? new Date(editingLive.ta_rolando_end).toISOString().slice(0, 16) : '',
         salesTarget: editingLive.sales_goal?.toString() || '',
         leadsTarget: editingLive.leads_goal?.toString() || '',
-        adsBudget: editingLive.ad_budget?.toString() || ''
+        adsBudget: editingLive.ad_budget ? (editingLive.ad_budget * 100).toString() : ''
       });
 
       // Carregar dateRange se existir
@@ -239,6 +240,11 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
     return cleaned ? parseInt(cleaned, 10) : 0;
   };
 
+  const parseCurrencyValue = (value: string) => {
+    const cleaned = value.replace(/[^\d]/g, '');
+    return cleaned ? parseInt(cleaned, 10) / 100 : 0;
+  };
+
   const handleCreate = async () => {
     try {
       const liveData = {
@@ -249,7 +255,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         ta_rolando_end: formData.liveEnd || undefined,
         sales_goal: parseNumericValue(formData.salesTarget),
         leads_goal: parseNumericValue(formData.leadsTarget),
-        ad_budget: parseNumericValue(formData.adsBudget),
+        ad_budget: parseCurrencyValue(formData.adsBudget),
         insights_date_since: dateRange.since,
         insights_date_until: dateRange.until
       };
@@ -375,11 +381,12 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                   <Label htmlFor="salesTarget" className="text-sm font-medium">
                     Meta de vendas
                   </Label>
-                  <Input
+                  <MaskedInput
                     id="salesTarget"
-                    placeholder="Ex: 5000"
+                    mask="number"
+                    placeholder="Ex: 5.000"
                     value={formData.salesTarget}
-                    onChange={(e) => handleInputChange('salesTarget', e.target.value)}
+                    onChange={(value) => handleInputChange('salesTarget', value)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -389,7 +396,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                   <Input
                     id="leadsTarget"
                     placeholder="Ex: 100"
-                    type="number"
                     value={formData.leadsTarget}
                     onChange={(e) => handleInputChange('leadsTarget', e.target.value)}
                   />
@@ -401,11 +407,12 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                 <Label htmlFor="adsBudget" className="text-sm font-medium">
                   Orçamento para anúncios
                 </Label>
-                <Input
+                <MaskedInput
                   id="adsBudget"
-                  placeholder="Ex: 2000"
+                  mask="currency"
+                  placeholder="Ex: R$ 2.000,00"
                   value={formData.adsBudget}
-                  onChange={(e) => handleInputChange('adsBudget', e.target.value)}
+                  onChange={(value) => handleInputChange('adsBudget', value)}
                 />
               </div>
 
