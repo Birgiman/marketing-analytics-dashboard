@@ -14,9 +14,7 @@ import Leads from "./pages/Leads";
 import Profile from "./pages/Profile";
 import Calculator from "./pages/Calculator";
 import Admin from "./pages/Admin";
-import Details from "./pages/Details";
-import TrafficAnalysis from "./pages/TrafficAnalysis";
-import ResearchInsights from "./pages/ResearchInsights";
+import LiveDetailsLayout from "./components/LiveDetailsLayout";
 import SalesByGroup from "./pages/SalesByGroup";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
@@ -56,9 +54,12 @@ function AppContent() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/lives" element={<Lives />} />
-            <Route path="/details" element={<Details />} />
-            <Route path="/traffic-analysis" element={<TrafficAnalysis />} />
-            <Route path="/research-insights" element={<ResearchInsights />} />
+
+            {/* Rotas unificadas para detalhes da Live */}
+            <Route path="/details" element={<LiveDetailsLayout defaultTab="details" />} />
+            <Route path="/traffic-analysis" element={<LiveDetailsLayout defaultTab="traffic" />} />
+            <Route path="/research-insights" element={<LiveDetailsLayout defaultTab="insights" />} />
+
             <Route path="/sales-by-group" element={<SalesByGroup />} />
             <Route path="/calculator" element={<Calculator />} />
             <Route path="/analytics" element={<Analytics />} />
@@ -66,9 +67,9 @@ function AppContent() {
             <Route path="/leads" element={<Leads />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<Admin />} />
-        <Route path="/admin/supabase-config" element={<SupabaseConfig />} />
-        <Route path="/admin/create-test-user" element={<CreateTestUser />} />
-        <Route path="*" element={<NotFound />} />
+            <Route path="/admin/supabase-config" element={<SupabaseConfig />} />
+            <Route path="/admin/create-test-user" element={<CreateTestUser />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
       </div>
