@@ -521,98 +521,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                 </p>
               </div>
 
-              {/* Date Range Selector */}
-              <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
-                <h4 className="font-medium text-sm mb-2 text-blue-800">📊 Período de Análise dos Insights</h4>
-                <p className="text-xs text-blue-600 mb-3">
-                  Defina o período para coleta dos dados das campanhas Meta Ads
-                </p>
-                
-                {/* Botões de datas rápidas */}
-                <div className="flex gap-2 mb-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const today = new Date();
-                      const thirtyDaysAgo = new Date();
-                      thirtyDaysAgo.setDate(today.getDate() - 30);
-
-                      setDateRange({
-                        since: thirtyDaysAgo.toISOString().split('T')[0],
-                        until: today.toISOString().split('T')[0]
-                      });
-                    }}
-                    className="text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
-                  >
-                    📅 30 dias
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const today = new Date();
-                      const threeMonthsAgo = new Date();
-                      threeMonthsAgo.setMonth(today.getMonth() - 3);
-
-                      setDateRange({
-                        since: threeMonthsAgo.toISOString().split('T')[0],
-                        until: today.toISOString().split('T')[0]
-                      });
-                    }}
-                    className="text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
-                  >
-                    📅 3 meses
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const today = new Date();
-                      const oneYearAgo = new Date();
-                      oneYearAgo.setFullYear(today.getFullYear() - 1);
-
-                      setDateRange({
-                        since: oneYearAgo.toISOString().split('T')[0],
-                        until: today.toISOString().split('T')[0]
-                      });
-                    }}
-                    className="text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
-                  >
-                    📅 1 ano
-                  </Button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="dateFrom" className="text-xs font-medium text-blue-700">
-                      Data inicial
-                    </Label>
-                    <Input
-                      id="dateFrom"
-                      type="date"
-                      value={dateRange.since}
-                      onChange={(e) => setDateRange(prev => ({ ...prev, since: e.target.value }))}
-                      className="text-sm h-8"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="dateUntil" className="text-xs font-medium text-blue-700">
-                      Data final
-                    </Label>
-                    <Input
-                      id="dateUntil"
-                      type="date"
-                      value={dateRange.until}
-                      onChange={(e) => setDateRange(prev => ({ ...prev, until: e.target.value }))}
-                      className="text-sm h-8"
-                    />
-                  </div>
-                </div>
-              </div>
 
               {/* Campaigns Section */}
               <div className="space-y-4 flex-1 min-h-0">
@@ -793,6 +701,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         alreadySelected={selectedCampaigns}
         linkedCampaigns={linkedCampaigns.map(c => c.campaign_id)}
         dateRange={dateRange}
+        onDateRangeChange={setDateRange}
       />
     </>
   );

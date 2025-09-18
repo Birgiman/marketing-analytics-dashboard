@@ -19,6 +19,7 @@ interface CampaignSelectorProps {
     since: string;
     until: string;
   };
+  onDateRangeChange?: (dateRange: { since: string; until: string }) => void;
 }
 
 const CampaignSelector: React.FC<CampaignSelectorProps> = ({
@@ -28,7 +29,8 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   userId,
   alreadySelected = [],
   linkedCampaigns = [],
-  dateRange
+  dateRange,
+  onDateRangeChange
 }) => {
   const [step, setStep] = useState(1); // 1 = Select Account, 2 = Select Campaigns
   const [adAccounts, setAdAccounts] = useState<any[]>([]);
@@ -476,10 +478,28 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                   </div>
                 </div>
 
-                {/* Opções de busca */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* TEMPORARIAMENTE COMENTADO: Opções "Exibir todas" e "Busca manual" serão reativadas em futuras melhorias antes do lançamento */}
-                  {/* 
+                {/*
+                =====================================================================================
+                NOTA PARA FUTURAS MELHORIAS:
+
+                As opções "Exibir todas" e "Busca manual" foram temporariamente desabilitadas
+                para simplificar a UX do usuário. Atualmente apenas a "Busca automática" está ativa.
+
+                Essas opções podem ser reativadas em versões futuras conforme necessidade:
+
+                1. "Exibir todas" - Mostra todas as campanhas da conta sem filtros
+                2. "Busca manual" - Permite busca com palavra-chave específica na API do Meta
+                3. "Busca automática" - Busca por padrão e seleciona automaticamente (ATIVA)
+
+                Para reativar, descomente o código abaixo e ajuste o grid para 3 colunas.
+                =====================================================================================
+                */}
+
+                {/* Opções de busca - Atualmente apenas Busca Automática está ativa */}
+                <div className="grid grid-cols-1 gap-4">
+                  {/*
+                  FUTURAS MELHORIAS: Opções comentadas para possível reativação
+
                   <div className="flex items-center gap-2 p-3 border rounded-lg">
                     <input
                       type="radio"
@@ -490,6 +510,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                     />
                     <label htmlFor="show-all" className="text-sm">Exibir todas</label>
                   </div>
+
                   <div className="flex items-center gap-2 p-3 border rounded-lg">
                     <input
                       type="radio"
@@ -501,6 +522,8 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                     <label htmlFor="search-by-keyword" className="text-sm">Busca manual</label>
                   </div>
                   */}
+
+                  {/* Opção ativa: Busca automática com seleção inteligente */}
                   <div className="flex items-center gap-2 p-3 border-2 border-blue-300 rounded-lg bg-blue-50">
                     <input
                       type="radio"
@@ -508,8 +531,11 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                       name="search-mode"
                       checked={useAutoSearch}
                       onChange={() => handleSearchModeChange('auto')}
+                      readOnly
                     />
-                    <label htmlFor="auto-search" className="text-sm font-medium text-blue-700">Busca automática</label>
+                    <label htmlFor="auto-search" className="text-sm font-medium text-blue-700">
+                      🎯 Busca automática (Recomendado)
+                    </label>
                   </div>
                 </div>
 
@@ -534,8 +560,8 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                   </div>
                 </div>
 
-                {/* Barra de busca */}
-                {useAutoSearch ? (
+                {/* Barra de busca - Atualmente apenas busca automática está ativa */}
+                {useAutoSearch && (
                   <div className="space-y-3">
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                       <p className="text-sm text-blue-800 mb-2">
@@ -545,7 +571,9 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                         Formato recomendado: TERMO_EM_MAIUSCULO_COM_UNDERLINES
                       </p>
                     </div>
-                    <div className="flex gap-2">
+
+                    {/* Linha com busca e período de datas */}
+                    <div className="flex gap-2 items-end">
                       <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                         <Input
@@ -556,38 +584,70 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                           onKeyPress={(e) => e.key === 'Enter' && handleAutoSearch()}
                         />
                       </div>
+
+                      {/* Período de dados inline */}
+                      <div className="flex gap-2 items-center">
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-600">Data inicial</label>
+                          <Input
+                            type="date"
+                            value={dateRange?.since || ''}
+                            onChange={(e) => {
+                              if (dateRange && onDateRangeChange) {
+                                onDateRangeChange({ ...dateRange, since: e.target.value });
+                              }
+                            }}
+                            className="text-xs w-32"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-600">Data final</label>
+                          <Input
+                            type="date"
+                            value={dateRange?.until || ''}
+                            onChange={(e) => {
+                              if (dateRange && onDateRangeChange) {
+                                onDateRangeChange({ ...dateRange, until: e.target.value });
+                              }
+                            }}
+                            className="text-xs w-32"
+                          />
+                        </div>
+                      </div>
+
                       <Button onClick={handleAutoSearch} disabled={!autoSearchTerm.trim()}>
                         Buscar Campanhas
                       </Button>
                     </div>
                   </div>
-                ) : useSearch ? (
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                      <Input
-                        placeholder="Digite palavra-chave da campanha (ex: Black Friday)..."
-                        value={searchTerm}
-                        onChange={(e) => saveSearchTerm(e.target.value)}
-                        className="pl-10"
-                        onKeyPress={(e) => e.key === 'Enter' && handleSearchSubmit()}
-                      />
-                    </div>
-                    <Button onClick={handleSearchSubmit} disabled={!searchTerm.trim()}>
-                      Buscar
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      placeholder="Filtrar campanhas por nome..."
-                      value={searchTerm}
-                      onChange={(e) => saveSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
                 )}
+
+                {/*
+                =====================================================================================
+                FUTURAS MELHORIAS: Outros tipos de busca comentados
+
+                Para reativar as outras opções de busca, será necessário:
+
+                1. BUSCA MANUAL: Implementar busca com palavra-chave específica
+                   - Campo de input para termo de busca
+                   - Botão para executar busca na API do Meta
+                   - Filtro aplicado diretamente na requisição
+
+                2. FILTRO LOCAL: Implementar filtro simples por nome
+                   - Campo de input para filtrar campanhas já carregadas
+                   - Filtragem realizada no frontend sem nova requisição
+                   - Útil para explorar campanhas já obtidas
+
+                3. EXIBIR TODAS: Mostrar todas as campanhas sem filtros
+                   - Carrega todas as campanhas da conta selecionada
+                   - Permite exploração completa do catálogo
+                   - Pode ser útil para descoberta de campanhas
+
+                Para implementar, descomente o código nas linhas 500-524 e ajuste a lógica
+                condicional para incluir os casos useSearch e !useSearch && !useAutoSearch.
+                =====================================================================================
+                */}
               </div>
 
               {/* Estado de Loading */}
