@@ -10,6 +10,7 @@ import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 // META API DIRECT - Requisições diretas ao Meta Marketing API
 import { getCPLFromMeta } from "@/utils/meta-requests/getCPLFromMeta";
+import { getLiveMetaDataWithFallback } from "@/utils/meta-requests/getLiveMetaData";
 import { Activity, AlertCircle, RefreshCw, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -282,31 +283,47 @@ const Details = () => {
   
   // Função para testar requisição direta ao Meta Marketing API
   const handleTestMetaApiDirect = async () => {
-    if (!live) return;
+    if (!liveId) return;
 
     setMetaApiLoading(true);
     try {
       console.log('⚡ [META-API-DIRECT] Iniciando teste de requisição direta ao Meta...');
       
-      // Dados necessários para a requisição
-      const accountId = '269382281240887'; // TODO: Pegar do live ou configuração
+      // 1. Buscar dados da live no banco de dados
+      console.log('🔍 [META-API-DIRECT] Buscando dados da live no banco...');
+      const liveDataResult = await getLiveMetaDataWithFallback(liveId);
+      
+      if (!liveDataResult.success || !liveDataResult.data) {
+        throw new Error(`Erro ao buscar dados da live: ${liveDataResult.error}`);
+      }
+      
+      const liveData = liveDataResult.data;
+      console.log('✅ [META-API-DIRECT] Dados da live obtidos:', liveData);
+      
+      // 2. Preparar dados para a requisição ao Meta
+      const accountId = liveData.accountId || '269382281240887'; // Fallback para teste
       const accessToken = 'EAAPgBgJNkMYBPZA6EyZAvb2uFsRle6b9LN3D087Gdo5CCPgJqdwMGQc5ygtBVdCX1ZBiA42pYuk27ZAkvSKNnKOZCWrZCImhEFVvv7F6Cop3X0QZBZAlF6GfsiqA2CoRwTNyoLHKGUntIEzSmXL0o069wo168YlZABMpGWvhYnssc2VXfeZC5bQ197MlN1yW9UPp1F5Tlx'; // TODO: Pegar do ambiente
       
-      // Preparar filtros baseados nos dados da live
+      // 3. Preparar filtros baseados nos dados do banco
       const filters = {
         campaignStatus: ['ACTIVE', 'PAUSED'] as string[],
-        campaignName: live.campaign_search_term || undefined,
-        dateRange: live.insights_date_since && live.insights_date_until ? {
-          since: live.insights_date_since,
-          until: live.insights_date_until
+        campaignName: liveData.campaignSearchTerm || undefined,
+        dateRange: liveData.insightsDateSince && liveData.insightsDateUntil ? {
+          since: liveData.insightsDateSince,
+          until: liveData.insightsDateUntil
         } : undefined
       };
 
-      // Debug: verificar se o termo está sendo passado
-      console.log('🔍 [META-API-DIRECT] Termo de busca da live:', live.campaign_search_term);
+      // Debug: verificar se os dados estão corretos
+      console.log('🔍 [META-API-DIRECT] Dados do banco:', {
+        termo: liveData.campaignSearchTerm,
+        accountId: liveData.accountId,
+        periodo: `${liveData.insightsDateSince} até ${liveData.insightsDateUntil}`,
+        campanhas: liveData.campaignCount
+      });
       console.log('🔍 [META-API-DIRECT] Filtros preparados:', filters);
 
-      // Fazer requisição direta ao Meta
+      // 4. Fazer requisição direta ao Meta
       const result = await getCPLFromMeta({
         accountId,
         accessToken,
@@ -325,7 +342,7 @@ const Details = () => {
         console.log('⚡ [META-API-DIRECT] ✅ Requisição direta concluída:', result.data);
 
         // Mostrar alert com resultados
-        alert(`⚡ Meta API Direta - Sucesso!\n\n📊 RESULTADOS:\n• CPL: R$ ${result.data.cpl.toFixed(2)}\n• Gasto Total: R$ ${result.data.totalSpend.toFixed(2)}\n• Total Leads: ${result.data.totalLeads}\n• Campanhas: ${result.data.campaignCount}\n\n🔍 FILTROS APLICADOS:\n• Status: ${filters.campaignStatus.join(', ')}\n• Nome: ${filters.campaignName || 'Todos'}\n• Período: ${filters.dateRange ? `${filters.dateRange.since} até ${filters.dateRange.until}` : 'Padrão'}\n\nVeja o console para logs detalhados!`);
+        alert(`⚡ Meta API Direta - Sucesso!\n\n📊 RESULTADOS:\n• CPL: R$ ${result.data.cpl.toFixed(2)}\n• Gasto Total: R$ ${result.data.totalSpend.toFixed(2)}\n• Total Leads: ${result.data.totalLeads}\n• Campanhas: ${result.data.campaignCount}\n\n🔍 FILTROS APLICADOS:\n• Status: ${filters.campaignStatus.join(', ')}\n• Nome: ${filters.campaignName || 'Todos'}\n• Período: ${filters.dateRange ? `${filters.dateRange.since} até ${filters.dateRange.until}` : 'Padrão'}\n\n📋 DADOS DO BANCO:\n• Termo: ${liveData.campaignSearchTerm}\n• Account ID: ${liveData.accountId}\n• Campanhas vinculadas: ${liveData.campaignCount}\n\nVeja o console para logs detalhados!`);
       } else {
         console.error('⚡ [META-API-DIRECT] ❌ Erro na requisição:', result.error);
         alert(`❌ Erro na Meta API Direta: ${result.error}`);
