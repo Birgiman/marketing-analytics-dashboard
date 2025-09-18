@@ -534,7 +534,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                       readOnly
                     />
                     <label htmlFor="auto-search" className="text-sm font-medium text-blue-700">
-                      🎯 Busca automática (Recomendado)
+                      🎯 Busca automática
                     </label>
                   </div>
                 </div>
@@ -564,11 +564,8 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                 {useAutoSearch && (
                   <div className="space-y-3">
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <p className="text-sm text-blue-800 mb-2">
-                        <strong>🎯 Busca Automática:</strong> Digite o padrão das campanhas (ex: BLACK_FRIDAY_2025) e o sistema selecionará automaticamente todas as campanhas que contenham esse termo.
-                      </p>
-                      <p className="text-xs text-blue-600">
-                        Formato recomendado: TERMO_EM_MAIUSCULO_COM_UNDERLINES
+                      <p className="text-sm text-blue-800">
+                        Digite o padrão das campanhas e o sistema selecionará automaticamente todas as campanhas que contenham esse termo.
                       </p>
                     </div>
 
@@ -577,7 +574,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                       <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                         <Input
-                          placeholder="Ex: BLACK_FRIDAY_2025, NATAL_2024, PROMOCAO_VERAO..."
+                          placeholder="Black Friday 2025"
                           value={autoSearchTerm}
                           onChange={(e) => setAutoSearchTerm(e.target.value.toUpperCase())}
                           className="pl-10 font-mono"
