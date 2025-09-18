@@ -47,6 +47,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
   const [showGroupSelector, setShowGroupSelector] = useState(false);
   const [showCampaignSelector, setShowCampaignSelector] = useState(false);
   const [linkedCampaigns, setLinkedCampaigns] = useState<LiveCampaign[]>([]);
+  const [campaignSearchTerm, setCampaignSearchTerm] = useState<string>('');
   const [selectedCampaignsToDelete, setSelectedCampaignsToDelete] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [showTestModal, setShowTestModal] = useState(false);
@@ -174,8 +175,12 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
     setSelectedGroups(prev => prev.filter(g => g.id !== groupId));
   };
 
-  const handleCampaignsSelected = (campaigns: MetaCampaign[]) => {
+  const handleCampaignsSelected = (campaigns: MetaCampaign[], searchTerm?: string) => {
     setSelectedCampaigns(campaigns);
+    if (searchTerm) {
+      setCampaignSearchTerm(searchTerm);
+      console.log('🔍 [CreateLiveModal] Termo de busca capturado:', searchTerm);
+    }
     setShowCampaignSelector(false);
   };
 
@@ -252,7 +257,8 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         leads_goal: parseNumericValue(formData.leadsTarget),
         ad_budget: parseCurrencyValue(formData.adsBudget),
         insights_date_since: dateRange.since,
-        insights_date_until: dateRange.until
+        insights_date_until: dateRange.until,
+        campaign_search_term: campaignSearchTerm || undefined
       };
 
       const groups = selectedGroups.map(group => ({

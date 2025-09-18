@@ -11,7 +11,7 @@ import React, { useEffect, useState } from 'react';
 interface CampaignSelectorProps {
   isOpen: boolean;
   onClose: () => void;
-  onCampaignsSelected: (campaigns: MetaCampaign[]) => void;
+  onCampaignsSelected: (campaigns: MetaCampaign[], searchTerm?: string) => void;
   userId?: string;
   alreadySelected?: MetaCampaign[];
   linkedCampaigns?: string[];
@@ -323,11 +323,13 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   };
 
   const handleConfirm = () => {
-    const selectedCampaigns = campaigns.filter(campaign => 
+    const selectedCampaigns = campaigns.filter(campaign =>
       selectedCampaignIds.includes(campaign.id)
     );
-    
-    onCampaignsSelected(selectedCampaigns);
+
+    // Passar termo de busca junto com campanhas
+    const currentSearchTerm = useSearch ? searchTerm.trim() : autoSearchTerm.trim();
+    onCampaignsSelected(selectedCampaigns, currentSearchTerm || undefined);
     onClose();
   };
 

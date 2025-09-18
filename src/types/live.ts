@@ -17,6 +17,7 @@ export interface Live {
   ad_budget?: number;
   insights_date_since?: string;
   insights_date_until?: string;
+  campaign_search_term?: string; // Termo para buscar campanhas no Meta
   created_at: string;
   updated_at: string;
   // Relações

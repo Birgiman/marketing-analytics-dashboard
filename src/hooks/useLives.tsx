@@ -14,6 +14,7 @@ interface LiveData {
   ad_budget?: number
   insights_date_since?: string
   insights_date_until?: string
+  campaign_search_term?: string
 }
 
 interface LiveGroup {
@@ -61,7 +62,8 @@ export function useLives() {
           leads_goal: liveData.leads_goal || 0,
           ad_budget: liveData.ad_budget || 0,
           insights_date_since: liveData.insights_date_since || null,
-          insights_date_until: liveData.insights_date_until || null
+          insights_date_until: liveData.insights_date_until || null,
+          campaign_search_term: liveData.campaign_search_term || null
         })
         .select()
         .single()
@@ -94,9 +96,16 @@ export function useLives() {
         }
       }
 
-      // Create live_campaigns entries
+      // Create live_campaigns entries (with duplicate prevention)
       if (campaigns.length > 0) {
-        const liveCampaigns = campaigns.map(campaign => ({
+        // Since this is a new live, we shouldn't have duplicates, but let's be safe
+        const uniqueCampaigns = campaigns.filter((campaign, index, self) =>
+          index === self.findIndex(c => c.id === campaign.id)
+        )
+
+        console.log(`[useLives] Criando ${uniqueCampaigns.length} campanhas para nova live`)
+
+        const liveCampaigns = uniqueCampaigns.map(campaign => ({
           live_id: liveResult.id,
           campaign_id: campaign.id,
           campaign_name: campaign.name,
@@ -208,7 +217,8 @@ export function useLives() {
           leads_goal: liveData.leads_goal || 0,
           ad_budget: liveData.ad_budget || 0,
           insights_date_since: liveData.insights_date_since || null,
-          insights_date_until: liveData.insights_date_until || null
+          insights_date_until: liveData.insights_date_until || null,
+          campaign_search_term: liveData.campaign_search_term || null
         })
         .eq('id', liveId)
         .eq('user_id', session.session.user.id)
@@ -252,25 +262,49 @@ export function useLives() {
 
       // Add new live_campaigns entries (only new ones, don't replace existing)
       if (campaigns.length > 0) {
-        const liveCampaigns = campaigns.map(campaign => ({
-          live_id: liveId,
-          campaign_id: campaign.id,
-          campaign_name: campaign.name,
-          account_id: campaign.account_id || null,
-          account_name: campaign.account_name || null,
-          objective: campaign.objective || null,
-          status: campaign.status,
-          daily_budget: campaign.daily_budget ? parseFloat(campaign.daily_budget) : null,
-          lifetime_budget: campaign.lifetime_budget ? parseFloat(campaign.lifetime_budget) : null
-        }))
-
-        const { error: campaignsError } = await supabase
+        // First, check which campaigns already exist for this live
+        const { data: existingCampaigns, error: fetchError } = await supabase
           .from('live_campaigns')
-          .insert(liveCampaigns)
+          .select('campaign_id')
+          .eq('live_id', liveId)
 
-        if (campaignsError) {
-          console.error('Error adding new live campaigns:', campaignsError)
-          throw new Error(`Erro ao adicionar campanhas: ${campaignsError.message}`)
+        if (fetchError) {
+          console.error('Error fetching existing campaigns:', fetchError)
+          throw new Error(`Erro ao verificar campanhas existentes: ${fetchError.message}`)
+        }
+
+        // Get existing campaign IDs
+        const existingCampaignIds = existingCampaigns?.map(c => c.campaign_id) || []
+
+        // Filter only new campaigns that don't exist yet
+        const newCampaigns = campaigns.filter(campaign =>
+          !existingCampaignIds.includes(campaign.id)
+        )
+
+        console.log(`[useLives] Campanhas para adicionar: ${campaigns.length} total, ${existingCampaignIds.length} já existem, ${newCampaigns.length} novas`)
+
+        // Only insert truly new campaigns
+        if (newCampaigns.length > 0) {
+          const liveCampaigns = newCampaigns.map(campaign => ({
+            live_id: liveId,
+            campaign_id: campaign.id,
+            campaign_name: campaign.name,
+            account_id: campaign.account_id || null,
+            account_name: campaign.account_name || null,
+            objective: campaign.objective || null,
+            status: campaign.status,
+            daily_budget: campaign.daily_budget ? parseFloat(campaign.daily_budget) : null,
+            lifetime_budget: campaign.lifetime_budget ? parseFloat(campaign.lifetime_budget) : null
+          }))
+
+          const { error: campaignsError } = await supabase
+            .from('live_campaigns')
+            .insert(liveCampaigns)
+
+          if (campaignsError) {
+            console.error('Error adding new live campaigns:', campaignsError)
+            throw new Error(`Erro ao adicionar campanhas: ${campaignsError.message}`)
+          }
         }
       }
 
