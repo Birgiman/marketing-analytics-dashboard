@@ -5,7 +5,6 @@ import {
   Users, 
   TrendingUp, 
   Calculator, 
-  UserCheck, 
   Zap, 
   Settings, 
   LogOut,
@@ -49,11 +48,6 @@ const mainMenuItems = [
     title: "Calculadora De LiveShop", 
     url: "/calculator", 
     icon: Calculator 
-  },
-  { 
-    title: "Usuários", 
-    url: "/users", 
-    icon: UserCheck 
   },
   { 
     title: "Integrações", 
