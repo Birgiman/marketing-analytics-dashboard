@@ -40,6 +40,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [useSearch, setUseSearch] = useState(false);
   const [useAutoSearch, setUseAutoSearch] = useState(true); // MODIFICADO: Abrir direto na busca automática
+  const [hasSearched, setHasSearched] = useState(false); // Controla se já foi feita uma busca
   const [autoSearchTerm, setAutoSearchTerm] = useState('');
 
   // Chave para armazenamento no localStorage
@@ -120,6 +121,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
       setError(null);
       setShowActive(true);
       setShowPaused(true);
+      setHasSearched(false);
     }
   }, [isOpen]);
 
@@ -150,11 +152,11 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
 
       setAdAccounts(accounts);
       
-      // Se só tem 1 conta, seleciona automaticamente
+      // Se só tem 1 conta, seleciona automaticamente (mas não carrega campanhas)
       if (accounts.length === 1) {
         setSelectedAccount(accounts[0]);
         setStep(2);
-        await loadCampaignsFromAccount(accounts[0], accessToken);
+        // Não carrega campanhas automaticamente - aguarda ação do usuário
       }
       
     } catch (err) {
@@ -249,7 +251,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   const handleAccountSelect = (account: any) => {
     setSelectedAccount(account);
     setStep(2);
-    loadCampaignsFromAccount(account);
+    // Não carrega campanhas automaticamente - aguarda ação do usuário
   };
 
   const handleBackToAccounts = () => {
@@ -282,28 +284,29 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
 
     try {
       setLoading(true);
+      setHasSearched(true);
 
       // Buscar todas as campanhas da conta
       await loadCampaignsFromAccount(selectedAccount);
-
-      // Após carregar, filtrar e selecionar automaticamente
-      setTimeout(() => {
-        const matchingCampaigns = campaigns.filter(campaign =>
-          campaign.name.toUpperCase().includes(autoSearchTerm.trim().toUpperCase())
-        );
-
-        // Selecionar automaticamente todas as campanhas que contêm o termo
-        const matchingIds = matchingCampaigns.map(c => c.id);
-        setSelectedCampaignIds(matchingIds);
-
-        setLoading(false);
-      }, 500);
 
     } catch (error) {
       console.error('Error in auto search:', error);
       setLoading(false);
     }
   };
+
+  // Efeito para selecionar automaticamente campanhas após carregamento
+  useEffect(() => {
+    if (hasSearched && autoSearchTerm && campaigns.length > 0 && !loading) {
+      const matchingCampaigns = campaigns.filter(campaign =>
+        campaign.name.toUpperCase().includes(autoSearchTerm.trim().toUpperCase())
+      );
+
+      // Selecionar automaticamente todas as campanhas que contêm o termo
+      const matchingIds = matchingCampaigns.map(c => c.id);
+      setSelectedCampaignIds(matchingIds);
+    }
+  }, [campaigns, autoSearchTerm, hasSearched, loading]);
 
   const handleCampaignToggle = (campaign: MetaCampaign) => {
     setSelectedCampaignIds(prev => {
@@ -683,12 +686,20 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
               {/* Lista de Campanhas */}
               {!loading && !error && (
                 <div className="flex-1 overflow-y-auto space-y-2">
-                  {filteredCampaigns.length === 0 ? (
+                  {!hasSearched ? (
+                    <div className="text-center py-8">
+                      <Target className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                      <p className="text-gray-600">Nenhuma campanha encontrada</p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Digite um termo e clique em "Buscar Campanhas" para começar
+                      </p>
+                    </div>
+                  ) : filteredCampaigns.length === 0 ? (
                     <div className="text-center py-8">
                       <Target className="h-12 w-12 mx-auto text-gray-300 mb-3" />
                       <p className="text-gray-600">
-                        {useSearch && searchTerm ? 
-                          'Nenhuma campanha encontrada para sua busca' : 
+                        {useSearch && searchTerm ?
+                          'Nenhuma campanha encontrada para sua busca' :
                           campaigns.length === 0 ? 'Nenhuma campanha disponível nesta conta' :
                           'Nenhuma campanha corresponde ao filtro'
                         }
