@@ -3,12 +3,14 @@ import { LiveMetricsCards } from "@/components/LiveMetricsCards";
 import PerformanceAnalysis from "@/components/PerformanceAnalysis";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache";
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 // V2 IMPORTS - Novos cálculos
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
-import { Activity, AlertCircle, RefreshCw, TrendingDown, Users } from "lucide-react";
+// META API DIRECT - Requisições diretas ao Meta Marketing API
+import { getCPLFromMeta } from "@/utils/meta-requests/getCPLFromMeta";
+import { Activity, AlertCircle, RefreshCw, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
@@ -18,6 +20,14 @@ const Details = () => {
   const liveId = searchParams.get('live');
   
   const [testLoading, setTestLoading] = useState(false);
+  const [metaApiLoading, setMetaApiLoading] = useState(false);
+  const [metaApiData, setMetaApiData] = useState<{
+    cpl: number;
+    totalSpend: number;
+    totalLeads: number;
+    campaignCount: number;
+    logs: string[];
+  } | null>(null);
 
   // ============================================================================
   // VERSÃO V1 (COMENTADA) - Código original
@@ -266,6 +276,65 @@ const Details = () => {
     }
   };
 
+  // ============================================================================
+  // META API DIRECT - Função para testar requisição direta ao Meta
+  // ============================================================================
+  
+  // Função para testar requisição direta ao Meta Marketing API
+  const handleTestMetaApiDirect = async () => {
+    if (!live) return;
+
+    setMetaApiLoading(true);
+    try {
+      console.log('⚡ [META-API-DIRECT] Iniciando teste de requisição direta ao Meta...');
+      
+      // Dados necessários para a requisição
+      const accountId = '269382281240887'; // TODO: Pegar do live ou configuração
+      const accessToken = 'EAAPgBgJNkMYBPZA6EyZAvb2uFsRle6b9LN3D087Gdo5CCPgJqdwMGQc5ygtBVdCX1ZBiA42pYuk27ZAkvSKNnKOZCWrZCImhEFVvv7F6Cop3X0QZBZAlF6GfsiqA2CoRwTNyoLHKGUntIEzSmXL0o069wo168YlZABMpGWvhYnssc2VXfeZC5bQ197MlN1yW9UPp1F5Tlx'; // TODO: Pegar do ambiente
+      
+      // Preparar filtros baseados nos dados da live
+      const filters = {
+        campaignStatus: ['ACTIVE', 'PAUSED'] as string[],
+        campaignName: live.campaign_search_term || undefined,
+        dateRange: live.insights_date_since && live.insights_date_until ? {
+          since: live.insights_date_since,
+          until: live.insights_date_until
+        } : undefined
+      };
+
+      // Fazer requisição direta ao Meta
+      const result = await getCPLFromMeta({
+        accountId,
+        accessToken,
+        filters
+      });
+
+      if (result.success && result.data) {
+        setMetaApiData({
+          cpl: result.data.cpl,
+          totalSpend: result.data.totalSpend,
+          totalLeads: result.data.totalLeads,
+          campaignCount: result.data.campaignCount,
+          logs: result.logs || []
+        });
+
+        console.log('⚡ [META-API-DIRECT] ✅ Requisição direta concluída:', result.data);
+
+        // Mostrar alert com resultados
+        alert(`⚡ Meta API Direta - Sucesso!\n\n📊 RESULTADOS:\n• CPL: R$ ${result.data.cpl.toFixed(2)}\n• Gasto Total: R$ ${result.data.totalSpend.toFixed(2)}\n• Total Leads: ${result.data.totalLeads}\n• Campanhas: ${result.data.campaignCount}\n\n🔍 FILTROS APLICADOS:\n• Status: ${filters.campaignStatus.join(', ')}\n• Nome: ${filters.campaignName || 'Todos'}\n• Período: ${filters.dateRange ? `${filters.dateRange.since} até ${filters.dateRange.until}` : 'Padrão'}\n\nVeja o console para logs detalhados!`);
+      } else {
+        console.error('⚡ [META-API-DIRECT] ❌ Erro na requisição:', result.error);
+        alert(`❌ Erro na Meta API Direta: ${result.error}`);
+      }
+
+    } catch (error) {
+      console.error('⚡ [META-API-DIRECT] ❌ Erro inesperado:', error);
+      alert(`❌ Erro inesperado: ${error}`);
+    } finally {
+      setMetaApiLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -429,6 +498,58 @@ const Details = () => {
                 Vincular Campanhas
               </Button>
             )}
+          </div>
+        </div>
+
+        {/* Status dos Dados Meta API Direta */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Zap className="h-5 w-5 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-blue-900">⚡ Meta API Direta</h3>
+              <div className="text-sm text-blue-700 space-y-1 mt-1">
+                {metaApiData ? (
+                  <>
+                    <p>
+                      <strong>CPL Direto:</strong> R$ {metaApiData.cpl.toFixed(2)}
+                    </p>
+                    <p>
+                      <strong>Gasto Total:</strong> R$ {metaApiData.totalSpend.toFixed(2)}
+                    </p>
+                    <p>
+                      <strong>Total Leads:</strong> {metaApiData.totalLeads}
+                    </p>
+                    <p>
+                      <strong>Campanhas:</strong> {metaApiData.campaignCount}
+                    </p>
+                    <p className="text-xs text-blue-600">
+                      <strong>Última atualização:</strong> {new Date().toLocaleTimeString()}
+                    </p>
+                  </>
+                ) : (
+                  <p>⚡ Clique no botão para testar requisição direta ao Meta</p>
+                )}
+              </div>
+            </div>
+            <Button
+              onClick={handleTestMetaApiDirect}
+              disabled={metaApiLoading}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              size="sm"
+            >
+              {metaApiLoading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Testando...
+                </>
+              ) : (
+                <>
+                  ⚡ Testar Meta API
+                </>
+              )}
+            </Button>
           </div>
         </div>
         
