@@ -465,9 +465,9 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-2 max-h-32 overflow-y-auto bg-gray-50 rounded-lg p-3">
+                  <div className="space-y-2 max-h-48 overflow-y-auto rounded-lg p-3">
                     {selectedGroups.map((group) => (
-                      <div key={group.id} className="flex items-start justify-between p-2 bg-muted rounded-lg gap-2">
+                      <div key={group.id} className="flex items-start justify-between p-2 bg-green-50 border border-green-200 rounded-lg gap-2">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium break-words leading-tight">{group.group_name}</p>
                           <p className="text-xs text-muted-foreground">{group.group_size} participantes</p>
@@ -601,7 +601,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-2 max-h-32 max-w-full overflow-x-auto overflow-y-auto pr-2">
+                    <div className="space-y-2 max-h-48 max-w-full overflow-x-auto overflow-y-auto pr-2">
                       {selectedCampaigns.map((campaign) => (
                         <div key={campaign.id} className="flex items-start justify-between p-2 bg-green-50 border border-green-200 rounded-lg gap-2">
                           <div className="flex-1 min-w-0">
@@ -633,7 +633,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                   )}
                   {selectedCampaigns.length > 0 && (
                     <Badge variant="outline" className="w-fit border-green-300 text-green-700">
-                      +{selectedCampaigns.length === 1 ? '1 nova' : `${selectedCampaigns.length} novas`}
+                      Total: {(linkedCampaigns?.length || 0) + selectedCampaigns.length}
                     </Badge>
                   )}
                 </div>
