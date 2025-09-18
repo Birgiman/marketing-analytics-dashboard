@@ -4,13 +4,35 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  fetchAdAccounts, 
-  fetchCampaigns, 
-  extractLeads, 
+import {
+  fetchAdAccounts,
+  fetchCampaigns,
+  extractLeads,
   formatMetaCurrency,
-  type MetaInsight 
+  type MetaInsight
 } from './metaApi';
+
+// Interface para dados formatados da tabela de creativos
+interface CreativeTableData {
+  id: string;
+  day: string;
+  campaign_name: string;
+  ad_set_name: string;
+  ad_name: string;
+  amount_spent: number;
+  leads: number;
+  cpl: number;
+  quality_score?: number;
+  thumb_url?: string;
+  impressions?: number;
+  clicks?: number;
+  reach?: number;
+  frequency?: number;
+  cpm?: string;
+  ctr?: string;
+  cpp?: string;
+  cost_per_unique_click?: string;
+}
 
 const BASE_URL = 'https://graph.facebook.com/v23.0';
 
@@ -273,7 +295,7 @@ export async function fetchAdInsights(
  * Helper: Formata dados para serem compatíveis com a estrutura atual
  * Permite migração gradual sem quebrar a interface existente
  */
-export function formatForCreativesTable(data: LiveCampaignData[]): any[] {
+export function formatForCreativesTable(data: LiveCampaignData[]): CreativeTableData[] {
   return data.map((item, index) => ({
     id: `meta_${index}`,
     day: item.day,
@@ -308,7 +330,7 @@ export async function getCreativesData(
  * Função simplificada para casos onde não há integração Meta
  * Retorna dados de fallback para manter a aplicação funcionando
  */
-export function getFallbackCreativesData(): any[] {
+export function getFallbackCreativesData(): CreativeTableData[] {
   return [{
     id: 'fallback_1',
     day: new Date().toISOString().split('T')[0],

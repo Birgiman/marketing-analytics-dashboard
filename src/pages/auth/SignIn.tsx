@@ -66,7 +66,7 @@ export default function SignIn() {
             setError('Status da conta inválido');
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       setError(error.message || 'Erro ao fazer login');
     } finally {
       setLoading(false);

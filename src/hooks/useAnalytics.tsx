@@ -62,7 +62,7 @@ export const useAnalytics = (userId?: string) => {
         loading: false,
         error: null
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading analytics data:', error);
       setData(prev => ({
         ...prev,
@@ -101,7 +101,7 @@ export const useAnalytics = (userId?: string) => {
       });
 
       return live;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating live:', error);
       toast({
         title: "Erro ao criar live",
@@ -129,7 +129,7 @@ export const useAnalytics = (userId?: string) => {
       }));
 
       return live;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating live:', error);
       toast({
         title: "Erro ao atualizar live",
@@ -158,7 +158,7 @@ export const useAnalytics = (userId?: string) => {
         title: "Live deletada",
         description: "Live foi removida com sucesso",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting live:', error);
       toast({
         title: "Erro ao deletar live",

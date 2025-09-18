@@ -546,7 +546,7 @@ export async function fetchLiveCampaignsInsights(
     campaignStatuses?: MetaCampaignStatus[];
   } = {}
 ): Promise<{
-  results: any[];
+  results: MetaInsight[];
 }> {
   const {
     level = MetaInsightLevel.CAMPAIGN,
@@ -591,7 +591,7 @@ export async function fetchLiveCampaignsInsights(
 
 
     // Fazer apenas UMA requisição baseada no level escolhido
-    let results: any[];
+    let results: MetaInsight[];
     if (level === MetaInsightLevel.ACCOUNT) {
       // CORRIGIDO: Para level=account, não podemos filtrar por campaign.id
       // Remover filtro de campaign.id quando level=account

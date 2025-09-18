@@ -10,6 +10,26 @@ import { supabase } from "@/integrations/supabase/client";
 import { DEMO_MODE } from "@/lib/demo-mode";
 import { Creative } from "@/types";
 import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
+
+// Interfaces para análise de tráfego
+interface DailyData {
+  originalDate: string;
+  date: string;
+  investment: number;
+  cadastros: number;
+  group: number;
+  cplMeta: number;
+  cplLiquido: number;
+  retention: number;
+}
+
+interface AdSetData {
+  adset_name: string;
+  campaign_name: string;
+  total_spent: number;
+  total_leads: number;
+  cpl: number;
+}
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
@@ -314,19 +334,19 @@ const TrafficAnalysis = () => {
     }
 
     // Calcular CPL Meta e CPL Líquido para cada dia
-    Object.values(dailyData).forEach((day: any) => {
+    Object.values(dailyData).forEach((day: DailyData) => {
       day.cplMeta = day.cadastros > 0 ? day.investment / day.cadastros : 0;
       day.cplLiquido = day.group > 0 ? day.investment / day.group : 0;
       day.retention = day.cadastros > 0 ? Math.round(day.group / day.cadastros * 100) : 0;
     });
     
-    return Object.values(dailyData).sort((a: any, b: any) => new Date(a.originalDate).getTime() - new Date(b.originalDate).getTime());
+    return Object.values(dailyData).sort((a: DailyData, b: DailyData) => new Date(a.originalDate).getTime() - new Date(b.originalDate).getTime());
   };
   
   const tableData = calculateDailyData();
 
   // Filtrar dados por data
-  const filterDataByDate = (data: any[]) => {
+  const filterDataByDate = (data: DailyData[]) => {
     if (!startDate || !endDate) return data;
     
     return data.filter(day => {
@@ -379,12 +399,12 @@ const TrafficAnalysis = () => {
 
     // Calcular CPL para todos os conjuntos
     const adSetsWithCPL = Object.values(adSetData)
-      .map((adSet: any) => ({
+      .map((adSet: AdSetData) => ({
         ...adSet,
         cpl: adSet.total_leads > 0 ? adSet.total_spent / adSet.total_leads : 999999
       }))
-      .filter((adSet: any) => adSet.total_leads > 0)
-      .sort((a: any, b: any) => a.cpl - b.cpl);
+      .filter((adSet: AdSetData) => adSet.total_leads > 0)
+      .sort((a: AdSetData, b: AdSetData) => a.cpl - b.cpl);
       
     return adSetsWithCPL;
   };

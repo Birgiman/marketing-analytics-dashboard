@@ -4,6 +4,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { MetaAction } from '@/types/live';
 
 export interface MetaAdAccount {
   ad_account_id: string;
@@ -366,7 +367,7 @@ class MetaAdsService {
   /**
    * Helpers privados
    */
-  private extractLeadsFromActions(actions: any[]): number {
+  private extractLeadsFromActions(actions: MetaAction[]): number {
     if (!actions) return 0;
     const leadAction = actions.find(action => 
       action.action_type === 'lead' || 
@@ -376,7 +377,7 @@ class MetaAdsService {
     return leadAction ? parseInt(leadAction.value) : 0;
   }
   
-  private extractConversionsFromActions(actions: any[]): number {
+  private extractConversionsFromActions(actions: MetaAction[]): number {
     if (!actions) return 0;
     const conversionActions = actions.filter(action => 
       action.action_type.includes('conversion') ||

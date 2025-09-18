@@ -68,7 +68,7 @@ export default function SeedTestUser() {
       setTestUser(prev => ({ ...prev, userId: data.user!.id }));
       setSuccess(true);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       setError(error.message || 'Erro ao criar usuário de teste');
     } finally {
       setLoading(false);

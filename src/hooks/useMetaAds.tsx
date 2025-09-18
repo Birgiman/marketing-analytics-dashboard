@@ -157,7 +157,7 @@ export function useMetaAds(): UseMetaAdsReturn {
       // Fazer primeira sincronização
       await syncData();
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error connecting Meta account:', err);
       setError(err.message || 'Erro ao conectar conta Meta');
     } finally {
@@ -183,7 +183,7 @@ export function useMetaAds(): UseMetaAdsReturn {
         accounts: prev.accounts.filter(acc => acc.ad_account_id !== accountId)
       }));
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error disconnecting account:', err);
       setError('Erro ao desconectar conta');
     }
@@ -205,7 +205,7 @@ export function useMetaAds(): UseMetaAdsReturn {
       await metaAdsService.fullSync(userId, accountId);
       await refreshData();
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error syncing Meta data:', err);
       setError('Erro na sincronização: ' + err.message);
     } finally {
@@ -230,7 +230,7 @@ export function useMetaAds(): UseMetaAdsReturn {
       const userData = await metaAdsService.getUserData(userId);
       setData(userData);
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error refreshing data:', err);
       setError('Erro ao carregar dados');
     } finally {

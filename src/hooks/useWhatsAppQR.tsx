@@ -169,7 +169,7 @@ export const useWhatsAppQR = (): UseWhatsAppQRResult => {
           description: "Escaneie com seu WhatsApp para conectar",
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setStatus('error');
       setError(err.message || 'Erro ao gerar QR Code');
       toast({
@@ -208,7 +208,7 @@ export const useWhatsAppQR = (): UseWhatsAppQRResult => {
         title: "QR Code Atualizado",
         description: `Tentativa ${attempts + 1}/${MAX_ATTEMPTS}`,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       setStatus('error');
       setError(err.message || 'Erro ao atualizar QR Code');
       toast({
@@ -242,7 +242,7 @@ export const useWhatsAppQR = (): UseWhatsAppQRResult => {
         title: "WhatsApp Desconectado",
         description: "Instância desconectada com sucesso",
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Erro ao desconectar');
       toast({
         title: "Erro ao desconectar",
@@ -286,7 +286,7 @@ export const useWhatsAppQR = (): UseWhatsAppQRResult => {
         title: "Conexão Cancelada",
         description: "Instância removida com sucesso",
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Erro ao deletar instância:', err);
       // Mesmo com erro, resetar estados locais
       setStatus('generating');

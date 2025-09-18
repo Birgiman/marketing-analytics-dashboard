@@ -103,7 +103,7 @@ export const CreateTestUser = () => {
         description: `Email: ${userData.email} | Senha: ${userData.password}`,
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao criar usuário:', error);
       toast({
         title: "Erro ao criar usuário",

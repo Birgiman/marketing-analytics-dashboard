@@ -108,7 +108,7 @@ export function useMetaLivesData(userId?: string): UseMetaLivesDataReturn {
 
       setLastUpdated(new Date());
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error loading Meta Ads data:', err);
       setError(err.message || 'Erro ao carregar dados do Meta Ads');
       

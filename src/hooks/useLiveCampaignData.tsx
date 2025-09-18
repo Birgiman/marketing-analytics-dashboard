@@ -210,7 +210,7 @@ export function useLiveCampaignData(liveId: string): UseLiveCampaignDataReturn {
 
       setCampaigns(campaignsWithMetaData as CampaignWithMetaData[]);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Erro ao carregar dados das campanhas:', err);
       setError(err.message || 'Erro ao carregar dados das campanhas');
     } finally {

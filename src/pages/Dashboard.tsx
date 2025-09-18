@@ -13,6 +13,7 @@ import { useWhatsAppInstances } from "@/hooks/useWhatsAppInstances";
 import { useLives } from "@/hooks/useLives";
 import { Badge } from "@/components/ui/badge";
 import { MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
+import { Live, LiveGroup } from "@/types/live";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,12 +84,12 @@ const [lives, setLives] = useState<any[]>([]);
     checkAuth();
   }, [navigate]);
 
-  const handleEditLive = (live: any) => {
+  const handleEditLive = (live: Live) => {
     setEditingLive(live);
     setShowEditModal(true);
   };
 
-  const handleDeleteLive = (live: any) => {
+  const handleDeleteLive = (live: Live) => {
     setLiveToDelete(live);
     setShowDeleteModal(true);
   };
@@ -119,7 +120,7 @@ const [lives, setLives] = useState<any[]>([]);
       
       // Calculate total participants from all groups in all lives
       const totalParticipants = userLives.reduce((sum, live) => {
-        const liveParticipants = live.live_groups?.reduce((groupSum: number, group: any) => {
+        const liveParticipants = live.live_groups?.reduce((groupSum: number, group: LiveGroup) => {
           return groupSum + (group.group_size || 0);
         }, 0) || 0;
         return sum + liveParticipants;
@@ -265,7 +266,7 @@ const [lives, setLives] = useState<any[]>([]);
                       <Badge variant="secondary">Criada</Badge>
                     </div>
                     <div className="text-sm">
-                      {live.live_groups?.reduce((sum: number, group: any) => sum + (group.group_size || 0), 0) || 0}
+                      {live.live_groups?.reduce((sum: number, group: LiveGroup) => sum + (group.group_size || 0), 0) || 0}
                     </div>
                     <div className="text-sm text-red-500">
                       45 (mockado)

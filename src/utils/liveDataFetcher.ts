@@ -202,7 +202,7 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
           console.log(`[LiveDataFetcher] Buscando insights para campanha: ${liveCampaign.campaign_name} (${liveCampaign.campaign_id})`);
           
           // Configurar opções de insights com campos necessários
-          const insightsOptions: any = {
+          const insightsOptions: MetaInsightsOptions = {
             fields: [
               'campaign_id', 'campaign_name', 'ad_name', 'date_start', 'date_stop',
               'spend', 'impressions', 'clicks', 'reach', 'frequency',

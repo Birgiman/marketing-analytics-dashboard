@@ -327,7 +327,7 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
             `🔍 Termo: "${searchTerm.trim()}"\n\n` +
             `Verifique o console para detalhes completos.`);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('🧪 [TESTE META API] ❌ Erro:', error);
 
       setTestResult({

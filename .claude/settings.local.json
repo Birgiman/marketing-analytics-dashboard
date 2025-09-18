@@ -32,7 +32,8 @@
       "Bash(tasklist)",
       "Bash(netstat:*)",
       "Bash(taskkill:*)",
-      "Bash(Taskkill:*)"
+      "Bash(Taskkill:*)",
+      "Bash(xargs sed:*)"
     ],
     "deny": [],
     "ask": []

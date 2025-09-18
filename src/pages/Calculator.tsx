@@ -314,7 +314,7 @@ export default function Calculator() {
         description: "Projeção registrada no histórico com sucesso.",
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving calculation:', error);
       toast({
         title: "Erro",

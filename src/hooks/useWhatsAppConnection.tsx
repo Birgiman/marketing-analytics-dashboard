@@ -61,7 +61,7 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
         description: "Informações atualizadas com sucesso",
         duration: 3000
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Erro ao sincronizar:', err);
       toast.error({
         title: "Erro na sincronização",
@@ -168,7 +168,7 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
           description: "Escaneie com seu WhatsApp para conectar",
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setConnectionState('error');
       setError(err.message || 'Erro ao conectar WhatsApp');
       toast({
@@ -208,7 +208,7 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
         title: "WhatsApp desconectado",
         description: "Instância foi desconectada com sucesso",
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Erro ao desconectar WhatsApp');
       toast({
         title: "Erro ao desconectar",
@@ -283,7 +283,7 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
         title: "Novo QR Code",
         description: "QR Code atualizado, escaneie novamente",
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Erro ao gerar QR code');
       toast({
         title: "Erro ao gerar QR",

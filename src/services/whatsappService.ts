@@ -1,10 +1,33 @@
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  WhatsAppInstance, 
-  CreateInstanceResponse, 
+import {
+  WhatsAppInstance,
+  CreateInstanceResponse,
   ConnectionStatusResponse,
-  WhatsAppStatus 
+  WhatsAppStatus
 } from "@/types";
+
+// Interfaces para dados de API
+interface EvolutionAPIData {
+  instanceName?: string;
+  [key: string]: unknown;
+}
+
+interface InstanceUpdateData {
+  instance_id?: string;
+  status: string;
+  qr_code?: string;
+  api_token?: string;
+  updated_at: string;
+}
+
+interface InstanceInsertData {
+  user_id: string;
+  instance_name: string;
+  instance_id?: string;
+  status: string;
+  qr_code?: string;
+  api_token?: string;
+}
 
 class WhatsAppService {
   // Gerar nome da instância baseado no perfil do usuário
@@ -34,7 +57,7 @@ class WhatsAppService {
   }
 
   // Chamar Edge Function para interagir com Evolution API
-  private async callEvolutionAPI(action: string, data: any) {
+  private async callEvolutionAPI(action: string, data: EvolutionAPIData) {
     try {
       const requestBody = { action, ...data };
 
@@ -140,7 +163,7 @@ class WhatsAppService {
       if (existingInstance && !queryError) {
         // Atualizar instância existente no banco (SEMPRE SOBRESCREVER)
         console.log('6. Atualizando instância existente no banco...');
-        const updateData: any = {
+        const updateData: InstanceUpdateData = {
           instance_id: result.instance?.instanceId,
           status: result.qrCode ? 'pending-qr' : 'connecting',
           qr_code: result.qrCode,
@@ -173,7 +196,7 @@ class WhatsAppService {
       } else {
         // Criar nova instância no banco
         console.log('6. Criando nova instância no banco...');
-        const insertData: any = {
+        const insertData: InstanceInsertData = {
           user_id: userId,
           instance_name: instanceName,
           instance_id: result.instance?.instanceId,
@@ -387,7 +410,7 @@ class WhatsAppService {
   // Atualizar status da instância no Supabase
   async updateInstanceStatus(instanceName: string, status: WhatsAppStatus, qrCode?: string): Promise<void> {
     try {
-      const updateData: any = { status, updated_at: new Date().toISOString() };
+      const updateData: InstanceUpdateData = { status, updated_at: new Date().toISOString() };
       if (qrCode) updateData.qr_code = qrCode;
 
       await supabase

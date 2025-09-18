@@ -84,7 +84,7 @@ export default function SignUp() {
         // Redirect to pending approval page
         navigate('/auth/pending-approval');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       setError(error.message || 'Erro ao criar conta');
     } finally {
       setLoading(false);

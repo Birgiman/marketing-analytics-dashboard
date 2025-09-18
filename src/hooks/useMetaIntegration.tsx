@@ -82,7 +82,7 @@ export function useMetaIntegration(): UseMetaIntegrationReturn {
     try {
       const userIntegration = await metaTokenService.getUserIntegration(userId);
       setIntegration(userIntegration);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error loading integration:', err);
       setError('Erro ao carregar integração');
     } finally {
@@ -122,7 +122,7 @@ export function useMetaIntegration(): UseMetaIntegrationReturn {
 
       setIntegration(newIntegration);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error connecting with token:', err);
       setError(err.message || 'Erro ao conectar com token');
     } finally {
@@ -136,7 +136,7 @@ export function useMetaIntegration(): UseMetaIntegrationReturn {
     try {
       await metaTokenService.disconnectIntegration(userId);
       setIntegration(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error disconnecting:', err);
       setError('Erro ao desconectar');
     }
@@ -158,7 +158,7 @@ export function useMetaIntegration(): UseMetaIntegrationReturn {
         // Recarregar integração com dados atualizados
         await loadIntegration();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error validating connection:', err);
       setError('Erro na validação');
     } finally {

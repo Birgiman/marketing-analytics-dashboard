@@ -153,7 +153,7 @@ export function useLiveMetrics({
 
       setMetrics(calculatedMetrics);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ [useLiveMetrics] Erro:', err);
       setError(err.message || 'Erro ao carregar métricas');
     } finally {

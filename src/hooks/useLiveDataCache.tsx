@@ -74,7 +74,7 @@ export function useLiveDataCache({
       setCache(newCache);
       console.log('✅ [useLiveDataCache] Dados carregados e cacheados');
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ [useLiveDataCache] Erro:', err);
       setError(err.message || 'Erro ao carregar dados da Live');
     } finally {
