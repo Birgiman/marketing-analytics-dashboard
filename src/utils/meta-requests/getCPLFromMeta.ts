@@ -175,20 +175,38 @@ function processMetaInsightsData(insights: any[]): {
     
     // Usar campo 'results' se disponível, senão calcular manualmente
     if (insight.results && Array.isArray(insight.results) && insight.results.length > 0) {
-      // Se results tem valor numérico direto
-      if (typeof insight.results === 'number') {
+      // Formato correto: insight.results[0].values[0].value
+      if (insight.results[0] && insight.results[0].values && Array.isArray(insight.results[0].values)) {
+        const resultValue = insight.results[0].values[0];
+        if (resultValue && resultValue.value) {
+          const leadsFromResults = parseInt(resultValue.value) || 0;
+          totalLeads += leadsFromResults;
+          console.log(`📊 [META-CPL] Leads do results: ${leadsFromResults} (${insight.results[0].indicator})`);
+        }
+      }
+      // Formato alternativo: insight.results[0].value (fallback)
+      else if (insight.results[0] && insight.results[0].value) {
+        const leadsFromResults = parseInt(insight.results[0].value) || 0;
+        totalLeads += leadsFromResults;
+        console.log(`📊 [META-CPL] Leads do results (formato alternativo): ${leadsFromResults}`);
+      }
+      // Formato numérico direto (fallback)
+      else if (typeof insight.results === 'number') {
         totalLeads += insight.results;
-      } else if (insight.results[0] && insight.results[0].value) {
-        totalLeads += parseInt(insight.results[0].value) || 0;
+        console.log(`📊 [META-CPL] Leads do results (numérico): ${insight.results}`);
       }
     } else {
       // Fallback: calcular manualmente usando actions
+      console.log(`⚠️ [META-CPL] Results vazio, usando actions como fallback`);
       if (insight.actions && Array.isArray(insight.actions)) {
+        let leadsFromActions = 0;
         insight.actions.forEach((action: any) => {
           if (action.action_type === 'lead' || action.action_type === 'link_click') {
-            totalLeads += parseInt(action.value) || 0;
+            leadsFromActions += parseInt(action.value) || 0;
           }
         });
+        totalLeads += leadsFromActions;
+        console.log(`📊 [META-CPL] Leads do actions: ${leadsFromActions}`);
       }
     }
   });
