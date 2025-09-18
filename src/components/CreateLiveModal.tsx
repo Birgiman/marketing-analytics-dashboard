@@ -486,8 +486,8 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                 )}
 
                 {selectedGroups.length > 0 && (
-                  <Badge variant="secondary" className="w-fit">
-                    {pluralize(selectedGroups.length, 'grupo selecionado', 'grupos selecionados')}
+                  <Badge variant="outline" className="w-fit border-green-300 text-green-700">
+                    Total: {selectedGroups.length}
                   </Badge>
                 )}
               </div>
