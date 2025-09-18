@@ -232,7 +232,7 @@ export function GroupSearchSelector({
             ) : searchResults.length > 0 ? (
               <div className="space-y-4">
                 {/* Selection Controls */}
-                <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+                <div className="flex justify-between items-center bg-gray-200 p-3 rounded-lg">
                   <span className="text-sm text-gray-700">
                     {searchResults.length} grupo{searchResults.length !== 1 ? 's' : ''} encontrado{searchResults.length !== 1 ? 's' : ''}
                     {selectedGroups.size > 0 && ` • ${selectedGroups.size} selecionado${selectedGroups.size !== 1 ? 's' : ''}`}
@@ -248,7 +248,7 @@ export function GroupSearchSelector({
                 </div>
 
                 {/* Groups List */}
-                <div className="overflow-y-auto space-y-2 max-h-80 bg-gray-50 rounded-lg p-3">
+                <div className="overflow-y-auto space-y-2 min-h-80 max-h-96 bg-gray-200 rounded-lg p-3">
                   {searchResults.map((group) => (
                     <div
                       key={group.id}
