@@ -573,8 +573,8 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                     </div>
 
                     {/* Linha com busca e período de datas */}
-                    <div className="flex gap-2 items-end">
-                      <div className="relative flex-1">
+                    <div className="flex gap-3 items-end">
+                      <div className="relative flex-1 min-w-0">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                         <Input
                           placeholder="Black Friday 2025"
@@ -586,9 +586,9 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                       </div>
 
                       {/* Período de dados inline */}
-                      <div className="flex gap-2 items-center">
+                      <div className="flex gap-2 items-end flex-shrink-0">
                         <div className="space-y-1">
-                          <label className="text-xs text-gray-600">Data inicial</label>
+                          <label className="text-xs text-gray-600 block">Data inicial</label>
                           <Input
                             type="date"
                             value={dateRange?.since || ''}
@@ -597,12 +597,12 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                                 onDateRangeChange({ ...dateRange, since: e.target.value });
                               }
                             }}
-                            className="text-xs w-32"
+                            className="text-xs w-36 h-9"
                           />
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-xs text-gray-600">Data final</label>
+                          <label className="text-xs text-gray-600 block">Data final</label>
                           <Input
                             type="date"
                             value={dateRange?.until || ''}
@@ -611,12 +611,16 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                                 onDateRangeChange({ ...dateRange, until: e.target.value });
                               }
                             }}
-                            className="text-xs w-32"
+                            className="text-xs w-36 h-9"
                           />
                         </div>
                       </div>
 
-                      <Button onClick={handleAutoSearch} disabled={!autoSearchTerm.trim()}>
+                      <Button
+                        onClick={handleAutoSearch}
+                        disabled={!autoSearchTerm.trim()}
+                        className="flex-shrink-0 h-9"
+                      >
                         Buscar Campanhas
                       </Button>
                     </div>
