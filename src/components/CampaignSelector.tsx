@@ -689,7 +689,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
 
               {/* Lista de Campanhas */}
               {!loading && !error && (
-                <div className="flex-1 overflow-y-auto space-y-2">
+                <div className="flex-1 overflow-y-auto space-y-2 min-h-80">
                   {!hasSearched ? (
                     <div className="text-center py-8">
                       <Target className="h-12 w-12 mx-auto text-gray-300 mb-3" />
@@ -800,8 +800,8 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
           <div className="text-sm text-gray-600">
             {step === 1 ?
               `${adAccounts.length} conta(s) de anúncios encontrada(s)` :
-              useAutoSearch && autoSearchTerm ?
-                `🎯 ${selectedCampaignIds.length} campanha(s) encontrada(s) para "${autoSearchTerm}"` :
+              hasSearched ?
+                `Total de campanhas: ${filteredCampaigns.length}` :
                 `${selectedCampaignIds.length} campanha(s) selecionada(s)`
             }
           </div>
