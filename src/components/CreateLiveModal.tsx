@@ -4,7 +4,7 @@ import { MetaApiTestModal } from '@/components/MetaApiTestModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { MaskedInput } from '@/components/ui/masked-input';
 import { Label } from '@/components/ui/label';
@@ -317,9 +317,12 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                 'Vincular Campanhas Meta Ads 🎯'
               )}
             </DialogTitle>
-            <div className="text-center text-sm text-muted-foreground">
-              Etapa {currentStep} de 3
-            </div>
+            <DialogDescription className="text-center text-sm text-muted-foreground">
+              {editingLive 
+                ? 'Atualize as configurações da sua live de vendas' 
+                : `Etapa ${currentStep} de 3 - ${currentStep === 1 ? 'Configure os dados básicos da sua live' : currentStep === 2 ? 'Selecione os grupos do WhatsApp para monitorar' : 'Vincule campanhas do Meta Ads para análise'}`
+              }
+            </DialogDescription>
           </DialogHeader>
 
           {currentStep === 1 ? (
