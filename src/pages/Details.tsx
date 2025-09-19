@@ -31,27 +31,6 @@ const Details = () => {
   } | null>(null);
 
   // ============================================================================
-  // VERSÃO V1 (COMENTADA) - Código original
-  // ============================================================================
-  /*
-  // Usar novo hook de cache localStorage compartilhado
-  const {
-    live,
-    groups,
-    campaigns,
-    campaignsWithInsights,
-    metrics,
-    isLoading,
-    isMetaLoading,
-    error,
-    isFromCache,
-    canFetchMetaAgain,
-    refreshData,
-    clearError
-  } = useLiveLocalStorageCache({ liveId: liveId || '' });
-  */
-
-  // ============================================================================
   // VERSÃO V2 - Novos cálculos (SEM CACHE)
   // ============================================================================
   
@@ -230,29 +209,6 @@ const Details = () => {
   }, [live, groups, campaignsWithInsights, isLoading]);
 
   // ============================================================================
-  // VERSÃO V1 (COMENTADA) - Funções antigas
-  // ============================================================================
-  /*
-  // Usar campanhas com insights do cache
-  const finalCampaigns = campaignsWithInsights.length > 0 ? campaignsWithInsights : campaigns;
-
-  // Calcular dados dos grupos
-  const calculateGroupData = () => {
-    if (!groups || groups.length === 0) {
-      return { entrou: 0, saiu: 0, ativos: 0 };
-    }
-
-    const totalMembros = groups.reduce((sum, group) => sum + group.group_size, 0);
-
-    return {
-      entrou: totalMembros,
-      saiu: 0, // TODO: Implementar tracking de saídas
-      ativos: totalMembros
-    };
-  };
-  */
-
-  // ============================================================================
   // VERSÃO V2 - Novas funções
   // ============================================================================
   
@@ -282,53 +238,6 @@ const Details = () => {
       ativos: totalMembros
     };
   };
-
-  // ============================================================================
-  // VERSÃO V1 (COMENTADA) - Função de teste antiga
-  // ============================================================================
-  /*
-  // Função para testar os dados completos da live
-  const handleTestLiveData = async () => {
-    if (!liveId) return;
-
-    setTestLoading(true);
-    try {
-      console.log('🧪 [TESTE] Iniciando busca completa de dados para Live:', liveId);
-      const completeData = await fetchCompleteLiveData(liveId);
-
-      console.log('🧪 [TESTE] ✅ Dados completos obtidos:', completeData);
-      console.log('📊 [RESUMO]', {
-        live: completeData.live.name,
-        grupos: completeData.summary.totalGroups,
-        membros: completeData.summary.totalGroupMembers,
-        campanhas: completeData.summary.totalCampaigns,
-        campanhas_ativas: completeData.summary.activeCampaigns,
-        gasto_total: `$${completeData.summary.totalSpend}`,
-        impressoes: completeData.summary.totalImpressions
-      });
-
-      const insights = completeData.summary.insights;
-      const live = completeData.live;
-
-      // Formatação de datas para o alert
-      const timeRangeText = live.insights_date_since && live.insights_date_until
-        ? `\nPeríodo: ${live.insights_date_since} até ${live.insights_date_until}`
-        : '\nPeríodo: Padrão (últimos 30 dias)';
-
-      const searchTermText = live.campaign_search_term
-        ? `\n🔍 Termo de busca: "${live.campaign_search_term}"`
-        : '\n🔍 Termo de busca: Não definido';
-
-      alert(`✅ Teste concluído com sucesso!\n\nLive: ${live.name}${timeRangeText}${searchTermText}\n\nGrupos: ${completeData.summary.totalGroups} (${completeData.summary.totalGroupMembers} membros)\nCampanhas: ${completeData.summary.totalCampaigns} (${completeData.summary.activeCampaigns} ativas)\nGasto Total: $${completeData.summary.totalSpend}\nImpressões: ${completeData.summary.totalImpressions}\nCliques: ${completeData.summary.totalClicks}\n\nINSIGHTS (${insights.totalInsights} registros):\n• CPM Médio: $${insights.avgCPM}\n• CTR Médio: ${insights.avgCTR}%\n• CPP Médio: $${insights.avgCPP}\n• Custo por Clique Único: $${insights.avgCostPerUniqueClick}\n• Frequência Média: ${insights.avgFrequency}\n• Total de Ações: ${insights.totalActions}\n\nVeja o console para mais detalhes!`);
-
-    } catch (error) {
-      console.error('🧪 [TESTE] ❌ Erro ao buscar dados:', error);
-      alert(`❌ Erro no teste: ${error}`);
-    } finally {
-      setTestLoading(false);
-    }
-  };
-  */
 
   // ============================================================================
   // VERSÃO V2 - Nova função de teste
@@ -484,19 +393,6 @@ const Details = () => {
       </div>
     );
   }
-
-  // ============================================================================
-  // VERSÃO V1 (COMENTADA) - Dados antigos
-  // ============================================================================
-  /*
-  const groupData = calculateGroupData();
-
-  // Usar métricas do cache (já calculadas)
-  const cplLiquido = metrics?.cplLiquido || 0;
-  const cplMeta = metrics?.cplMeta || 0;
-  const retentionRate = metrics?.retentionRate || 0;
-  const totalSpend = metrics?.totalSpent || 0;
-  */
 
   // ============================================================================
   // VERSÃO V2 - Novos dados

@@ -10,6 +10,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { DEMO_MODE } from "@/lib/demo-mode";
 import { Creative } from "@/types";
 import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Line, LineChart, XAxis, YAxis } from "recharts";
 
 // Interfaces para análise de tráfego
 interface DailyData {
@@ -30,9 +33,6 @@ interface AdSetData {
   total_leads: number;
   cpl: number;
 }
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
 const TrafficAnalysis = () => {
   const [searchParams] = useSearchParams();
@@ -531,14 +531,6 @@ const TrafficAnalysis = () => {
         isLoading={isLoading || isMetaLoading}
       />
 
-      {/* Indicador de Status do Cache */}
-      {isFromCache && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-          <p className="text-sm text-green-700">
-            📦 Dados carregados do cache localStorage - Navegação otimizada
-          </p>
-        </div>
-      )}
 
       {/* Tabela de Dados Diários */}
       <Card>
