@@ -1,6 +1,6 @@
-import { forwardRef, useState, useEffect } from "react";
-import { Input } from "./input";
 import { cn } from "@/lib/utils";
+import { forwardRef, useEffect, useState } from "react";
+import { Input } from "./input";
 
 export interface MaskedInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
   mask: 'currency' | 'number';
@@ -16,14 +16,16 @@ const MaskedInput = forwardRef<HTMLInputElement, MaskedInputProps>(
     useEffect(() => {
       if (value !== displayValue) {
         if (mask === 'currency') {
-          setDisplayValue(formatCurrency(value));
+          const formatted = formatCurrency(value);
+          setDisplayValue(formatted);
         } else if (mask === 'number') {
-          setDisplayValue(formatNumber(value));
+          const formatted = formatNumber(value);
+          setDisplayValue(formatted);
         } else {
           setDisplayValue(value);
         }
       }
-    }, [value, mask]);
+    }, [value, mask, displayValue]);
 
     const formatCurrency = (value: string) => {
       const numericValue = value.replace(/\D/g, '');

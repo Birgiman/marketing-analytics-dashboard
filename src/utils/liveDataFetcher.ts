@@ -4,8 +4,8 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { fetchCampaigns, fetchCampaignInsightsById, MetaCampaign, MetaInsight } from './metaApi';
 import { MetaInsightsOptions } from '@/types/metaApi';
+import { fetchCampaignInsightsById, fetchCampaigns, MetaCampaign, MetaInsight } from './metaApi';
 
 export interface LiveDataResponse {
   live: {
@@ -16,6 +16,9 @@ export interface LiveDataResponse {
     insights_date_since?: string;
     insights_date_until?: string;
     campaign_search_term?: string;
+    ad_budget?: number;
+    sales_goal?: number;
+    leads_goal?: number;
     created_at: string;
     updated_at: string;
   };
@@ -192,7 +195,7 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
           const searchTerm = live.campaign_search_term.trim()
             .toLowerCase()
             .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
             .join(' ');
 
           searchOptions.searchTerm = searchTerm;
@@ -214,7 +217,7 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
         }
       } catch (error) {
         console.warn('[LiveDataFetcher] Erro ao buscar campanhas do Meta:', error);
-        console.warn('[LiveDataFetcher] Erro detalhado:', error.message);
+        console.warn('[LiveDataFetcher] Erro detalhado:', (error as Error).message);
       }
     } else {
       console.log('[LiveDataFetcher] 5. Pular busca de campanhas - Integração Meta não disponível');
@@ -339,14 +342,14 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
         }
 
         // CPP - custo por postagem
-        if (insight.cpp) {
-          sumCPP += parseFloat(insight.cpp);
+        if ((insight as any).cpp) {
+          sumCPP += parseFloat((insight as any).cpp);
           validCPPCount++;
         }
 
         // Custo por clique único
-        if (insight.cost_per_unique_click) {
-          sumCostPerUniqueClick += parseFloat(insight.cost_per_unique_click);
+        if ((insight as any).cost_per_unique_click) {
+          sumCostPerUniqueClick += parseFloat((insight as any).cost_per_unique_click);
           validCostPerUniqueClickCount++;
         }
 
@@ -459,12 +462,15 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
         insights_date_since: live.insights_date_since,
         insights_date_until: live.insights_date_until,
         campaign_search_term: live.campaign_search_term,
+        ad_budget: live.ad_budget,
+        sales_goal: live.sales_goal,
+        leads_goal: live.leads_goal,
         created_at: live.created_at,
         updated_at: live.updated_at
       },
       user: {
         id: live.user_id,
-        email: user?.user?.email
+        email: user?.user?.email || undefined
       },
       groups: liveGroups,
       metaIntegration,

@@ -4,17 +4,17 @@ import { MetaApiTestModal } from '@/components/MetaApiTestModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { MaskedInput } from '@/components/ui/masked-input';
 import { Label } from '@/components/ui/label';
+import { MaskedInput } from '@/components/ui/masked-input';
 import { useToast } from '@/hooks/use-toast';
 import { useLives } from '@/hooks/useLives';
 import { supabase } from '@/integrations/supabase/client';
+import { Live, LiveCampaign, LiveGroup, WhatsAppInstance } from '@/types/live';
+import { MetaCampaign } from '@/utils/metaApi';
 import { AlertTriangle, ChevronLeft, ChevronRight, Target, Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Live, LiveGroup, LiveCampaign, WhatsAppInstance } from '@/types/live';
-import { MetaCampaign } from '@/utils/metaApi';
 
 interface CreateLiveModalProps {
   open: boolean;
@@ -410,11 +410,12 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                   <Label htmlFor="leadsTarget" className="text-sm font-medium">
                     Meta de leads
                   </Label>
-                  <Input
+                  <MaskedInput
                     id="leadsTarget"
-                    placeholder="Ex: 100"
+                    mask="number"
+                    placeholder="Ex: 10.000"
                     value={formData.leadsTarget}
-                    onChange={(e) => handleInputChange('leadsTarget', e.target.value)}
+                    onChange={(value) => handleInputChange('leadsTarget', value)}
                   />
                 </div>
               </div>

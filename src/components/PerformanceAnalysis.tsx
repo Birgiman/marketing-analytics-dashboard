@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, AlertTriangle } from "lucide-react";
+import { AlertTriangle, BarChart3 } from "lucide-react";
 
 interface PerformanceAnalysisProps {
   className?: string;
@@ -102,7 +102,7 @@ const PerformanceAnalysis = ({
             {/* Investimento */}
             <div className="mb-4">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium">Investimento</span>
+                <span className="text-sm font-medium">Orçamento</span>
                 <span className="text-sm font-bold">
                   R$ {investimentoExecutado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / R$ {orcamentoPlanejado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>

@@ -65,6 +65,8 @@ const Details = () => {
     insights_date_until?: string;
     campaign_search_term?: string;
     ad_budget?: number;
+    sales_goal?: number;
+    leads_goal?: number;
     created_at: string;
     updated_at: string;
   } | null>(null);
@@ -160,6 +162,12 @@ const Details = () => {
         setCampaignsWithInsights(completeData.campaignInsights);
         
         console.log('✅ [Details] Dados frescos carregados com sucesso');
+        console.log('🔍 [Details] Live data:', {
+          name: completeData.live.name,
+          ad_budget: completeData.live.ad_budget,
+          sales_goal: completeData.live.sales_goal,
+          leads_goal: completeData.live.leads_goal
+        });
         
       } catch (error) {
         console.error('❌ [Details] Erro ao buscar dados frescos:', error);
@@ -713,7 +721,7 @@ const Details = () => {
         {/* Análise de Performance */}
         <PerformanceAnalysis
           live={live}
-          totalSpend={totalSpend}
+          totalSpend={extractedDataV2?.metaData?.totalSpend || 0}
           totalGroupMembers={groupData.entrou}
           cplLiquido={cplLiquido}
           cplMeta={cplMeta}
