@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Database and sensitive files
+database-schema.sql
+*.sql
+supabase/migrations/
+supabase/seed.sql
+.env.local
+.env.production

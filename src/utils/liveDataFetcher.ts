@@ -13,6 +13,9 @@ export interface LiveDataResponse {
     name: string;
     user_id: string;
     live_date?: string;
+    insights_date_since?: string;
+    insights_date_until?: string;
+    campaign_search_term?: string;
     created_at: string;
     updated_at: string;
   };
@@ -145,28 +148,67 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
     let allUserCampaigns: MetaCampaign[] = [];
     let campaignInsights: Array<{ campaign_id: string; insights: MetaInsight[] }> = [];
 
-    // 5. Se tem integração Meta, buscar campanhas do usuário
-    if (metaIntegration?.access_token && metaIntegration?.account_id) {
-      console.log('[LiveDataFetcher] 5. Buscando todas as campanhas do usuário no Meta...');
-      console.log(`[LiveDataFetcher] Account ID: ${metaIntegration.account_id}`);
+    // 5a. Buscar campanhas vinculadas à Live (dados salvos no banco)
+    console.log('[LiveDataFetcher] 5a. Buscando campanhas vinculadas à Live (banco de dados)...');
+    const { data: liveCampaignsList, error: liveCampaignsError } = await supabase
+      .from('live_campaigns')
+      .select('*')
+      .eq('live_id', liveId)
+      .order('created_at', { ascending: false });
+
+    if (liveCampaignsError) {
+      console.warn('[LiveDataFetcher] Erro ao buscar campanhas vinculadas:', liveCampaignsError);
+    }
+
+    const liveCampaigns = liveCampaignsList || [];
+    console.log(`[LiveDataFetcher] ${liveCampaigns.length} campanhas vinculadas encontradas no banco`);
+
+    // 5. Se tem integração Meta, buscar campanhas usando termo salvo na Live
+    // Como meta_integrations não tem account_id, usar account_id da primeira campanha como fallback
+    const fallbackAccountId = liveCampaigns.length > 0 ? liveCampaigns[0].account_id : null;
+    const accountId = metaIntegration?.account_id || fallbackAccountId;
+
+    if (metaIntegration?.access_token && accountId) {
+      console.log('[LiveDataFetcher] 5. Buscando campanhas usando termo salvo na Live...');
+      console.log(`[LiveDataFetcher] Account ID usado: ${accountId} (Meta: ${metaIntegration.account_id || 'undefined'}, Fallback: ${fallbackAccountId || 'undefined'})`);
       console.log(`[LiveDataFetcher] Access Token presente: ${!!metaIntegration.access_token}`);
+      console.log(`[LiveDataFetcher] Termo de busca: "${live.campaign_search_term || 'Não definido'}"`);
 
       try {
+        // NOVO: Usar termo de busca salvo na Live
+        const searchOptions: any = {
+          limit: 100,
+          status: ['ACTIVE', 'PAUSED'], // Incluir ativas e pausadas
+          fields: [
+            'id', 'name', 'status', 'objective', 'effective_status',
+            'daily_budget', 'lifetime_budget', 'start_time', 'stop_time',
+            'created_time', 'updated_time', 'buying_type', 'bid_strategy'
+          ]
+        };
+
+        // Adicionar filtro de termo SE EXISTIR na requisição para a Meta API
+        if (live.campaign_search_term && live.campaign_search_term.trim()) {
+          // Converter para title case como nos exemplos: "Post Do Instagram"
+          const searchTerm = live.campaign_search_term.trim()
+            .toLowerCase()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+
+          searchOptions.searchTerm = searchTerm;
+          console.log(`[LiveDataFetcher] 🔍 Aplicando filtro por termo NA META API: "${searchTerm}" (original: "${live.campaign_search_term}")`);
+        } else {
+          console.log(`[LiveDataFetcher] 🔍 Buscando TODAS as campanhas (sem termo de filtro)`);
+        }
+
         allUserCampaigns = await fetchCampaigns(
-          metaIntegration.account_id,
+          accountId,
           metaIntegration.access_token,
-          {
-            limit: 100, // Buscar mais campanhas
-            status: ['ACTIVE', 'PAUSED'], // Incluir ativas e pausadas
-            fields: [
-              'id', 'name', 'status', 'objective', 'effective_status',
-              'daily_budget', 'lifetime_budget', 'start_time', 'stop_time',
-              'created_time', 'updated_time', 'buying_type', 'bid_strategy'
-            ]
-          }
+          searchOptions
         );
 
-        console.log(`[LiveDataFetcher] ${allUserCampaigns.length} campanhas encontradas no Meta`);
+        console.log(`[LiveDataFetcher] ${allUserCampaigns.length} campanhas encontradas no Meta${live.campaign_search_term ? ` com termo "${live.campaign_search_term}"` : ' (todas)'}`);
+
         if (allUserCampaigns.length > 0) {
           console.log('[LiveDataFetcher] Primeiras campanhas encontradas:', allUserCampaigns.slice(0, 3).map(c => ({ id: c.id, name: c.name, status: c.status })));
         }
@@ -176,31 +218,20 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
       }
     } else {
       console.log('[LiveDataFetcher] 5. Pular busca de campanhas - Integração Meta não disponível');
-      console.log(`[LiveDataFetcher] Meta integration: ${!!metaIntegration}, Access token: ${!!metaIntegration?.access_token}, Account ID: ${metaIntegration?.account_id}`);
+      console.log(`[LiveDataFetcher] Meta integration: ${!!metaIntegration}, Access token: ${!!metaIntegration?.access_token}, Account ID: ${accountId || 'undefined'} (Meta: ${metaIntegration?.account_id || 'undefined'}, Fallback: ${fallbackAccountId || 'undefined'})`);
     }
 
-    // 6. Buscar campanhas vinculadas à Live
-    console.log('[LiveDataFetcher] 6. Buscando campanhas vinculadas à Live...');
-    const { data: liveCampaigns, error: liveCampaignsError } = await supabase
-      .from('live_campaigns')
-      .select('*')
-      .eq('live_id', liveId)
-      .order('created_at', { ascending: false });
+    // 6. NOVO: Usar campanhas encontradas pelo termo ao invés das salvas no banco
+    console.log('[LiveDataFetcher] 6. Usando campanhas encontradas pelo termo de busca...');
+    console.log(`[LiveDataFetcher] ${allUserCampaigns.length} campanhas para buscar insights`);
 
-    if (liveCampaignsError) {
-      console.warn('[LiveDataFetcher] Erro ao buscar campanhas da Live:', liveCampaignsError);
-    }
+    // 7. Buscar insights das campanhas encontradas pelo termo
+    if (metaIntegration?.access_token && allUserCampaigns.length > 0) {
+      console.log('[LiveDataFetcher] 7. Buscando insights das campanhas encontradas...');
 
-    const liveCampaignsList = liveCampaigns || [];
-    console.log(`[LiveDataFetcher] ${liveCampaignsList.length} campanhas vinculadas à Live`);
-
-    // 7. Buscar insights das campanhas ativas da Live
-    if (metaIntegration?.access_token && liveCampaignsList.length > 0) {
-      console.log('[LiveDataFetcher] 7. Buscando insights das campanhas da Live...');
-      
-      for (const liveCampaign of liveCampaignsList) {
+      for (const campaign of allUserCampaigns) {
         try {
-          console.log(`[LiveDataFetcher] Buscando insights para campanha: ${liveCampaign.campaign_name} (${liveCampaign.campaign_id})`);
+          console.log(`[LiveDataFetcher] Buscando insights para campanha: ${campaign.name} (${campaign.id})`);
           
           // Configurar opções de insights com campos necessários
           const insightsOptions: MetaInsightsOptions = {
@@ -231,19 +262,19 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
           }
 
           const insights = await fetchCampaignInsightsById(
-            liveCampaign.campaign_id,
+            campaign.id,
             metaIntegration.access_token,
             insightsOptions
           );
 
           campaignInsights.push({
-            campaign_id: liveCampaign.campaign_id,
+            campaign_id: campaign.id,
             insights: insights
           });
 
-          console.log(`[LiveDataFetcher] ${insights.length} insights encontrados para ${liveCampaign.campaign_name}`);
+          console.log(`[LiveDataFetcher] ${insights.length} insights encontrados para ${campaign.name}`);
         } catch (error) {
-          console.warn(`[LiveDataFetcher] Erro ao buscar insights da campanha ${liveCampaign.campaign_id}:`, error);
+          console.warn(`[LiveDataFetcher] Erro ao buscar insights da campanha ${campaign.id}:`, error);
         }
       }
     }
@@ -254,12 +285,12 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
     const totalGroupMembers = liveGroups.reduce((sum, group) => sum + group.group_size, 0);
 
     // Se não conseguiu buscar campanhas do Meta, usar dados das campanhas vinculadas à Live
-    const totalCampaigns = allUserCampaigns.length > 0 ? allUserCampaigns.length : liveCampaignsList.length;
+    const totalCampaigns = allUserCampaigns.length > 0 ? allUserCampaigns.length : liveCampaigns.length;
     const activeCampaigns = allUserCampaigns.length > 0
       ? allUserCampaigns.filter(c => c.status === 'ACTIVE').length
-      : liveCampaignsList.filter(c => c.status === 'ACTIVE').length;
+      : liveCampaigns.filter(c => c.status === 'ACTIVE').length;
 
-    console.log(`[LiveDataFetcher] Campanhas para resumo: Meta API (${allUserCampaigns.length}) | Live vinculadas (${liveCampaignsList.length})`);
+    console.log(`[LiveDataFetcher] Campanhas para resumo: Meta API (${allUserCampaigns.length}) | Live vinculadas (${liveCampaigns.length})`);
     console.log(`[LiveDataFetcher] Usando dados: ${allUserCampaigns.length > 0 ? 'Meta API' : 'Live vinculadas'}`);
     console.log(`[LiveDataFetcher] Total campanhas: ${totalCampaigns}, Ativas: ${activeCampaigns}`);
 
@@ -388,7 +419,7 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
     console.log('\n📊 [COMPARAÇÃO COM META DASHBOARD]');
     console.log('==========================================');
     console.log(`Período analisado: 1 set - 14 set 2025`);
-    console.log(`Campanha principal: ${liveCampaignsList[0]?.campaign_name || 'N/A'}`);
+    console.log(`Campanha principal: ${liveCampaigns[0]?.campaign_name || 'N/A'}`);
     console.log('');
     console.log('💰 GASTOS:');
     console.log(`  Nossa API: $${totalSpend.toFixed(2)} USD / R$${(totalSpend * 5.5).toFixed(2)} BRL (aprox.)`);
@@ -425,6 +456,9 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
         name: live.name,
         user_id: live.user_id,
         live_date: live.live_date,
+        insights_date_since: live.insights_date_since,
+        insights_date_until: live.insights_date_until,
+        campaign_search_term: live.campaign_search_term,
         created_at: live.created_at,
         updated_at: live.updated_at
       },
@@ -435,7 +469,7 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
       groups: liveGroups,
       metaIntegration,
       allUserCampaigns,
-      liveCampaigns: liveCampaignsList,
+      liveCampaigns: liveCampaigns,
       campaignInsights,
       summary: {
         totalGroups,

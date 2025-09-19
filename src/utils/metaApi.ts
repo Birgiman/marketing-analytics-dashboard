@@ -106,11 +106,10 @@ export async function fetchCampaigns(
   // Add status filter if provided
   if (status.length > 0) {
     filters.push({
-      field: 'status',
+      field: 'effective_status',
       operator: MetaFilterOperator.IN,
       value: status
     });
-  } else {
   }
 
   // Add search term filter if provided
