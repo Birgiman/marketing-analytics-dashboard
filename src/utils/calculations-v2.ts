@@ -188,10 +188,10 @@ export function formatCurrencyV2(value: number): string {
 /**
  * Formata porcentagem para exibição
  * @param value - Valor em porcentagem
- * @param decimals - Número de casas decimais (padrão: 1)
- * @returns String formatada (ex: "85,0%")
+ * @param decimals - Número de casas decimais (padrão: 2)
+ * @returns String formatada (ex: "85,00%")
  */
-export function formatPercentageV2(value: number, decimals: number = 1): string {
+export function formatPercentageV2(value: number, decimals: number = 2): string {
   return new Intl.NumberFormat('pt-BR', {
     style: 'percent',
     minimumFractionDigits: decimals,
