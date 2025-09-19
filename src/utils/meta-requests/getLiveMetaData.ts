@@ -144,17 +144,9 @@ export async function getLiveMetaDataWithFallback(liveId: string): Promise<LiveM
   const result = await getLiveMetaData(liveId);
   
   if (result.success && result.data) {
-    // Aplicar fallbacks se necessário
-    const dataWithFallbacks = {
-      ...result.data,
-      campaignSearchTerm: result.data.campaignSearchTerm || 'Post Do Instagram', // Fallback padrão
-      insightsDateSince: result.data.insightsDateSince || '2025-09-01', // Fallback padrão
-      insightsDateUntil: result.data.insightsDateUntil || '2025-09-18' // Fallback padrão
-    };
-    
     return {
       success: true,
-      data: dataWithFallbacks
+      data: result.data
     };
   }
   

@@ -304,7 +304,7 @@ export function formatForCreativesTable(data: LiveCampaignData[]): CreativeTable
     ad_name: item.ad_name,
     amount_spent: item.amount_spent,
     leads: item.leads,
-    cost_per_lead: item.cost_per_lead,
+    cpl: item.cost_per_lead,
     creative_link: null,
     created_at: new Date().toISOString(),
     user_id: null // será preenchido pelo componente
@@ -326,22 +326,4 @@ export async function getCreativesData(
   return formatForCreativesTable(liveData);
 }
 
-/**
- * Função simplificada para casos onde não há integração Meta
- * Retorna dados de fallback para manter a aplicação funcionando
- */
-export function getFallbackCreativesData(): CreativeTableData[] {
-  return [{
-    id: 'fallback_1',
-    day: new Date().toISOString().split('T')[0],
-    campaign_name: 'Meta Ads não conectado',
-    ad_set_name: 'Configure sua integração',
-    ad_name: 'Vá para Integrações → Meta Ads',
-    amount_spent: 0,
-    leads: 0,
-    cost_per_lead: 0,
-    creative_link: null,
-    created_at: new Date().toISOString(),
-    user_id: null
-  }];
-}
+// Função removida - não usar dados de fallback em produção

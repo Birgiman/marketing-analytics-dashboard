@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { getCreativesData, getFallbackCreativesData, getUserMetaToken } from '@/utils/metaApiLives';
+import { getCreativesData, getUserMetaToken } from '@/utils/metaApiLives';
 import { DEMO_MODE } from '@/lib/demo-mode';
 
 interface UseMetaLivesDataReturn {
@@ -83,8 +83,8 @@ export function useMetaLivesData(userId?: string): UseMetaLivesDataReturn {
       setHasMetaIntegration(!!userToken);
 
       if (!userToken) {
-        console.log('User has no Meta integration, using fallback data');
-        setCreatives(getFallbackCreativesData());
+        console.log('User has no Meta integration, returning empty data');
+        setCreatives([]);
         setLastUpdated(new Date());
         return;
       }
@@ -99,8 +99,8 @@ export function useMetaLivesData(userId?: string): UseMetaLivesDataReturn {
       });
 
       if (metaData.length === 0) {
-        console.log('No Meta Ads data found, using fallback');
-        setCreatives(getFallbackCreativesData());
+        console.log('No Meta Ads data found, returning empty data');
+        setCreatives([]);
       } else {
         console.log(`Loaded ${metaData.length} Meta Ads records`);
         setCreatives(metaData.map(item => ({ ...item, user_id: userId })));
@@ -110,10 +110,10 @@ export function useMetaLivesData(userId?: string): UseMetaLivesDataReturn {
 
     } catch (err: unknown) {
       console.error('Error loading Meta Ads data:', err);
-      setError(err.message || 'Erro ao carregar dados do Meta Ads');
+      setError((err as Error).message || 'Erro ao carregar dados do Meta Ads');
       
-      // Em caso de erro, usar dados de fallback
-      setCreatives(getFallbackCreativesData());
+      // Em caso de erro, retornar dados vazios
+      setCreatives([]);
     } finally {
       setIsLoading(false);
     }

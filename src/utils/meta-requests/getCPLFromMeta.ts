@@ -282,8 +282,8 @@ export async function testMetaCPLConnection(accountId: string, accessToken: stri
       filters: {
         campaignStatus: ['ACTIVE'],
         dateRange: {
-          since: '2025-09-01',
-          until: '2025-09-18'
+          since: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          until: new Date().toISOString().split('T')[0]
         }
       }
     });

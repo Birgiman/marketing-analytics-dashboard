@@ -171,14 +171,6 @@ const ResearchInsights = () => {
       <Header />
       <div className="container mx-auto p-6 space-y-8">
 
-      {/* Indicador de Status do Cache */}
-      {isFromCache && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-          <p className="text-sm text-green-700">
-            📦 Dados da Live carregados do cache localStorage - Navegação otimizada
-          </p>
-        </div>
-      )}
 
       {/* Overview da Pesquisa */}
       <Card>

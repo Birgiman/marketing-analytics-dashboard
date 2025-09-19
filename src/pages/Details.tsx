@@ -14,6 +14,7 @@ import { getLiveMetaDataWithFallback } from "@/utils/meta-requests/getLiveMetaDa
 import { Activity, AlertCircle, RefreshCw, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 const Details = () => {
   const [searchParams] = useSearchParams();
@@ -314,9 +315,24 @@ const Details = () => {
       const liveData = liveDataResult.data;
       console.log('✅ [META-API-DIRECT] Dados da live obtidos:', liveData);
       
-      // 2. Preparar dados para a requisição ao Meta
-      const accountId = liveData.accountId || '269382281240887'; // Fallback para teste
-      const accessToken = 'EAAPgBgJNkMYBPZA6EyZAvb2uFsRle6b9LN3D087Gdo5CCPgJqdwMGQc5ygtBVdCX1ZBiA42pYuk27ZAkvSKNnKOZCWrZCImhEFVvv7F6Cop3X0QZBZAlF6GfsiqA2CoRwTNyoLHKGUntIEzSmXL0o069wo168YlZABMpGWvhYnssc2VXfeZC5bQ197MlN1yW9UPp1F5Tlx'; // TODO: Pegar do ambiente
+      // 2. Buscar dados da integração Meta
+      const { data: metaIntegration } = await supabase
+        .from('meta_integrations')
+        .select('access_token')
+        .eq('user_id', live.user_id)
+        .eq('is_active', true)
+        .single();
+      
+      if (!metaIntegration?.access_token) {
+        throw new Error('Integração Meta não encontrada ou inativa');
+      }
+      
+      const accountId = liveData.accountId;
+      const accessToken = metaIntegration.access_token;
+      
+      if (!accountId) {
+        throw new Error('Account ID não disponível');
+      }
       
       // 3. Preparar filtros baseados nos dados do banco
       const filters = {

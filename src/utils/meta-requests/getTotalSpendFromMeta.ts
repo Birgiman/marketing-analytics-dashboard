@@ -66,7 +66,11 @@ export async function getTotalSpendFromMeta(request: MetaTotalSpendRequest): Pro
     
     // 2. Construir URL da requisição
     const baseURL = 'https://graph.facebook.com/v23.0';
-    const accountId = liveData.accountId || '269382281240887'; // Fallback
+    const accountId = liveData.accountId;
+    
+    if (!accountId) {
+      throw new Error('Account ID não disponível');
+    }
     const url = `${baseURL}/${accountId}/insights`;
     
     logs.push(`📡 [META-TOTAL-SPEND] URL construída: ${url}`);
@@ -200,8 +204,8 @@ export async function testMetaTotalSpendConnection(liveId: string, accessToken: 
       filters: {
         campaignStatus: ['ACTIVE'],
         dateRange: {
-          since: '2025-09-01',
-          until: '2025-09-18'
+          since: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          until: new Date().toISOString().split('T')[0]
         }
       }
     });
