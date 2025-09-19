@@ -220,59 +220,80 @@ export function useLives() {
       const updateFields: Partial<LiveData> = {}
       const changes: string[] = []
 
+      // 🔍 DEBUG: Log dos dados para investigação
+      console.log('🔍 [DEBUG] Dados atuais do banco:', {
+        sales_goal: currentLive.sales_goal,
+        ad_budget: currentLive.ad_budget,
+        leads_goal: currentLive.leads_goal,
+        campaign_search_term: currentLive.campaign_search_term
+      });
+      console.log('🔍 [DEBUG] Dados novos do formulário:', {
+        sales_goal: liveData.sales_goal,
+        ad_budget: liveData.ad_budget,
+        leads_goal: liveData.leads_goal,
+        campaign_search_term: liveData.campaign_search_term
+      });
+
       // Comparar cada campo e adicionar apenas os que mudaram
       if (currentLive.name !== liveData.name) {
         updateFields.name = liveData.name
         changes.push(`Nome: "${currentLive.name}" → "${liveData.name}"`)
       }
 
-      if (currentLive.live_date !== (liveData.live_date || null)) {
+      // 🔧 CORREÇÃO: Comparar datas normalizando formato
+      const normalizeDate = (date: string | null | undefined) => {
+        if (!date) return null;
+        return new Date(date).toISOString().split('T')[0]; // YYYY-MM-DD
+      };
+
+      if (normalizeDate(currentLive.live_date) !== normalizeDate(liveData.live_date)) {
         updateFields.live_date = liveData.live_date
         changes.push(`Data da Live: ${currentLive.live_date || 'não definida'} → ${liveData.live_date || 'não definida'}`)
       }
 
-      if (currentLive.captacao_start !== (liveData.captacao_start || null)) {
+      if (normalizeDate(currentLive.captacao_start) !== normalizeDate(liveData.captacao_start)) {
         updateFields.captacao_start = liveData.captacao_start
         changes.push(`Início da Captação: ${currentLive.captacao_start || 'não definido'} → ${liveData.captacao_start || 'não definido'}`)
       }
 
-      if (currentLive.ta_rolando_start !== (liveData.ta_rolando_start || null)) {
+      if (normalizeDate(currentLive.ta_rolando_start) !== normalizeDate(liveData.ta_rolando_start)) {
         updateFields.ta_rolando_start = liveData.ta_rolando_start
         changes.push(`Início "Tá Rolando": ${currentLive.ta_rolando_start || 'não definido'} → ${liveData.ta_rolando_start || 'não definido'}`)
       }
 
-      if (currentLive.ta_rolando_end !== (liveData.ta_rolando_end || null)) {
+      if (normalizeDate(currentLive.ta_rolando_end) !== normalizeDate(liveData.ta_rolando_end)) {
         updateFields.ta_rolando_end = liveData.ta_rolando_end
         changes.push(`Fim "Tá Rolando": ${currentLive.ta_rolando_end || 'não definido'} → ${liveData.ta_rolando_end || 'não definido'}`)
       }
 
-      if (currentLive.sales_goal !== (liveData.sales_goal || 0)) {
+      // 🔧 CORREÇÃO: Comparar valores numéricos corretamente
+      if (Number(currentLive.sales_goal) !== Number(liveData.sales_goal || 0)) {
         updateFields.sales_goal = liveData.sales_goal || 0
         changes.push(`Meta de Vendas: ${currentLive.sales_goal} → ${liveData.sales_goal || 0}`)
       }
 
-      if (currentLive.leads_goal !== (liveData.leads_goal || 0)) {
+      if (Number(currentLive.leads_goal) !== Number(liveData.leads_goal || 0)) {
         updateFields.leads_goal = liveData.leads_goal || 0
         changes.push(`Meta de Leads: ${currentLive.leads_goal} → ${liveData.leads_goal || 0}`)
       }
 
-      if (currentLive.ad_budget !== (liveData.ad_budget || 0)) {
+      if (Number(currentLive.ad_budget) !== Number(liveData.ad_budget || 0)) {
         updateFields.ad_budget = liveData.ad_budget || 0
         changes.push(`Orçamento de Anúncios: R$ ${currentLive.ad_budget} → R$ ${liveData.ad_budget || 0}`)
       }
 
-      if (currentLive.insights_date_since !== (liveData.insights_date_since || null)) {
+      if (normalizeDate(currentLive.insights_date_since) !== normalizeDate(liveData.insights_date_since)) {
         updateFields.insights_date_since = liveData.insights_date_since
         changes.push(`Data Início Insights: ${currentLive.insights_date_since || 'não definida'} → ${liveData.insights_date_since || 'não definida'}`)
       }
 
-      if (currentLive.insights_date_until !== (liveData.insights_date_until || null)) {
+      if (normalizeDate(currentLive.insights_date_until) !== normalizeDate(liveData.insights_date_until)) {
         updateFields.insights_date_until = liveData.insights_date_until
         changes.push(`Data Fim Insights: ${currentLive.insights_date_until || 'não definida'} → ${liveData.insights_date_until || 'não definida'}`)
       }
 
-      // ⚠️ CAMPO CRÍTICO: campaign_search_term
-      if (currentLive.campaign_search_term !== (liveData.campaign_search_term || null)) {
+      // 🔧 CORREÇÃO: Não alterar campaign_search_term se não foi fornecido
+      if (liveData.campaign_search_term !== undefined && currentLive.campaign_search_term !== liveData.campaign_search_term) {
         updateFields.campaign_search_term = liveData.campaign_search_term
         changes.push(`Termo de Busca: "${currentLive.campaign_search_term || 'não definido'}" → "${liveData.campaign_search_term || 'não definido'}"`)
       }
