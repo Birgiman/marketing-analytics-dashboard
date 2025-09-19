@@ -113,7 +113,7 @@ export async function getCPLFromMeta(request: MetaCPLRequest): Promise<MetaCPLRe
     // 5. PRIMEIRA REQUISIÇÃO - Contar campanhas (nível campaign)
     logs.push(`🔢 [META-CPL] Primeira requisição: contando campanhas...`);
     const countParams = new URLSearchParams({
-      fields: 'campaign_id',
+      fields: 'campaign_id,results', // Incluir 'results' para pegar campanhas pausadas/zeradas
       access_token: request.accessToken,
       level: 'campaign'
     });

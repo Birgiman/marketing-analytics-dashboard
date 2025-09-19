@@ -122,6 +122,32 @@ const params = {
 - **Vantagem**: Meta já faz o cálculo correto internamente
 - **Resultado**: Dados mais precisos e consistentes
 
+## ⚠️ **IMPORTANTE - Campanhas Pausadas/Zeradas**
+
+**🔍 DESCOBERTO**: Campanhas pausadas/zeradas não são retornadas quando pedimos apenas `campaign_id`!
+
+### **Problema:**
+- Campanhas pausadas não têm dados (impressões, gastos, etc.)
+- Meta não as retorna quando pedimos apenas `campaign_id`
+- Resultado: Contagem incorreta de campanhas
+
+### **Solução:**
+- **Sempre incluir `results`** na requisição de contagem
+- `fields: 'campaign_id,results'` em vez de `fields: 'campaign_id'`
+- Meta retorna todas as campanhas (ativas e pausadas) quando `results` está presente
+
+### **Exemplo:**
+```javascript
+// ❌ ERRADO - Pode perder campanhas pausadas
+fields: 'campaign_id'
+
+// ✅ CORRETO - Pega todas as campanhas
+fields: 'campaign_id,results'
+```
+
+### **Regra Geral:**
+Para qualquer requisição que precise contar campanhas (incluindo pausadas/zeradas), sempre incluir `results` nos fields.
+
 ## ⚠️ **Observações Importantes**
 
 1. **Level Account vs Campaign**: Use `account` para dados agregados (mais performático)
