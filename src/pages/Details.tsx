@@ -342,7 +342,7 @@ const Details = () => {
         console.log('⚡ [META-API-DIRECT] ✅ Requisição direta concluída:', result.data);
 
         // Mostrar alert com resultados
-        alert(`⚡ Meta API Direta - Sucesso!\n\n📊 RESULTADOS:\n• CPL: R$ ${result.data.cpl.toFixed(2)}\n• Gasto Total: R$ ${result.data.totalSpend.toFixed(2)}\n• Total Leads: ${result.data.totalLeads}\n• Campanhas: ${result.data.campaignCount}\n\n🔍 FILTROS APLICADOS:\n• Status: ${filters.campaignStatus.join(', ')}\n• Nome: ${filters.campaignName || 'Todos'}\n• Período: ${filters.dateRange ? `${filters.dateRange.since} até ${filters.dateRange.until}` : 'Padrão'}\n\n📋 DADOS DO BANCO:\n• Termo: ${liveData.campaignSearchTerm}\n• Account ID: ${liveData.accountId}\n• Campanhas vinculadas: ${liveData.campaignCount}\n\nVeja o console para logs detalhados!`);
+        alert(`⚡ Meta API Direta - Sucesso!\n\n📊 RESULTADOS:\n• CPL: R$ ${result.data.cpl.toFixed(2)}\n• Gasto Total: R$ ${result.data.totalSpend.toFixed(2)}\n• Total Leads: ${result.data.totalLeads}\n• Campanhas analisadas: ${result.data.campaignCount}\n\n🔍 FILTROS APLICADOS:\n• Status: ${filters.campaignStatus.join(', ')}\n• Nome: ${filters.campaignName || 'Todos'}\n• Período: ${filters.dateRange ? `${filters.dateRange.since} até ${filters.dateRange.until}` : 'Padrão'}\n\n📋 DADOS DO BANCO:\n• Termo: ${liveData.campaignSearchTerm}\n• Account ID: ${liveData.accountId}\n• Campanhas vinculadas: ${liveData.campaignCount}\n\nVeja o console para logs detalhados!`);
       } else {
         console.error('⚡ [META-API-DIRECT] ❌ Erro na requisição:', result.error);
         alert(`❌ Erro na Meta API Direta: ${result.error}`);
