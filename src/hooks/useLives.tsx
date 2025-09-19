@@ -17,7 +17,7 @@ interface LiveData {
   campaign_search_term?: string
 }
 
-interface LiveGroup {
+interface LiveGroupInput {
   group_id: string
   group_name: string
   group_size: number
@@ -39,7 +39,7 @@ export function useLives() {
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
 
-  const createLiveWithGroups = async (liveData: LiveData, groups: LiveGroup[], campaigns: LiveCampaign[] = []) => {
+  const createLiveWithGroups = async (liveData: LiveData, groups: LiveGroupInput[], campaigns: LiveCampaign[] = []) => {
     try {
       setIsLoading(true)
 
@@ -195,7 +195,7 @@ export function useLives() {
     }
   }
 
-  const updateLiveWithGroups = async (liveId: string, liveData: LiveData, groups: LiveGroup[], campaigns: LiveCampaign[] = []) => {
+  const updateLiveWithGroups = async (liveId: string, liveData: LiveData, groups: LiveGroupInput[], campaigns: LiveCampaign[] = []) => {
     try {
       setIsLoading(true)
 
@@ -204,28 +204,97 @@ export function useLives() {
         throw new Error('Usuário não autenticado')
       }
 
-      // Update the live
-      const { error: liveError } = await supabase
+      // 🔍 PRIMEIRO: Buscar dados atuais da live para comparação
+      const { data: currentLive, error: fetchError } = await supabase
         .from('lives')
-        .update({
-          name: liveData.name,
-          live_date: liveData.live_date || null,
-          captacao_start: liveData.captacao_start || null,
-          ta_rolando_start: liveData.ta_rolando_start || null,
-          ta_rolando_end: liveData.ta_rolando_end || null,
-          sales_goal: liveData.sales_goal || 0,
-          leads_goal: liveData.leads_goal || 0,
-          ad_budget: liveData.ad_budget || 0,
-          insights_date_since: liveData.insights_date_since || null,
-          insights_date_until: liveData.insights_date_until || null,
-          campaign_search_term: liveData.campaign_search_term || null
-        })
+        .select('*')
         .eq('id', liveId)
         .eq('user_id', session.session.user.id)
+        .single()
 
-      if (liveError) {
-        console.error('Error updating live:', liveError)
-        throw new Error(`Erro ao atualizar live: ${liveError.message}`)
+      if (fetchError || !currentLive) {
+        throw new Error('Live não encontrada')
+      }
+
+      // 🔍 SEGUNDO: Comparar dados e criar update parcial
+      const updateFields: Partial<LiveData> = {}
+      const changes: string[] = []
+
+      // Comparar cada campo e adicionar apenas os que mudaram
+      if (currentLive.name !== liveData.name) {
+        updateFields.name = liveData.name
+        changes.push(`Nome: "${currentLive.name}" → "${liveData.name}"`)
+      }
+
+      if (currentLive.live_date !== (liveData.live_date || null)) {
+        updateFields.live_date = liveData.live_date
+        changes.push(`Data da Live: ${currentLive.live_date || 'não definida'} → ${liveData.live_date || 'não definida'}`)
+      }
+
+      if (currentLive.captacao_start !== (liveData.captacao_start || null)) {
+        updateFields.captacao_start = liveData.captacao_start
+        changes.push(`Início da Captação: ${currentLive.captacao_start || 'não definido'} → ${liveData.captacao_start || 'não definido'}`)
+      }
+
+      if (currentLive.ta_rolando_start !== (liveData.ta_rolando_start || null)) {
+        updateFields.ta_rolando_start = liveData.ta_rolando_start
+        changes.push(`Início "Tá Rolando": ${currentLive.ta_rolando_start || 'não definido'} → ${liveData.ta_rolando_start || 'não definido'}`)
+      }
+
+      if (currentLive.ta_rolando_end !== (liveData.ta_rolando_end || null)) {
+        updateFields.ta_rolando_end = liveData.ta_rolando_end
+        changes.push(`Fim "Tá Rolando": ${currentLive.ta_rolando_end || 'não definido'} → ${liveData.ta_rolando_end || 'não definido'}`)
+      }
+
+      if (currentLive.sales_goal !== (liveData.sales_goal || 0)) {
+        updateFields.sales_goal = liveData.sales_goal || 0
+        changes.push(`Meta de Vendas: ${currentLive.sales_goal} → ${liveData.sales_goal || 0}`)
+      }
+
+      if (currentLive.leads_goal !== (liveData.leads_goal || 0)) {
+        updateFields.leads_goal = liveData.leads_goal || 0
+        changes.push(`Meta de Leads: ${currentLive.leads_goal} → ${liveData.leads_goal || 0}`)
+      }
+
+      if (currentLive.ad_budget !== (liveData.ad_budget || 0)) {
+        updateFields.ad_budget = liveData.ad_budget || 0
+        changes.push(`Orçamento de Anúncios: R$ ${currentLive.ad_budget} → R$ ${liveData.ad_budget || 0}`)
+      }
+
+      if (currentLive.insights_date_since !== (liveData.insights_date_since || null)) {
+        updateFields.insights_date_since = liveData.insights_date_since
+        changes.push(`Data Início Insights: ${currentLive.insights_date_since || 'não definida'} → ${liveData.insights_date_since || 'não definida'}`)
+      }
+
+      if (currentLive.insights_date_until !== (liveData.insights_date_until || null)) {
+        updateFields.insights_date_until = liveData.insights_date_until
+        changes.push(`Data Fim Insights: ${currentLive.insights_date_until || 'não definida'} → ${liveData.insights_date_until || 'não definida'}`)
+      }
+
+      // ⚠️ CAMPO CRÍTICO: campaign_search_term
+      if (currentLive.campaign_search_term !== (liveData.campaign_search_term || null)) {
+        updateFields.campaign_search_term = liveData.campaign_search_term
+        changes.push(`Termo de Busca: "${currentLive.campaign_search_term || 'não definido'}" → "${liveData.campaign_search_term || 'não definido'}"`)
+      }
+
+      // 🔍 TERCEIRO: Fazer update apenas se houver mudanças
+      if (Object.keys(updateFields).length > 0) {
+        console.log('🔄 [updateLiveWithGroups] Mudanças detectadas:', changes)
+        
+        const { error: liveError } = await supabase
+          .from('lives')
+          .update(updateFields)
+          .eq('id', liveId)
+          .eq('user_id', session.session.user.id)
+
+        if (liveError) {
+          console.error('Error updating live:', liveError)
+          throw new Error(`Erro ao atualizar live: ${liveError.message}`)
+        }
+
+        console.log('✅ [updateLiveWithGroups] Live atualizada com sucesso')
+      } else {
+        console.log('ℹ️ [updateLiveWithGroups] Nenhuma mudança detectada nos dados da live')
       }
 
       // Delete existing live_groups, then recreate them
@@ -384,14 +453,14 @@ export function useLives() {
 
       // Insert live groups into deleted_live_groups table
       if (liveData.live_groups && liveData.live_groups.length > 0) {
-        const deletedGroups = liveData.live_groups.map((group: LiveGroup) => ({
+        const deletedGroups = liveData.live_groups.map((group: any) => ({
           original_live_group_id: group.id,
           original_live_id: liveData.id,
           user_id: session.session.user.id,
           group_id: group.group_id,
           group_name: group.group_name,
           group_size: group.group_size,
-          monitoring: group.monitoring,
+          monitoring: group.monitoring || true,
           created_at: group.created_at,
           updated_at: group.updated_at
         }))
