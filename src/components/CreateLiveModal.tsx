@@ -110,11 +110,24 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
   // Populate form when editing
   useEffect(() => {
     if (editingLive && open) {
+      console.log('🔍 [CreateLiveModal] Carregando dados da live:', {
+        sales_goal: editingLive.sales_goal,
+        leads_goal: editingLive.leads_goal,
+        ad_budget: editingLive.ad_budget,
+        name: editingLive.name
+      });
+
       setFormData({
         liveName: editingLive.name || '',
         captureStart: editingLive.captacao_start ? new Date(editingLive.captacao_start).toISOString().slice(0, 16) : '',
         liveStart: editingLive.ta_rolando_start ? new Date(editingLive.ta_rolando_start).toISOString().slice(0, 16) : '',
         liveEnd: editingLive.ta_rolando_end ? new Date(editingLive.ta_rolando_end).toISOString().slice(0, 16) : '',
+        salesTarget: editingLive.sales_goal?.toString() || '',
+        leadsTarget: editingLive.leads_goal?.toString() || '',
+        adsBudget: editingLive.ad_budget ? (editingLive.ad_budget * 100).toString() : ''
+      });
+
+      console.log('🔍 [CreateLiveModal] FormData atualizado:', {
         salesTarget: editingLive.sales_goal?.toString() || '',
         leadsTarget: editingLive.leads_goal?.toString() || '',
         adsBudget: editingLive.ad_budget ? (editingLive.ad_budget * 100).toString() : ''
