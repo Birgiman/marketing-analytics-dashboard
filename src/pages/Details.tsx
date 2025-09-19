@@ -185,15 +185,25 @@ const Details = () => {
       });
       
       try {
+        // 🔍 INVESTIGAÇÃO: Logs detalhados da estrutura de dados
+        console.log('🔍 [INVESTIGAÇÃO] Estrutura completa de campaignsWithInsights:', campaignsWithInsights);
+        console.log('🔍 [INVESTIGAÇÃO] Primeira campanha:', campaignsWithInsights[0]);
+        console.log('🔍 [INVESTIGAÇÃO] Insights da primeira campanha:', campaignsWithInsights[0]?.insights);
+        console.log('🔍 [INVESTIGAÇÃO] Tipo dos insights:', typeof campaignsWithInsights[0]?.insights);
+        console.log('🔍 [INVESTIGAÇÃO] É array?', Array.isArray(campaignsWithInsights[0]?.insights));
+        
         // Preparar dados no formato esperado pelos novos cálculos
         const liveData = {
           live,
           groups,
           campaignInsights: campaignsWithInsights.map(campaign => ({
             campaign_id: campaign.campaign_id,
-            insights: campaign.insights ? [campaign.insights] : []
+            insights: campaign.insights || []
           }))
         };
+        
+        console.log('🔍 [INVESTIGAÇÃO] liveData preparado:', liveData);
+        console.log('🔍 [INVESTIGAÇÃO] campaignInsights mapeado:', liveData.campaignInsights);
 
         // Calcular métricas usando a nova função
         const result = calculateCompleteLiveMetrics(liveData, {
@@ -341,7 +351,10 @@ const Details = () => {
       const liveData = {
         live: completeData.live,
         groups: completeData.groups,
-        campaignInsights: completeData.campaignInsights
+        campaignInsights: completeData.campaignInsights.map(campaign => ({
+          campaign_id: campaign.campaign_id,
+          insights: campaign.insights || []
+        }))
       };
 
       const result = calculateCompleteLiveMetrics(liveData, {
