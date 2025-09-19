@@ -4,6 +4,7 @@ import { Link, useLocation, useSearchParams, useNavigate } from "react-router-do
 import { useState } from "react";
 import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache";
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
+import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 
 const Header = () => {
   const location = useLocation();
@@ -72,33 +73,28 @@ const Header = () => {
         await refreshData();
       }
 
-      // USAR LÓGICA V2: Calcular métricas com novos cálculos
-      console.log('🧮 [Header] Aplicando cálculos V2...');
+      // USAR LÓGICA V2: Buscar dados frescos como o Teste V2
+      console.log('🧮 [Header] Aplicando cálculos V2 com dados frescos...');
       
-      // Usar dados que já estão disponíveis no componente
-      if (live && groups && campaignsWithInsights.length > 0) {
-        // Preparar dados no formato esperado pelos novos cálculos
-        const liveData = {
-          live,
-          groups,
-          campaignInsights: campaignsWithInsights.map(campaign => ({
-            campaign_id: campaign.campaign_id,
-            insights: campaign.insights ? [campaign.insights] : []
-          }))
-        };
+      // Buscar dados completos frescos (mesma lógica do Teste V2)
+      const completeData = await fetchCompleteLiveData(liveId);
+      
+      // Calcular métricas usando a nova função V2
+      const liveData = {
+        live: completeData.live,
+        groups: completeData.groups,
+        campaignInsights: completeData.campaignInsights
+      };
 
-        // Calcular métricas usando a nova função V2
-        const result = calculateCompleteLiveMetrics(liveData, {
-          enableLogging: true,
-          enableValidation: true,
-          orcamentoGasto: (live as any).ad_budget
-        });
+      const result = calculateCompleteLiveMetrics(liveData, {
+        enableLogging: true,
+        enableValidation: true,
+        orcamentoGasto: (completeData.live as any).ad_budget
+      });
 
-        console.log('✅ [Header] Métricas V2 calculadas:', result.summary);
-        console.log('📊 [Header] Taxa de Retenção V2:', result.summary.retentionRateFormatted);
-      } else {
-        console.log('⚠️ [Header] Dados não disponíveis para cálculos V2');
-      }
+      console.log('✅ [Header] Métricas V2 calculadas com dados frescos:', result.summary);
+      console.log('📊 [Header] Taxa de Retenção V2:', result.summary.retentionRateFormatted);
+      console.log('📊 [Header] Dados frescos - Gasto:', result.extractedData.metaData.totalSpend, 'Leads:', result.extractedData.metaData.totalResults);
 
       console.log('✅ [Header] Dados atualizados com sucesso');
 
