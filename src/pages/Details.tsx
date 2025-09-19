@@ -4,7 +4,7 @@ import PerformanceAnalysis from "@/components/PerformanceAnalysis";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache";
+// import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache"; // REMOVIDO - sempre buscar dados frescos
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 // V2 IMPORTS - Novos cálculos
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
@@ -52,23 +52,61 @@ const Details = () => {
   */
 
   // ============================================================================
-  // VERSÃO V2 - Novos cálculos
+  // VERSÃO V2 - Novos cálculos (SEM CACHE)
   // ============================================================================
   
-  // Usar hook de cache para buscar dados básicos
-  const {
-    live,
-    groups,
-    campaigns,
-    campaignsWithInsights,
-    isLoading,
-    isMetaLoading,
-    error,
-    isFromCache,
-    canFetchMetaAgain,
-    refreshData,
-    clearError
-  } = useLiveLocalStorageCache({ liveId: liveId || '' });
+  // Estados para dados frescos (sem cache)
+  const [live, setLive] = useState<{
+    id: string;
+    name: string;
+    user_id: string;
+    live_date?: string;
+    insights_date_since?: string;
+    insights_date_until?: string;
+    campaign_search_term?: string;
+    ad_budget?: number;
+    created_at: string;
+    updated_at: string;
+  } | null>(null);
+  const [groups, setGroups] = useState<Array<{
+    id: string;
+    group_id: string;
+    group_name: string;
+    group_size: number;
+    monitoring: boolean;
+    created_at: string;
+  }>>([]);
+  const [campaigns, setCampaigns] = useState<Array<{
+    id: string;
+    campaign_id: string;
+    campaign_name: string;
+    account_id?: string;
+    account_name?: string;
+    objective?: string;
+    status: string;
+    daily_budget?: number;
+    lifetime_budget?: number;
+  }>>([]);
+  const [campaignsWithInsights, setCampaignsWithInsights] = useState<Array<{
+    campaign_id: string;
+    insights: Array<{
+      date_start: string;
+      date_stop: string;
+      spend: string;
+      impressions: string;
+      clicks: string;
+      reach?: string;
+      frequency?: string;
+      cpm?: string;
+      ctr?: string;
+      cpp?: string;
+      cost_per_unique_click?: string;
+      actions?: Array<{ action_type: string; value: string }>;
+    }>;
+  }>>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isMetaLoading, setIsMetaLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Estados para métricas V2
   const [metricsV2, setMetricsV2] = useState<{
@@ -101,6 +139,39 @@ const Details = () => {
     }
   }, [liveId, navigate]);
 
+  // Buscar dados frescos quando a página carregar
+  useEffect(() => {
+    if (!liveId) return;
+
+    const fetchFreshData = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        console.log('🔄 [Details] Buscando dados frescos para Live:', liveId);
+        
+        // Buscar dados completos frescos
+        const completeData = await fetchCompleteLiveData(liveId);
+        
+        // Atualizar estados com dados frescos
+        setLive(completeData.live);
+        setGroups(completeData.groups);
+        setCampaigns(completeData.liveCampaigns);
+        setCampaignsWithInsights(completeData.campaignInsights);
+        
+        console.log('✅ [Details] Dados frescos carregados com sucesso');
+        
+      } catch (error) {
+        console.error('❌ [Details] Erro ao buscar dados frescos:', error);
+        setError(`Erro ao carregar dados: ${error}`);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFreshData();
+  }, [liveId]);
+
   // Calcular métricas V2 quando os dados estiverem disponíveis
   useEffect(() => {
     if (live && groups && campaignsWithInsights.length > 0) {
@@ -121,7 +192,7 @@ const Details = () => {
         const result = calculateCompleteLiveMetrics(liveData, {
           enableLogging: true,
           enableValidation: true,
-          orcamentoGasto: (live as any).ad_budget
+          orcamentoGasto: live.ad_budget
         });
 
         setMetricsV2(result.metrics);
@@ -165,6 +236,15 @@ const Details = () => {
   
   // Usar campanhas com insights do cache
   const finalCampaigns = campaignsWithInsights.length > 0 ? campaignsWithInsights : campaigns;
+  
+  // Função para obter campanhas para renderização (sempre retorna campanhas com dados completos)
+  const getCampaignsForRender = () => {
+    if (campaignsWithInsights.length > 0) {
+      // Se temos insights, usar as campanhas do banco que têm dados completos
+      return campaigns;
+    }
+    return campaigns;
+  };
 
   // Calcular dados dos grupos V2
   const calculateGroupDataV2 = () => {
@@ -253,7 +333,7 @@ const Details = () => {
       const result = calculateCompleteLiveMetrics(liveData, {
         enableLogging: true,
         enableValidation: true,
-        orcamentoGasto: (completeData.live as any).ad_budget
+        orcamentoGasto: undefined // TODO: Adicionar ad_budget ao tipo LiveDataResponse
       });
 
       console.log('🧪 [TESTE V2] ✅ Novos cálculos concluídos:', result);
@@ -444,7 +524,7 @@ const Details = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={clearError}
+                  onClick={() => setError(null)}
                   className="mt-2 text-red-600 hover:text-red-700"
                 >
                   Fechar
@@ -497,16 +577,9 @@ const Details = () => {
                 ) : (
                   <p>🔄 Calculando métricas V2...</p>
                 )}
-                {isFromCache && (
-                  <p>
-                    <strong>Status:</strong> 📦 Dados carregados do cache localStorage
-                  </p>
-                )}
-                {canFetchMetaAgain && (
-                  <p>
-                    <strong>Meta Ads:</strong> ⏰ Disponível para nova atualização
-                  </p>
-                )}
+                <p>
+                  <strong>Status:</strong> 🔄 Dados sempre frescos (sem cache)
+                </p>
               </div>
             </div>
             {finalCampaigns.length === 0 && (
@@ -584,9 +657,9 @@ const Details = () => {
               </span>
             )}
           </div>
-          {finalCampaigns.length > 0 ? (
-            <div className="max-h-[400px] overflow-y-auto space-y-4 pr-2">
-              {finalCampaigns.map((campaign) => (
+            {getCampaignsForRender().length > 0 ? (
+              <div className="max-h-[400px] overflow-y-auto space-y-4 pr-2">
+                {getCampaignsForRender().map((campaign) => (
                 <Card key={campaign.id} className="p-4">
                   <div className="flex justify-between items-start">
                     <div className="space-y-2">
@@ -594,12 +667,12 @@ const Details = () => {
                       <div className="flex gap-4 text-sm text-gray-600">
                         <span>ID: {campaign.campaign_id}</span>
                         <span>Status: {campaign.status}</span>
-                        <span>Objetivo: {(campaign as any).objective || '—'}</span>
+                        <span>Objetivo: {campaign.objective || '—'}</span>
                       </div>
                       <div className="flex gap-4 text-sm">
-                        <span>Orçamento Diário: {(campaign as any).daily_budget ? `R$ ${(Number((campaign as any).daily_budget) / 100).toFixed(2)}` : '—'}</span>
-                        {(campaign as any).lifetime_budget && (
-                          <span>Orçamento Total: R$ {(Number((campaign as any).lifetime_budget) / 100).toFixed(2)}</span>
+                        <span>Orçamento Diário: {campaign.daily_budget ? `R$ ${(Number(campaign.daily_budget) / 100).toFixed(2)}` : '—'}</span>
+                        {campaign.lifetime_budget && (
+                          <span>Orçamento Total: R$ {(Number(campaign.lifetime_budget) / 100).toFixed(2)}</span>
                         )}
                       </div>
                       <div className="text-xs text-gray-500">

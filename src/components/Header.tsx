@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, TrendingUp } from "lucide-react";
 import { Link, useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache";
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 
@@ -14,20 +13,10 @@ const Header = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // ===============================================
-  // HOOKS DE CACHE PARA CONTROLE DE ATUALIZAÇÃO
+  // CONFIGURAÇÃO DE PÁGINAS DE LIVE
   // ===============================================
 
-  // Hook de cache principal (apenas se estivermos em uma página de Live)
   const isLivePage = liveId && ['/details', '/traffic-analysis', '/research-insights', '/sales-by-group'].includes(location.pathname);
-
-  const { 
-    refreshData, 
-    live, 
-    groups, 
-    campaignsWithInsights 
-  } = useLiveLocalStorageCache({
-    liveId: liveId || ''
-  });
 
   const navigationTabs = [
     {
@@ -66,17 +55,12 @@ const Header = () => {
 
     setIsRefreshing(true);
     try {
-      console.log('🔄 [Header] Atualizando dados completos da Live:', liveId);
+      console.log('🔄 [Header] Buscando dados frescos da Live:', liveId);
 
-      // Atualizar cache localStorage completo (inclui Meta Ads)
-      if (refreshData) {
-        await refreshData();
-      }
-
-      // USAR LÓGICA V2: Buscar dados frescos como o Teste V2
+      // SEMPRE buscar dados frescos (sem cache)
       console.log('🧮 [Header] Aplicando cálculos V2 com dados frescos...');
       
-      // Buscar dados completos frescos (mesma lógica do Teste V2)
+      // Buscar dados completos frescos
       const completeData = await fetchCompleteLiveData(liveId);
       
       // Calcular métricas usando a nova função V2
