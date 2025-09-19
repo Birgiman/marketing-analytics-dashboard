@@ -19,7 +19,12 @@ const Header = () => {
   // Hook de cache principal (apenas se estivermos em uma página de Live)
   const isLivePage = liveId && ['/details', '/traffic-analysis', '/research-insights', '/sales-by-group'].includes(location.pathname);
 
-  const { refreshData } = useLiveLocalStorageCache({
+  const { 
+    refreshData, 
+    live, 
+    groups, 
+    campaignsWithInsights 
+  } = useLiveLocalStorageCache({
     liveId: liveId || ''
   });
 
@@ -70,9 +75,7 @@ const Header = () => {
       // USAR LÓGICA V2: Calcular métricas com novos cálculos
       console.log('🧮 [Header] Aplicando cálculos V2...');
       
-      // Buscar dados atualizados do cache
-      const { live, groups, campaignsWithInsights } = useLiveLocalStorageCache({ liveId });
-      
+      // Usar dados que já estão disponíveis no componente
       if (live && groups && campaignsWithInsights.length > 0) {
         // Preparar dados no formato esperado pelos novos cálculos
         const liveData = {
@@ -93,6 +96,8 @@ const Header = () => {
 
         console.log('✅ [Header] Métricas V2 calculadas:', result.summary);
         console.log('📊 [Header] Taxa de Retenção V2:', result.summary.retentionRateFormatted);
+      } else {
+        console.log('⚠️ [Header] Dados não disponíveis para cálculos V2');
       }
 
       console.log('✅ [Header] Dados atualizados com sucesso');
