@@ -110,8 +110,54 @@ export async function getCPLFromMeta(request: MetaCPLRequest): Promise<MetaCPLRe
       }
     }
     
-    // 5. Fazer requisição HTTP
-    logs.push(`🌐 [META-CPL] Fazendo requisição HTTP...`);
+    // 5. PRIMEIRA REQUISIÇÃO - Contar campanhas (nível campaign)
+    logs.push(`🔢 [META-CPL] Primeira requisição: contando campanhas...`);
+    const countParams = new URLSearchParams({
+      fields: 'campaign_id',
+      access_token: request.accessToken,
+      level: 'campaign'
+    });
+    
+    // Aplicar os mesmos filtros para contar
+    if (request.filters) {
+      const filtering: any[] = [];
+      
+      if (request.filters.campaignStatus && request.filters.campaignStatus.length > 0) {
+        filtering.push({
+          field: 'campaign.effective_status',
+          operator: 'IN',
+          value: request.filters.campaignStatus
+        });
+      }
+      
+      if (request.filters.campaignName) {
+        filtering.push({
+          field: 'campaign.name',
+          operator: 'CONTAIN',
+          value: request.filters.campaignName
+        });
+      }
+      
+      if (filtering.length > 0) {
+        countParams.append('filtering', JSON.stringify(filtering));
+      }
+      
+      if (request.filters.dateRange) {
+        countParams.append('time_range', JSON.stringify(request.filters.dateRange));
+      }
+    }
+    
+    const countResponse = await fetch(`${url}?${countParams.toString()}`);
+    if (!countResponse.ok) {
+      throw new Error(`Erro HTTP ${countResponse.status}: ${countResponse.statusText}`);
+    }
+    
+    const countData = await countResponse.json();
+    const campaignCount = countData.data?.length || 0;
+    logs.push(`📊 [META-CPL] Campanhas encontradas: ${campaignCount}`);
+    
+    // 6. SEGUNDA REQUISIÇÃO - Dados completos (nível account)
+    logs.push(`🌐 [META-CPL] Segunda requisição: buscando dados completos...`);
     const response = await fetch(`${url}?${params.toString()}`);
     
     if (!response.ok) {
@@ -121,8 +167,8 @@ export async function getCPLFromMeta(request: MetaCPLRequest): Promise<MetaCPLRe
     const responseData = await response.json();
     logs.push(`✅ [META-CPL] Resposta recebida com ${responseData.data?.length || 0} registros`);
     
-    // 6. Processar dados e calcular CPL
-    const processedData = processMetaInsightsData(responseData.data || []);
+    // 7. Processar dados e calcular CPL
+    const processedData = processMetaInsightsData(responseData.data || [], campaignCount);
     logs.push(`🧮 [META-CPL] CPL calculado: R$ ${processedData.cpl.toFixed(2)}`);
     logs.push(`📊 [META-CPL] Dados processados: ${processedData.totalLeads} leads, R$ ${processedData.totalSpend} gasto`);
     
@@ -154,7 +200,7 @@ export async function getCPLFromMeta(request: MetaCPLRequest): Promise<MetaCPLRe
  * IMPORTANTE: Usa o campo 'results' que já traz o valor correto
  * de leads/actions calculado pelo Meta (mais preciso que somar actions manualmente)
  */
-function processMetaInsightsData(insights: any[]): {
+function processMetaInsightsData(insights: any[], campaignCount: number): {
   cpl: number;
   totalSpend: number;
   totalLeads: number;
@@ -163,23 +209,12 @@ function processMetaInsightsData(insights: any[]): {
 } {
   let totalSpend = 0;
   let totalLeads = 0;
-  const campaignIds = new Set();
   
   // Processar cada insight
   insights.forEach((insight, index) => {
     // Somar gastos
     if (insight.spend) {
       totalSpend += parseFloat(insight.spend);
-    }
-    
-    // Contar campanhas únicas
-    if (insight.campaign_id) {
-      campaignIds.add(insight.campaign_id);
-    }
-    
-    // Debug: mostrar campaign_id se disponível
-    if (insight.campaign_id) {
-      console.log(`📊 [META-CPL] Campaign ID encontrado: ${insight.campaign_id}`);
     }
     
     // Usar campo 'results' se disponível, senão calcular manualmente
@@ -227,7 +262,7 @@ function processMetaInsightsData(insights: any[]): {
     cpl,
     totalSpend,
     totalLeads,
-    campaignCount: campaignIds.size,
+    campaignCount: campaignCount, // Usar o count da primeira requisição
     rawData: insights
   };
 }
