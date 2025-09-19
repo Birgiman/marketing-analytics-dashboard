@@ -3,6 +3,7 @@ import { RefreshCw, TrendingUp } from "lucide-react";
 import { Link, useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache";
+import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 
 const Header = () => {
   const location = useLocation();
@@ -64,6 +65,34 @@ const Header = () => {
       // Atualizar cache localStorage completo (inclui Meta Ads)
       if (refreshData) {
         await refreshData();
+      }
+
+      // USAR LÓGICA V2: Calcular métricas com novos cálculos
+      console.log('🧮 [Header] Aplicando cálculos V2...');
+      
+      // Buscar dados atualizados do cache
+      const { live, groups, campaignsWithInsights } = useLiveLocalStorageCache({ liveId });
+      
+      if (live && groups && campaignsWithInsights.length > 0) {
+        // Preparar dados no formato esperado pelos novos cálculos
+        const liveData = {
+          live,
+          groups,
+          campaignInsights: campaignsWithInsights.map(campaign => ({
+            campaign_id: campaign.campaign_id,
+            insights: campaign.insights ? [campaign.insights] : []
+          }))
+        };
+
+        // Calcular métricas usando a nova função V2
+        const result = calculateCompleteLiveMetrics(liveData, {
+          enableLogging: true,
+          enableValidation: true,
+          orcamentoGasto: (live as any).ad_budget
+        });
+
+        console.log('✅ [Header] Métricas V2 calculadas:', result.summary);
+        console.log('📊 [Header] Taxa de Retenção V2:', result.summary.retentionRateFormatted);
       }
 
       console.log('✅ [Header] Dados atualizados com sucesso');
