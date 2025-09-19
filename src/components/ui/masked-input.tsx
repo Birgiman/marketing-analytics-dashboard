@@ -1,4 +1,4 @@
-import { forwardRef, useState } from "react";
+import { forwardRef, useState, useEffect } from "react";
 import { Input } from "./input";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,19 @@ export interface MaskedInputProps extends Omit<React.InputHTMLAttributes<HTMLInp
 const MaskedInput = forwardRef<HTMLInputElement, MaskedInputProps>(
   ({ className, mask, value = '', onChange, ...props }, ref) => {
     const [displayValue, setDisplayValue] = useState(value);
+
+    // 🔧 CORREÇÃO: Atualizar displayValue quando value prop muda
+    useEffect(() => {
+      if (value !== displayValue) {
+        if (mask === 'currency') {
+          setDisplayValue(formatCurrency(value));
+        } else if (mask === 'number') {
+          setDisplayValue(formatNumber(value));
+        } else {
+          setDisplayValue(value);
+        }
+      }
+    }, [value, mask]);
 
     const formatCurrency = (value: string) => {
       const numericValue = value.replace(/\D/g, '');
