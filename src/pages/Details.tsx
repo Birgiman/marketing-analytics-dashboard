@@ -174,8 +174,15 @@ const Details = () => {
 
   // Calcular métricas V2 quando os dados estiverem disponíveis
   useEffect(() => {
-    if (live && groups && campaignsWithInsights.length > 0) {
+    // Aguardar que todos os dados estejam carregados
+    if (live && groups && campaignsWithInsights.length > 0 && !isLoading) {
       console.log('🔄 [Details V2] Calculando métricas com novos cálculos...');
+      console.log('📊 [Details V2] Dados disponíveis:', {
+        live: !!live,
+        groups: groups.length,
+        campaignsWithInsights: campaignsWithInsights.length,
+        isLoading
+      });
       
       try {
         // Preparar dados no formato esperado pelos novos cálculos
@@ -204,8 +211,15 @@ const Details = () => {
       } catch (error) {
         console.error('❌ [Details V2] Erro ao calcular métricas:', error);
       }
+    } else {
+      console.log('⏳ [Details V2] Aguardando dados completos:', {
+        live: !!live,
+        groups: groups.length,
+        campaignsWithInsights: campaignsWithInsights.length,
+        isLoading
+      });
     }
-  }, [live, groups, campaignsWithInsights]);
+  }, [live, groups, campaignsWithInsights, isLoading]);
 
   // ============================================================================
   // VERSÃO V1 (COMENTADA) - Funções antigas
