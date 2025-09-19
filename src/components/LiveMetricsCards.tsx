@@ -40,7 +40,7 @@ export function LiveMetricsCards({
       
       <MetricCard
         title="Tx de Retenção"
-        value={`${retentionRate}%`}
+        value={`${retentionRate.toFixed(2)}%`}
         icon={Activity}
         isLoading={isLoading}
       />

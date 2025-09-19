@@ -185,13 +185,6 @@ const Details = () => {
       });
       
       try {
-        // 🔍 INVESTIGAÇÃO: Logs detalhados da estrutura de dados
-        console.log('🔍 [INVESTIGAÇÃO] Estrutura completa de campaignsWithInsights:', campaignsWithInsights);
-        console.log('🔍 [INVESTIGAÇÃO] Primeira campanha:', campaignsWithInsights[0]);
-        console.log('🔍 [INVESTIGAÇÃO] Insights da primeira campanha:', campaignsWithInsights[0]?.insights);
-        console.log('🔍 [INVESTIGAÇÃO] Tipo dos insights:', typeof campaignsWithInsights[0]?.insights);
-        console.log('🔍 [INVESTIGAÇÃO] É array?', Array.isArray(campaignsWithInsights[0]?.insights));
-        
         // Preparar dados no formato esperado pelos novos cálculos
         const liveData = {
           live,
@@ -201,9 +194,6 @@ const Details = () => {
             insights: campaign.insights || []
           }))
         };
-        
-        console.log('🔍 [INVESTIGAÇÃO] liveData preparado:', liveData);
-        console.log('🔍 [INVESTIGAÇÃO] campaignInsights mapeado:', liveData.campaignInsights);
 
         // Calcular métricas usando a nova função
         const result = calculateCompleteLiveMetrics(liveData, {
