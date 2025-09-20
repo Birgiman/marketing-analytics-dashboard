@@ -12,16 +12,8 @@ import { LivesListModal } from "@/components/LivesListModal";
 import { useWhatsAppInstances } from "@/hooks/useWhatsAppInstances";
 import { useLives } from "@/hooks/useLives";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
+import { Edit, Trash2, Eye } from "lucide-react";
 import { Live, LiveGroup } from "@/types/live";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 
 interface DashboardStats {
@@ -159,7 +151,6 @@ const [lives, setLives] = useState<any[]>([]);
         title="LiveShop Analytics" 
         salesTarget="R$ 1,10M / 10M"
         salesPercentage="11%"
-        location="Endereço"
       />
 
       {/* Stats Grid */}
@@ -178,7 +169,7 @@ const [lives, setLives] = useState<any[]>([]);
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Participantes</CardTitle>
+              <CardTitle className="text-sm font-medium">Participantes</CardTitle>
               <Users className="w-4 h-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -189,23 +180,23 @@ const [lives, setLives] = useState<any[]>([]);
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Vendas</CardTitle>
+              <CardTitle className="text-sm font-medium">Vendas</CardTitle>
               <TrendingUp className="w-4 h-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-500">{stats.totalSales}</div>
-              <p className="text-xs text-red-500">Dados mockados</p>
+              <div className="text-2xl font-bold">0</div>
+              <p className="text-xs text-muted-foreground">Total de vendas</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Faturamento Total</CardTitle>
+              <CardTitle className="text-sm font-medium">Faturamento</CardTitle>
               <DollarSign className="w-4 h-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-500">R$ {stats.totalRevenue}</div>
-              <p className="text-xs text-red-500">Dados mockados</p>
+              <div className="text-2xl font-bold">R$ 0</div>
+              <p className="text-xs text-muted-foreground">Total faturado</p>
             </CardContent>
           </Card>
         </div>
@@ -215,8 +206,8 @@ const [lives, setLives] = useState<any[]>([]);
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-xl">Suas Lives</CardTitle>
-                <p className="text-sm text-muted-foreground">Gerencie e analise todas as suas transmissões</p>
+                <CardTitle className="text-xl">Gerenciar Lives</CardTitle>
+                <p className="text-sm text-muted-foreground">Crie, edite e acompanhe suas lives</p>
               </div>
               <Button variant="primary" className="gap-2" onClick={() => setIsCreateLiveOpen(true)}>
                 <Plus className="w-4 h-4" />
@@ -243,9 +234,9 @@ const [lives, setLives] = useState<any[]>([]);
                 <div className="text-sm font-medium">Nome da Live</div>
                 <div className="text-sm font-medium">Data</div>
                 <div className="text-sm font-medium">Status</div>
-                <div className="text-sm font-medium">Pessoas ao vivo</div>
-                <div className="text-sm font-medium">Vendas</div>
-                <div className="text-sm font-medium">Receita</div>
+                <div className="text-sm font-medium">Entrou no grupo</div>
+                <div className="text-sm font-medium">Pedidos</div>
+                <div className="text-sm font-medium">Faturamento</div>
                 <div className="text-sm font-medium">Ações</div>
               </div>
               
@@ -259,49 +250,46 @@ const [lives, setLives] = useState<any[]>([]);
                     >
                       {live.name}
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      {live.live_date ? new Date(live.live_date).toLocaleDateString('pt-BR') : 'Não definida'}
+                    <div className="text-sm text-muted-foreground flex items-center gap-1">
+                      📅 {live.live_date ? new Date(live.live_date).toLocaleDateString('pt-BR') : 'Não definida'}
                     </div>
                     <div>
-                      <Badge variant="secondary">Criada</Badge>
+                      <Badge variant="secondary">Captação</Badge>
                     </div>
                     <div className="text-sm">
                       {live.live_groups?.reduce((sum: number, group: LiveGroup) => sum + (group.group_size || 0), 0) || 0}
                     </div>
-                    <div className="text-sm text-red-500">
-                      45 (mockado)
+                    <div className="text-sm">
+                      0
                     </div>
-                    <div className="text-sm text-red-500">
-                      R$ 2.850 (mockado)
+                    <div className="text-sm">
+                      R$ 0
                     </div>
-                    <div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Abrir menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-white border shadow-md">
-                            <DropdownMenuItem onClick={() => navigate(`/details?live=${live.id}`)} className="hover:bg-gray-100 cursor-pointer">
-                             <Eye className="mr-2 h-4 w-4" />
-                             Ver
-                           </DropdownMenuItem>
-                           <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleEditLive(live)} className="hover:bg-gray-100 cursor-pointer">
-                             <Edit className="mr-2 h-4 w-4" />
-                             Editar
-                           </DropdownMenuItem>
-                           <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              className="text-red-600 hover:bg-gray-100 cursor-pointer"
-                              onClick={() => handleDeleteLive(live)}
-                            >
-                             <Trash2 className="mr-2 h-4 w-4" />
-                             Excluir
-                           </DropdownMenuItem>
-                         </DropdownMenuContent>
-                      </DropdownMenu>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => navigate(`/details?live=${live.id}`)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleEditLive(live)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleDeleteLive(live)}
+                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 ))
