@@ -1,16 +1,15 @@
-import { Button } from '@/components/ui/button';
 import Header from '@/components/Header';
-import { DemoBanner } from '@/components/DemoBanner';
-import { QRCodeDisplay } from '@/components/QRCodeDisplay';
-import { WhatsAppAdvancedSettingsWrapper } from '@/components/WhatsAppAdvancedSettingsWrapper';
 import { MetaAdsConnection } from '@/components/MetaAdsConnection';
-import { useWhatsAppConnection } from '@/hooks/useWhatsAppConnection';
+import { QRCodeDisplay } from '@/components/QRCodeDisplay';
+import { Button } from '@/components/ui/button';
+import { WhatsAppAdvancedSettingsWrapper } from '@/components/WhatsAppAdvancedSettingsWrapper';
 import { useMetaAds } from '@/hooks/useMetaAds';
+import { useWhatsAppConnection } from '@/hooks/useWhatsAppConnection';
 import { supabase } from '@/integrations/supabase/client';
 import { DEMO_MODE } from '@/lib/demo-mode';
-import { Link, useNavigate } from 'react-router-dom';
+import { Facebook, MessageSquare } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { MessageSquare, Facebook, BarChart3, Settings, Instagram } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Integrations() {
   const navigate = useNavigate();
@@ -316,53 +315,6 @@ export default function Integrations() {
               >
                 {metaAdsConnected ? 'Gerenciar Meta Ads' : 'Conectar Meta Ads'}
               </Button>
-            </div>
-
-            {/* Analytics Integration */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center mb-4">
-                <div className="p-2 bg-purple-100 rounded-lg mr-3">
-                  <BarChart3 className="h-6 w-6 text-purple-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900">Analytics Avançado</h3>
-                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
-                    Disponível
-                  </span>
-                </div>
-              </div>
-
-              <p className="text-gray-600 mb-4">
-                Configurações avançadas para rastreamento e análise de dados
-              </p>
-
-              <Link to="/analytics/settings">
-                <Button variant="outline" className="w-full">
-                  Configurar Analytics
-                </Button>
-              </Link>
-            </div>
-
-            {/* General Settings */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center mb-4">
-                <div className="p-2 bg-gray-100 rounded-lg mr-3">
-                  <Settings className="h-6 w-6 text-gray-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900">Configurações Gerais</h3>
-                </div>
-              </div>
-
-              <p className="text-gray-600 mb-4">
-                Configure preferências gerais do sistema e notificações
-              </p>
-
-              <Link to="/settings">
-                <Button variant="outline" className="w-full">
-                  Acessar Configurações
-                </Button>
-              </Link>
             </div>
           </div>
         </div>

@@ -1,23 +1,19 @@
-import { useState, useEffect } from "react";
 import Header from "@/components/Header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Users, 
-  UserCheck, 
-  UserX, 
-  UserMinus,
-  RefreshCw,
-  Clock,
-  CheckCircle,
-  XCircle
-} from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
-import { SalesHeader } from "@/components/SalesHeader";
-import { DemoBanner } from "@/components/DemoBanner";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import {
+    CheckCircle,
+    Clock,
+    RefreshCw,
+    UserCheck,
+    UserMinus,
+    XCircle
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface ProfileWithAuth {
   id: string;
