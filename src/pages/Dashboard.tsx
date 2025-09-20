@@ -1,6 +1,6 @@
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { CreateLiveModal } from "@/components/CreateLiveModal";
-import HeaderV2 from "@/components/HeaderV2";
+import Header from "@/components/Header";
 import { LivesListModal } from "@/components/LivesListModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -146,7 +146,7 @@ const [lives, setLives] = useState<Live[]>([]);
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Header */}
-      <HeaderV2 />
+      <Header />
 
 
       {/* Stats Grid */}

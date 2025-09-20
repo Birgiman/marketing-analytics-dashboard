@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react';
-import { SalesHeader } from '@/components/SalesHeader';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import Header from '@/components/Header';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Download, Phone, Eye, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
 import { DEMO_MODE } from '@/lib/demo-mode';
+import { Calendar, Download, Eye, Phone } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface Lead {
   id: string;
@@ -92,10 +92,9 @@ export default function Leads() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <SalesHeader title="LiveShop Analytics" />
-      
-      <div className="p-6 space-y-6">
+    <div className="flex flex-col h-screen bg-background">
+      <Header />
+      <div className="flex-1 p-6 space-y-6">
         {/* Métricas */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>

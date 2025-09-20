@@ -1,28 +1,27 @@
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import Header from "@/components/Header";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Users, 
-  UserMinus, 
-  UserCheck, 
-  ShoppingCart, 
-  DollarSign, 
-  TrendingUp,
-  Download,
-  Search,
-  Settings,
-  MapPin,
-  BarChart3,
-  ArrowUp,
-  ArrowDown
-} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { Live, LiveGroup } from "@/types";
+import {
+    ArrowDown,
+    ArrowUp,
+    BarChart3,
+    DollarSign,
+    Download,
+    Search,
+    ShoppingCart,
+    TrendingUp,
+    UserCheck,
+    UserMinus,
+    Users
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { LiveGroup, Live } from "@/types";
 
 export default function Groups() {
   const navigate = useNavigate();
@@ -126,37 +125,9 @@ export default function Groups() {
   }
 
   return (
-    <>
-      <title>Grupos por Live - LiveShop Analytics</title>
-      <main className="min-h-screen bg-gray-50">
-        <div className="flex-1 space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="h-6 w-6" />
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              LiveShop Analytics
-            </h1>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-            <span>R$ 1,10M / 10M</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Badge variant="secondary">11%</Badge>
-          </div>
-          <div className="flex items-center gap-1">
-            <MapPin className="h-4 w-4" />
-            <span>Endereço</span>
-          </div>
-          <Button variant="ghost" size="sm">
-            <Settings className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+    <div className="flex flex-col h-screen bg-background">
+      <Header />
+      <div className="flex-1 space-y-6 p-6">
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -373,8 +344,7 @@ export default function Groups() {
           </div>
         </CardContent>
       </Card>
-        </div>
-      </main>
-    </>
+      </div>
+    </div>
   );
 }

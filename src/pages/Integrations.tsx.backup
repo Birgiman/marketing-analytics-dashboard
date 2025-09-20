@@ -402,5 +402,6 @@ export default function Integrations() {
         {/* Advanced Settings Component - Isolated for future use */}
         <WhatsAppAdvancedSettingsWrapper currentInstance={currentInstance} />
       </div>
+    </div>
   );
 }

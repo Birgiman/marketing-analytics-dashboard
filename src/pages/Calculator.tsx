@@ -1,25 +1,25 @@
-import { useState, useEffect } from "react";
+import { CurrencyInput } from "@/components/CurrencyInput";
+import Header from "@/components/Header";
+import { PercentageInput } from "@/components/PercentageInput";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Calculator as CalculatorIcon, Plus, Trash2, TrendingUp, Users, Target, DollarSign } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
-import { CurrencyInput } from "@/components/CurrencyInput";
-import { PercentageInput } from "@/components/PercentageInput";
-import {
-  calculateLiveShopProjection,
-  validateCalculatorInputs,
-  formatCurrency,
-  formatPercentage,
-  formatNumber,
-  generateSimulationName,
-  type CalculatorInputs,
-  type CalculatorResults
-} from "@/utils/calculations";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import {
+    calculateLiveShopProjection,
+    formatCurrency,
+    formatNumber,
+    formatPercentage,
+    validateCalculatorInputs,
+    type CalculatorInputs,
+    type CalculatorResults
+} from "@/utils/calculations";
+import { Calculator as CalculatorIcon, DollarSign, Plus, Target, Trash2, TrendingUp, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface CalculationData {
   ticketMedio: string;
@@ -339,7 +339,9 @@ export default function Calculator() {
   };
 
   return (
-    <div className="flex-1 space-y-6 p-6">
+    <div className="flex flex-col h-screen bg-background">
+      <Header />
+      <div className="flex-1 space-y-6 p-6">
       {/* Header */}
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
@@ -605,6 +607,7 @@ export default function Calculator() {
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
