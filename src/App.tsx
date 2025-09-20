@@ -1,31 +1,32 @@
-import { Toaster } from "@/components/ui/toaster";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { AppSidebar } from "./components/AppSidebar";
-import Dashboard from "./pages/Dashboard";
-import Integrations from "./pages/Integrations";
-import Lives from "./pages/Lives";
-import Analytics from "./pages/Analytics";
-import Groups from "./pages/Groups";
-import Leads from "./pages/Leads";
-import Profile from "./pages/Profile";
-import Calculator from "./pages/Calculator";
+import { CreateTestUser } from "./components/CreateTestUser";
 import Admin from "./pages/Admin";
+import Analytics from "./pages/Analytics";
+import Calculator from "./pages/Calculator";
+import Dashboard from "./pages/Dashboard";
 import Details from "./pages/Details";
-import TrafficAnalysis from "./pages/TrafficAnalysis";
+import Groups from "./pages/Groups";
+import Integrations from "./pages/Integrations";
+import Leads from "./pages/Leads";
+import Lives from "./pages/Lives";
+import NotFound from "./pages/NotFound";
+import Profile from "./pages/Profile";
 import ResearchInsights from "./pages/ResearchInsights";
 import SalesByGroup from "./pages/SalesByGroup";
+import TrafficAnalysis from "./pages/TrafficAnalysis";
+import SupabaseConfig from "./pages/admin/SupabaseConfig";
+import AccountDisabled from "./pages/auth/AccountDisabled";
+import PendingApproval from "./pages/auth/PendingApproval";
+import ResetPassword from "./pages/auth/ResetPassword";
+import SeedTestUser from "./pages/auth/SeedTestUser";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
-import PendingApproval from "./pages/auth/PendingApproval";
-import AccountDisabled from "./pages/auth/AccountDisabled";
-import NotFound from "./pages/NotFound";
-import SupabaseConfig from "./pages/admin/SupabaseConfig";
-import { CreateTestUser } from "./components/CreateTestUser";
-import SeedTestUser from "./pages/auth/SeedTestUser";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ function AppContent() {
         <Route path="/" element={<SignIn />} />
         <Route path="/auth/signin" element={<SignIn />} />
         <Route path="/auth/signup" element={<SignUp />} />
+        <Route path="/auth/reset-password" element={<ResetPassword />} />
         <Route path="/auth/pending-approval" element={<PendingApproval />} />
         <Route path="/auth/account-disabled" element={<AccountDisabled />} />
         <Route path="/auth/seed-test-user" element={<SeedTestUser />} />
