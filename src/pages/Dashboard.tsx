@@ -1,20 +1,19 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Search, Plus, ChevronRight, Users, TrendingUp, DollarSign, Video } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { DEMO_MODE } from "@/lib/demo-mode";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { SalesHeader } from "@/components/SalesHeader";
+import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { CreateLiveModal } from "@/components/CreateLiveModal";
 import { LivesListModal } from "@/components/LivesListModal";
-import { useWhatsAppInstances } from "@/hooks/useWhatsAppInstances";
-import { useLives } from "@/hooks/useLives";
+import { SalesHeader } from "@/components/SalesHeader";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { useLives } from "@/hooks/useLives";
+import { useWhatsAppInstances } from "@/hooks/useWhatsAppInstances";
+import { supabase } from "@/integrations/supabase/client";
+import { DEMO_MODE } from "@/lib/demo-mode";
 import { Live, LiveGroup } from "@/types/live";
-import { ConfirmationModal } from "@/components/ConfirmationModal";
+import { ChevronRight, DollarSign, Edit, Eye, Plus, Search, Trash2, TrendingUp, Users, Video } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface DashboardStats {
   totalLives: number;
