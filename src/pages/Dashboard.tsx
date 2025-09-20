@@ -148,13 +148,6 @@ const [lives, setLives] = useState<Live[]>([]);
       {/* Header */}
       <HeaderV2 />
 
-      {/* Teste do botão fora do Card */}
-      <div className="p-6">
-        <Button variant="primary" className="gap-2" onClick={() => setIsCreateLiveOpen(true)}>
-          <Plus className="w-4 h-4" />
-          TESTE BOTÃO DEFAULT
-        </Button>
-      </div>
 
       {/* Stats Grid */}
       <div className="p-6">

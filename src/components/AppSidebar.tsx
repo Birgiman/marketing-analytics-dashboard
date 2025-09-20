@@ -119,9 +119,9 @@ export function AppSidebar() {
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <button 
           onClick={() => navigate("/profile")}
-          className="flex items-center gap-3 w-full text-left hover:bg-sidebar-accent hover:text-sidebar-accent-foreground p-2 rounded-md transition-colors"
+          className="flex items-center gap-3 w-full text-left hover:bg-sidebar-accent hover:text-sidebar-accent-foreground p-2 rounded-md transition-colors border border-border"
         >
-          <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center overflow-hidden">
+          <div className="w-8 h-8 bg-background border border-border rounded-full flex items-center justify-center overflow-hidden">
             {profilePicture ? (
               <img 
                 src={profilePicture} 
@@ -130,7 +130,7 @@ export function AppSidebar() {
                 onError={() => setProfilePicture(null)} // Fallback se a imagem falhar
               />
             ) : (
-              <User className="w-4 h-4 text-primary-foreground" />
+              <User className="w-4 h-4 text-muted-foreground" />
             )}
           </div>
           <div className="text-sm font-medium text-sidebar-foreground">
