@@ -1,6 +1,6 @@
-import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
+import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -9,16 +9,15 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-blue-800 text-white hover:bg-blue-700 border border-blue-800 shadow-sm",
-        primary: "bg-blue-800 text-white hover:bg-blue-700 border border-blue-800 shadow-sm",
-        secondary: "bg-primary/50 text-primary-foreground hover:bg-primary/60",
-        tertiary: "bg-primary/30 text-primary hover:bg-primary/40",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        danger: "bg-red-600 text-white hover:bg-red-700 border border-red-600 shadow-sm",
-        outline:
-          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        default: "bg-primary text-white hover:bg-primary/90 border-0",
+        primary: "bg-primary text-white hover:bg-primary/90 border-0",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-0",
+        tertiary: "bg-primary/10 text-primary hover:bg-primary/20 border-0",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 border-0",
+        danger: "bg-red-600 text-white hover:bg-red-700 border-0",
+        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+        ghost: "hover:bg-accent hover:text-accent-foreground border-0",
+        link: "text-primary underline-offset-4 hover:underline border-0",
       },
       size: {
         sm: "h-9 rounded-lg px-3",
