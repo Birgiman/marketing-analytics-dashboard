@@ -9,12 +9,12 @@ import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 // V2 IMPORTS - Novos cálculos
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 // META API DIRECT - Requisições diretas ao Meta Marketing API
+import { supabase } from "@/integrations/supabase/client";
 import { getCPLFromMeta } from "@/utils/meta-requests/getCPLFromMeta";
 import { getLiveMetaDataWithFallback } from "@/utils/meta-requests/getLiveMetaData";
 import { Activity, AlertCircle, RefreshCw, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 
 const Details = () => {
   const [searchParams] = useSearchParams();

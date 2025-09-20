@@ -1,16 +1,16 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Header from "@/components/Header";
+import { MetricCard } from "@/components/MetricCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useState, useRef, useEffect } from "react";
-import { UserPlus, UserMinus, Users, TrendingUp, ShoppingCart, Target, BarChart3, Search, ArrowUpDown, ArrowUp, ArrowDown, Download, Database, Upload, Plus, Trash2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
-import Header from "@/components/Header";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import { LiveGroup, Live } from "@/types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache";
+import { supabase } from "@/integrations/supabase/client";
+import { LiveGroup as LiveGroupType } from "@/types";
+import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 // These interfaces are no longer used as we now use LiveGroup from types
 
@@ -43,7 +43,7 @@ const SalesByGroup = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   // Data states for Live-specific groups
-  const [liveGroups, setLiveGroups] = useState<LiveGroup[]>([]);
+  const [liveGroups, setLiveGroups] = useState<LiveGroupType[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   
   // Sales data upload
@@ -339,61 +339,49 @@ const SalesByGroup = () => {
 
 
         {/* Overview Geral */}
-        <div className="grid gap-6 md:grid-cols-5">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Entrou no Grupo</CardTitle>
-              <UserPlus className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalGroupMembers.toLocaleString()}</div>
-            </CardContent>
-          </Card>
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+          <MetricCard
+            title="Entrou no Grupo"
+            value={totalGroupMembers}
+            icon={UserPlus}
+            type="integer"
+            isLoading={isLoading || cacheLoading}
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Saiu do Grupo</CardTitle>
-              <UserMinus className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">0</div>
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="Saiu do Grupo"
+            value={0}
+            icon={UserMinus}
+            type="integer"
+            isLoading={isLoading || cacheLoading}
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Leads Ativos</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalGroupMembers.toLocaleString()}</div>
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="Leads Ativos"
+            value={totalGroupMembers}
+            icon={Users}
+            type="integer"
+            isLoading={isLoading || cacheLoading}
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Vendas</CardTitle>
-              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{salesData.length || subtotals.sales}</div>
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="Vendas"
+            value={salesData.length || subtotals.sales}
+            icon={ShoppingCart}
+            type="integer"
+            isLoading={isLoading || cacheLoading}
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Venda Média p/ Grupo</CardTitle>
-              <Target className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                R$ {salesData.length > 0 
-                  ? Math.round(salesData.reduce((acc, sale) => acc + sale.valor, 0) / salesData.length)
-                  : Math.round(averageTicketTotal)
-                }
-              </div>
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="Ticket Médio"
+            value={salesData.length > 0 
+              ? Math.round(salesData.reduce((acc, sale) => acc + sale.valor, 0) / salesData.length)
+              : Math.round(averageTicketTotal)
+            }
+            icon={Target}
+            type="currency"
+            isLoading={isLoading || cacheLoading}
+          />
         </div>
 
         {/* Tabela Unificada de Públicos */}

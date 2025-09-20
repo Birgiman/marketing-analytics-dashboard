@@ -491,7 +491,18 @@ const TrafficAnalysis = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {campaigns.map((campaign, index) => (
+                {[...campaigns].sort((a, b) => {
+                  if (!sortField) return 0;
+                  
+                  if (sortField === 'ad_set_name') {
+                    const aValue = a.campaign_name || '';
+                    const bValue = b.campaign_name || '';
+                    return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                  }
+                  
+                  // Para outras colunas, usar valores fixos por enquanto
+                  return 0;
+                }).map((campaign, index) => (
                   <TableRow key={index}>
                     <TableCell>
                       <div>
