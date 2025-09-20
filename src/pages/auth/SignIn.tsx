@@ -123,13 +123,13 @@ export default function SignIn() {
   };
 
   return (
-    <>
+    <div className="relative">
       <title>Login - Live Shop Analytics</title>
 
       <main className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-sm w-full space-y-8">
           <div>
-            <h2 className="mt-6 text-center text-2xl font-extrabold text-foreground leading-tight">
+            <h2 className="mt-6 text-center text-3xl font-extrabold text-foreground leading-tight">
               Faça login no<br />
               LiveShop Analytics
             </h2>
@@ -213,7 +213,7 @@ export default function SignIn() {
 
           {/* Modal de Reset de Senha */}
           {showResetForm && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
               <div className="bg-background rounded-lg max-w-md w-full p-6">
                 <div className="mb-4">
                   <h3 className="text-lg font-semibold text-foreground">Recuperar Senha</h3>
@@ -269,6 +269,6 @@ export default function SignIn() {
           )}
         </div>
       </main>
-    </>
+    </div>
   );
 }
