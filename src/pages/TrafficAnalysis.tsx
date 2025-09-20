@@ -5,451 +5,187 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache";
-import { supabase } from "@/integrations/supabase/client";
-import { DEMO_MODE } from "@/lib/demo-mode";
-import { Creative } from "@/types";
+import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
+import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Line, LineChart, XAxis, YAxis } from "recharts";
-
-// Interfaces para análise de tráfego
-interface DailyData {
-  originalDate: string;
-  date: string;
-  investment: number;
-  cadastros: number;
-  group: number;
-  cplMeta: number;
-  cplLiquido: number;
-  retention: number;
-}
-
-interface AdSetData {
-  adset_name: string;
-  campaign_name: string;
-  total_spent: number;
-  total_leads: number;
-  cpl: number;
-}
+import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
 const TrafficAnalysis = () => {
   const [searchParams] = useSearchParams();
   const liveId = searchParams.get('live');
   
-  // Usar novo hook de cache localStorage compartilhado
-  const {
-    live,
-    groups,
-    campaigns,
-    campaignsWithInsights,
-    metrics,
-    isLoading,
-    isMetaLoading,
-    error,
-    isFromCache
-  } = useLiveLocalStorageCache({ liveId: liveId || '' });
-
-  // Usar campanhas com insights do cache
-  const finalCampaigns = campaignsWithInsights.length > 0 ? campaignsWithInsights : campaigns;
-
+  // Estados para dados V2 (mesmo padrão da Details.tsx)
+  const [live, setLive] = useState<any>(null);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [campaignsWithInsights, setCampaignsWithInsights] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Estados para métricas V2
+  const [metricsV2, setMetricsV2] = useState<any>(null);
+  const [extractedDataV2, setExtractedDataV2] = useState<any>(null);
+  
+  // Estados para filtros (baseado no exemplo)
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [adSetSortField, setAdSetSortField] = useState<string | null>(null);
-  const [adSetSortDirection, setAdSetSortDirection] = useState<'asc' | 'desc'>('asc');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [tempStartDate, setTempStartDate] = useState<string>('');
   const [tempEndDate, setTempEndDate] = useState<string>('');
-  const [selectedPublico, setSelectedPublico] = useState<string>('todos');
   
-  // Estados para filtros dos conjuntos de anúncios
-  const [adSetStartDate, setAdSetStartDate] = useState<string>('');
-  const [adSetEndDate, setAdSetEndDate] = useState<string>('');
-  const [tempAdSetStartDate, setTempAdSetStartDate] = useState<string>('');
-  const [tempAdSetEndDate, setTempAdSetEndDate] = useState<string>('');
-  
-  // Estados para dados
-  const [creatives, setCreatives] = useState<Creative[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
-  
-  const handleApplyFilters = () => {
-    setStartDate(tempStartDate);
-    setEndDate(tempEndDate);
-  };
-
-  const handleApplyAdSetFilters = () => {
-    setAdSetStartDate(tempAdSetStartDate);
-    setAdSetEndDate(tempAdSetEndDate);
-  };
-
-  // Buscar dados do usuário logado
+  // Buscar dados completos (mesmo padrão da Details.tsx)
   useEffect(() => {
-    const fetchUserData = async () => {
+    const fetchData = async () => {
+      if (!liveId) return;
+      
       try {
-        if (DEMO_MODE) {
-          setUserId('demo-user');
-          // Dados demo
-          setCreatives([
-            {
-              id: '1',
-              campaign_name: 'Campanha CTWA Quente',
-              ad_set_name: 'Interesse Específico',
-              ad_name: 'Criativo Principal',
-              amount_spent: 1500,
-              leads: 75,
-              cost_per_lead: 20,
-              day: new Date().toISOString().split('T')[0],
-              created_at: new Date().toISOString(),
-              user_id: 'demo-user'
-            },
-            {
-              id: '2',
-              campaign_name: 'Campanha Lookalike',
-              ad_set_name: 'LAL 1%',
-              ad_name: 'Criativo Secundário',
-              amount_spent: 800,
-              leads: 32,
-              cost_per_lead: 25,
-              day: new Date().toISOString().split('T')[0],
-              created_at: new Date().toISOString(),
-              user_id: 'demo-user'
-            }
-          ]);
-          
-          // Dados de grupos agora vêm do cache
-          
-          setLoading(false);
-          return;
-        }
-
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) {
-          setLoading(false);
-          return;
-        }
-
-        setUserId(session.user.id);
+        setIsLoading(true);
+        console.log('🔄 [TrafficAnalysis] Buscando dados completos...');
         
-        // Buscar criativos
-        const { data: creativesData, error: creativesError } = await supabase
-          .from('creatives')
-          .select('*')
-          .eq('user_id', session.user.id);
-
-        if (creativesError) throw creativesError;
-        setCreatives(creativesData || []);
-
-        // Buscar grupos
-        const { data: groupsData, error: groupsError } = await supabase
-          .from('groups')
-          .select('*')
-          .eq('user_id', session.user.id);
-
-        if (groupsError) throw groupsError;
-        // Dados de grupos agora vêm do cache
-
-      } catch (error) {
-        console.error('Erro ao buscar dados:', error);
+        const completeData = await fetchCompleteLiveData(liveId);
+        
+        console.log('✅ [TrafficAnalysis] Dados obtidos:', {
+          live: completeData.live?.name,
+          groups: completeData.groups?.length,
+          campaigns: completeData.liveCampaigns?.length,
+          insights: completeData.campaignInsights?.length
+        });
+        
+        setLive(completeData.live);
+        setGroups(completeData.groups || []);
+        setCampaigns(completeData.liveCampaigns || []);
+        setCampaignsWithInsights(completeData.campaignInsights || []);
+        
+        // Calcular métricas V2 usando o mesmo padrão da Details.tsx
+        // Validar se campaignInsights existe antes de mapear
+        const campaignInsights = (completeData.campaignInsights || []).map((campaign: any) => ({
+          ...campaign,
+          insights: campaign.insights || []
+        }));
+        
+        // Preparar dados no formato correto para calculateCompleteLiveMetrics
+        const liveDataForCalculations = {
+          live: completeData.live,
+          groups: completeData.groups || [],
+          campaignInsights: campaignInsights
+        };
+        
+        console.log('🔍 [TrafficAnalysis] Dados para cálculo:', {
+          live: liveDataForCalculations.live?.name,
+          groups: liveDataForCalculations.groups?.length,
+          campaignInsights: liveDataForCalculations.campaignInsights?.length
+        });
+        
+        const result = calculateCompleteLiveMetrics(liveDataForCalculations);
+        
+        console.log('🧮 [TrafficAnalysis] Métricas V2 calculadas:', {
+          cplLiquido: result.metrics.cplLiquido,
+          cplMeta: result.metrics.cplMeta,
+          retentionRate: result.metrics.retentionRate
+        });
+        
+        setMetricsV2(result.metrics);
+        setExtractedDataV2(result.extractedData);
+        
+      } catch (err) {
+        console.error('❌ [TrafficAnalysis] Erro ao carregar dados:', err);
+        setError(err instanceof Error ? err.message : 'Erro ao carregar dados');
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
-
-    fetchUserData();
-  }, []);
-
-  // Mapear campanhas para públicos baseado no nome
-  const mapCampanhaToPublico = (campaignName: string) => {
-    if (!campaignName) return '';
-    return campaignName.includes('CTWA') ? 'OF' : 'NO';
+    
+    fetchData();
+  }, [liveId]);
+  
+  // Usar métricas V2 calculadas
+  const cplLiquido = metricsV2?.cplLiquido || 0;
+  const cplMeta = metricsV2?.cplMeta || 0;
+  const retentionRate = metricsV2?.retentionRate || 0;
+  
+  // Calcular dados dos grupos
+  const groupData = {
+    entrou: groups?.reduce((sum, group) => sum + (group.group_size || 0), 0) || 0,
+    saiu: 0, // TODO: Implementar tracking de saídas
+    ativos: groups?.reduce((sum, group) => sum + (group.group_size || 0), 0) || 0
   };
-
-  // Obter públicos únicos dos dados de criativos baseado nos nomes das campanhas
-  const getPublicosUnicos = () => {
-    if (!creatives || !Array.isArray(creatives)) return [];
-    const publicos = creatives
-      .map(item => mapCampanhaToPublico(item.campaign_name || ''))
-      .filter(publico => publico && publico.trim() !== '')
-      .filter((publico, index, arr) => arr.indexOf(publico) === index);
-    return publicos.sort();
-  };
-
+  
   // Calcular totais para os cabeçalhos das colunas
   const calculateTotals = () => {
-    if (!creatives || !Array.isArray(creatives) || creatives.length === 0) {
-      return {
-        totalInvestment: 0,
-        totalLeads: 0,
-        totalGroup: 0,
-        totalGroupExit: 0
-      };
-    }
-
-    // Filtrar criativos por público se selecionado
-    let filteredCreatives = creatives;
-    if (selectedPublico !== 'todos') {
-      filteredCreatives = creatives.filter(item => 
-        mapCampanhaToPublico(item.campaign_name || '') === selectedPublico
-      );
-    }
-
-    const totalInvestment = filteredCreatives.reduce((sum, item) => {
-      const amount = item.amount_spent || 0;
-      return sum + amount;
-    }, 0);
-    
-    const totalLeads = filteredCreatives.reduce((sum, item) => {
-      const leads = item.leads || 0;
-      return sum + leads;
-    }, 0);
-
-    // Para os grupos
-    let filteredGroups = groups;
-    if (selectedPublico !== 'todos' && groups && Array.isArray(groups)) {
-      // Como não temos campo publico nos grupos, vamos considerar todos
-      filteredGroups = groups;
-    }
-
-    // Contar total de pessoas que entraram no grupo
-    let totalGroup = 0;
-    let totalGroupExit = 0;
-    if (filteredGroups && Array.isArray(filteredGroups)) {
-      totalGroup = filteredGroups.filter(grupo => grupo.evento === 'ENTROU').length;
-      totalGroupExit = filteredGroups.filter(grupo => grupo.evento === 'SAIU').length;
-    }
-    
     return {
-      totalInvestment,
-      totalLeads,
-      totalGroup,
-      totalGroupExit
+      totalInvestment: extractedDataV2?.metaData?.totalSpend || 0,
+      totalLeads: extractedDataV2?.metaData?.totalResults || 0,
+      totalGroup: groupData.entrou,
+      totalGroupExit: groupData.saiu
     };
   };
-
-  // Calcular Total Gasto
-  const calculateTotalSpent = () => {
-    if (!creatives || !Array.isArray(creatives) || creatives.length === 0) {
-      return 0;
-    }
-
-    // Filtrar criativos por público se selecionado
-    let filteredCreatives = creatives;
-    if (selectedPublico !== 'todos') {
-      filteredCreatives = creatives.filter(item => 
-        mapCampanhaToPublico(item.campaign_name || '') === selectedPublico
-      );
-    }
-
-    return filteredCreatives.reduce((sum, item) => {
-      const amount = item.amount_spent || 0;
-      return sum + amount;
-    }, 0);
-  };
-
-  // Função calculateCPLMeta movida para baixo para usar dados do cache
-
-  // Usar métricas já calculadas do cache
-  const cplMeta = metrics?.cplMeta || 0;
-  const cplLiquido = metrics?.cplLiquido || 0;
-  const retentionRate = metrics?.retentionRate || 0;
-  const totalSpentFromCache = metrics?.totalSpent || 0;
-
-  // Calcular dados dos grupos
-  const calculateGroupData = () => {
-    if (!groups || groups.length === 0) {
-      return { entrou: 0, saiu: 0, ativos: 0 };
-    }
-
-    const totalMembros = groups.reduce((sum, group) => sum + (group.group_size || 0), 0);
-
-    return {
-      entrou: totalMembros,
-      saiu: 0, // TODO: Implementar tracking de saídas
-      ativos: totalMembros
-    };
-  };
-
+  
   const totals = calculateTotals();
-  const totalSpent = calculateTotalSpent();
-  const groupData = calculateGroupData();
-
-  // Calcular dados diários
+  
+  // Calcular dados diários (baseado no exemplo)
   const calculateDailyData = () => {
-    if (!creatives || !Array.isArray(creatives) || creatives.length === 0) {
+    if (!campaignsWithInsights || campaignsWithInsights.length === 0) {
       return [];
     }
-
-    // Filtrar criativos por público se selecionado
-    let filteredCreatives = creatives;
-    if (selectedPublico !== 'todos') {
-      filteredCreatives = creatives.filter(item => 
-        mapCampanhaToPublico(item.campaign_name || '') === selectedPublico
-      );
-    }
-
+    
     const dailyData: Record<string, any> = {};
-    filteredCreatives.forEach(item => {
-      if (!item.day) return;
+    
+    campaignsWithInsights.forEach(campaign => {
+      if (!campaign.insights || !Array.isArray(campaign.insights)) return;
       
-      const dateKey = new Date(item.day).toLocaleDateString('pt-BR');
-      if (!dailyData[dateKey]) {
-        dailyData[dateKey] = {
-          date: dateKey,
-          originalDate: item.day,
-          investment: 0,
-          cadastros: 0,
-          group: 0,
-          groupExit: 0,
-          cplMeta: 0,
-          cplLiquido: 0,
-          retention: 0
-        };
-      }
-
-      const amount = item.amount_spent || 0;
-      const leads = item.leads || 0;
-      
-      dailyData[dateKey].investment += amount;
-      dailyData[dateKey].cadastros += leads;
-    });
-
-    // Calcular pessoas que entraram/saíram do grupo por dia
-    if (groups && Array.isArray(groups)) {
-      groups.forEach(grupo => {
-        if (grupo.data) {
-          const dateKey = grupo.data;
-          
-          if (dailyData[dateKey]) {
-            if (grupo.evento === 'ENTROU') {
-              dailyData[dateKey].group += 1;
-            } else if (grupo.evento === 'SAIU') {
-              dailyData[dateKey].groupExit += 1;
-            }
-          }
+      campaign.insights.forEach((insight: any) => {
+        if (!insight.date_start) return;
+        
+        const dateKey = insight.date_start;
+        if (!dailyData[dateKey]) {
+          dailyData[dateKey] = {
+            date: dateKey,
+            investment: 0,
+            cadastros: 0,
+            group: 0,
+            groupExit: 0,
+            cplMeta: 0,
+            cplLiquido: 0,
+            retention: 0
+          };
         }
+        
+        const spend = parseFloat(insight.spend || '0');
+        const results = parseInt(insight.results?.[0]?.values?.[0]?.value || '0');
+        
+        dailyData[dateKey].investment += spend;
+        dailyData[dateKey].cadastros += results;
       });
-    }
-
+    });
+    
     // Calcular CPL Meta e CPL Líquido para cada dia
-    Object.values(dailyData).forEach((day: DailyData) => {
+    Object.values(dailyData).forEach((day: any) => {
       day.cplMeta = day.cadastros > 0 ? day.investment / day.cadastros : 0;
       day.cplLiquido = day.group > 0 ? day.investment / day.group : 0;
       day.retention = day.cadastros > 0 ? Math.round(day.group / day.cadastros * 100) : 0;
     });
     
-    return Object.values(dailyData).sort((a: DailyData, b: DailyData) => new Date(a.originalDate).getTime() - new Date(b.originalDate).getTime());
+    return Object.values(dailyData).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
   };
   
   const tableData = calculateDailyData();
-
+  
   // Filtrar dados por data
-  const filterDataByDate = (data: DailyData[]) => {
+  const filterDataByDate = (data: any[]) => {
     if (!startDate || !endDate) return data;
     
     return data.filter(day => {
-      if (!day.originalDate) return false;
-      const dayDate = new Date(day.originalDate).toISOString().split('T')[0];
-      return dayDate >= startDate && dayDate <= endDate;
+      if (!day.date) return false;
+      return day.date >= startDate && day.date <= endDate;
     });
   };
   
   const filteredTableData = filterDataByDate(tableData);
-
-  // Calcular melhores conjuntos de anúncios
-  const calculateBestAdSets = () => {
-    if (!creatives || !Array.isArray(creatives) || creatives.length === 0) {
-      return [];
-    }
-
-    // Filtrar dados por data primeiro se houver filtro ativo
-    let filteredCreatives = creatives;
-    if (adSetStartDate && adSetEndDate) {
-      filteredCreatives = creatives.filter(item => {
-        if (!item.day) return false;
-        const itemDate = new Date(item.day).toISOString().split('T')[0];
-        return itemDate >= adSetStartDate && itemDate <= adSetEndDate;
-      });
-    }
-
-    // Agrupar por Ad Set Name
-    const adSetData: Record<string, any> = {};
-    filteredCreatives.forEach(item => {
-      if (!item.ad_set_name) return;
-      const adSetKey = item.ad_set_name;
-      if (!adSetData[adSetKey]) {
-        adSetData[adSetKey] = {
-          ad_set_name: adSetKey,
-          campaign_name: item.campaign_name || '',
-          total_spent: 0,
-          total_leads: 0,
-          cpl: 0,
-          creative_link: item.creative_link || ''
-        };
-      }
-      
-      const amount = item.amount_spent || 0;
-      const leads = item.leads || 0;
-      
-      adSetData[adSetKey].total_spent += amount;
-      adSetData[adSetKey].total_leads += leads;
-    });
-
-    // Calcular CPL para todos os conjuntos
-    const adSetsWithCPL = Object.values(adSetData)
-      .map((adSet: AdSetData) => ({
-        ...adSet,
-        cpl: adSet.total_leads > 0 ? adSet.total_spent / adSet.total_leads : 999999
-      }))
-      .filter((adSet: AdSetData) => adSet.total_leads > 0)
-      .sort((a: AdSetData, b: AdSetData) => a.cpl - b.cpl);
-      
-    return adSetsWithCPL;
-  };
   
-  const bestAdSets = calculateBestAdSets();
-  const filteredAdSets = bestAdSets;
-  
-  const sortedAdSets = [...filteredAdSets].sort((a, b) => {
-    if (!adSetSortField) return 0;
-    let aValue = a[adSetSortField as keyof typeof a];
-    let bValue = b[adSetSortField as keyof typeof b];
-
-    // Para strings, comparação alfabética
-    if (typeof aValue === 'string' && typeof bValue === 'string') {
-      aValue = aValue.toLowerCase();
-      bValue = bValue.toLowerCase();
-    }
-    if (aValue < bValue) return adSetSortDirection === 'asc' ? -1 : 1;
-    if (aValue > bValue) return adSetSortDirection === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  // Calcular totais para os cabeçalhos da tabela de ad sets
-  const calculateAdSetTotals = () => {
-    if (sortedAdSets.length === 0) {
-      return {
-        totalLeads: 0,
-        totalSpent: 0,
-        averageCPL: 0
-      };
-    }
-    
-    const totalLeads = sortedAdSets.reduce((sum, adSet) => sum + adSet.total_leads, 0);
-    const totalSpent = sortedAdSets.reduce((sum, adSet) => sum + adSet.total_spent, 0);
-    const averageCPL = sortedAdSets.reduce((sum, adSet) => sum + adSet.cpl, 0) / sortedAdSets.length;
-    
-    return {
-      totalLeads,
-      totalSpent,
-      averageCPL
-    };
-  };
-
-  const adSetTotals = calculateAdSetTotals();
-  
+  // Funções de ordenação (baseado no exemplo)
   const handleSort = (field: string) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -459,236 +195,197 @@ const TrafficAnalysis = () => {
     }
   };
   
-  const handleAdSetSort = (field: string) => {
-    if (adSetSortField === field) {
-      setAdSetSortDirection(adSetSortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setAdSetSortField(field);
-      setAdSetSortDirection('asc');
-    }
-  };
-  
   const getSortIcon = (field: string) => {
     if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />;
     return sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
   };
   
-  const getAdSetSortIcon = (field: string) => {
-    if (adSetSortField !== field) return <ArrowUpDown className="h-4 w-4" />;
-    return adSetSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
-  };
-  
   const sortedData = [...filteredTableData].sort((a, b) => {
     if (!sortField) return 0;
-    let aValue = a[sortField as keyof typeof a];
-    let bValue = b[sortField as keyof typeof b];
-
-    // Para datas, converter para comparação numérica
-    if (sortField === 'date') {
-      const aDate = new Date(a.originalDate);
-      const bDate = new Date(b.originalDate);
-      aValue = aDate.getTime();
-      bValue = bDate.getTime();
-    }
+    const aValue = a[sortField as keyof typeof a];
+    const bValue = b[sortField as keyof typeof b];
+    
     if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
     if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
     return 0;
   });
-
-  if (loading || isLoading) {
+  
+  const handleApplyFilters = () => {
+    setStartDate(tempStartDate);
+    setEndDate(tempEndDate);
+  };
+  
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="text-xl">Carregando análise de tráfego...</div>
-          {isMetaLoading && (
-            <div className="text-sm text-gray-600 flex items-center justify-center gap-2">
-              <div className="h-4 w-4 animate-spin border-2 border-blue-600 border-t-transparent rounded-full"></div>
-              Atualizando dados do Meta Ads...
-            </div>
-          )}
-          {isFromCache && (
-            <div className="text-sm text-green-600">
-              📦 Dados carregados do cache localStorage
-            </div>
-          )}
+          <div className="text-sm text-gray-600 flex items-center justify-center gap-2">
+            <div className="h-4 w-4 animate-spin border-2 border-blue-600 border-t-transparent rounded-full"></div>
+            Buscando dados do Meta Ads...
+          </div>
         </div>
       </div>
     );
   }
-
+  
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="text-xl text-red-600">❌ Erro: {error}</div>
+          <div className="text-sm text-gray-600">
+            Verifique se a live existe e se você tem permissão para acessá-la.
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <div className="container mx-auto p-6 space-y-8">
-      {/* Métricas Principais */}
-      <LiveMetricsCards
-        cplLiquido={cplLiquido}
-        cplMeta={cplMeta}
-        retentionRate={retentionRate}
-        groupMembers={groupData.entrou}
-        groupExits={groupData.saiu}
-        activeLeads={groupData.ativos}
-        isLoading={isLoading || isMetaLoading}
-      />
-
-
-      {/* Tabela de Dados Diários */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-            <div>
-              <CardTitle>📅 Dados Diários de Captação</CardTitle>
-              <CardDescription>Performance detalhada dos últimos dias por campanha</CardDescription>
-            </div>
-            <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium">Data início:</label>
-                <Input type="date" className="w-auto" value={tempStartDate} onChange={e => setTempStartDate(e.target.value)} />
-              </div>
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium">Data fim:</label>
-                <Input type="date" className="w-auto" value={tempEndDate} onChange={e => setTempEndDate(e.target.value)} />
-              </div>
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium">Público:</label>
-                <select 
-                  className="px-3 py-2 text-sm border border-input rounded-md bg-background"
-                  value={selectedPublico}
-                  onChange={e => setSelectedPublico(e.target.value)}
-                >
-                  <option value="todos">Todos os Públicos</option>
-                  {getPublicosUnicos().map(publico => (
-                    <option key={publico} value={publico}>{publico}</option>
-                  ))}
-                </select>
-              </div>
-              <Button onClick={handleApplyFilters} className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                Filtrar
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>
-                    <Button variant="ghost" onClick={() => handleSort('date')} className="h-auto p-0 font-medium flex items-center gap-1">
-                      Data
-                      {getSortIcon('date')}
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <Button variant="ghost" onClick={() => handleSort('investment')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
-                      <div className="text-center">
-                        <div>Investimento</div>
-                        <div className="text-xs text-muted-foreground font-normal">
-                          Total: R$ {totals.totalInvestment.toLocaleString('pt-BR', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                          })}
-                        </div>
-                      </div>
-                      {getSortIcon('investment')}
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <Button variant="ghost" onClick={() => handleSort('cadastros')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
-                      <div className="text-center">
-                        <div>Cadastros Meta</div>
-                        <div className="text-xs text-muted-foreground font-normal">Total: {totals.totalLeads.toLocaleString('pt-BR')}</div>
-                      </div>
-                      {getSortIcon('cadastros')}
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <Button variant="ghost" onClick={() => handleSort('group')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
-                      <div className="text-center">
-                        <div>Entrou no Grupo</div>
-                        <div className="text-xs text-muted-foreground font-normal">Total: {totals.totalGroup.toLocaleString('pt-BR')}</div>
-                      </div>
-                      {getSortIcon('group')}
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <Button variant="ghost" onClick={() => handleSort('groupExit')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
-                      <div className="text-center">
-                        <div>Saiu do Grupo</div>
-                        <div className="text-xs text-muted-foreground font-normal">Total: {totals.totalGroupExit.toLocaleString('pt-BR')}</div>
-                      </div>
-                      {getSortIcon('groupExit')}
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <Button variant="ghost" onClick={() => handleSort('cplMeta')} className="h-auto p-0 font-medium flex items-center gap-1">
-                      CPL Meta
-                      {getSortIcon('cplMeta')}
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <Button variant="ghost" onClick={() => handleSort('cplLiquido')} className="h-auto p-0 font-medium flex items-center gap-1">
-                      CPL Líquido
-                      {getSortIcon('cplLiquido')}
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <Button variant="ghost" onClick={() => handleSort('retention')} className="h-auto p-0 font-medium flex items-center gap-1">
-                      Taxa Retenção
-                      {getSortIcon('retention')}
-                    </Button>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedData.map((day, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{day.date}</TableCell>
-                    <TableCell className="text-center font-medium">
-                      R$ {day.investment.toLocaleString('pt-BR', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}
-                    </TableCell>
-                    <TableCell className="text-center font-medium">{day.cadastros.toLocaleString('pt-BR')}</TableCell>
-                    <TableCell className="text-center font-medium">{day.group.toLocaleString('pt-BR')}</TableCell>
-                    <TableCell className="text-center font-medium">{day.groupExit.toLocaleString('pt-BR')}</TableCell>
-                    <TableCell className="text-center font-semibold">
-                      R$ {day.cplMeta.toFixed(2).replace('.', ',')}
-                    </TableCell>
-                    <TableCell className="text-center font-semibold">
-                      R$ {day.cplLiquido.toFixed(2).replace('.', ',')}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {day.retention}%
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {sortedData.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground">
-                      {loading ? 'Carregando dados...' : 'Nenhum dado encontrado para o período selecionado'}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Evolução do CPL e Recomendações - Lado a lado */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Gráfico de Evolução do CPL */}
+        {/* Métricas Principais */}
+        <LiveMetricsCards
+          cplLiquido={cplLiquido}
+          cplMeta={cplMeta}
+          retentionRate={retentionRate}
+          groupMembers={groupData.entrou}
+          groupExits={groupData.saiu}
+          activeLeads={groupData.ativos}
+          isLoading={isLoading}
+        />
+        
+        {/* Tabela de Dados Diários */}
         <Card>
           <CardHeader>
-            <CardTitle>📊 Evolução do CPL</CardTitle>
-            <CardDescription>Comparação entre CPL Meta e CPL Líquido ao longo dos dias</CardDescription>
+            <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+              <div>
+                <CardTitle>📅 Dados Diários de Captação</CardTitle>
+                <CardDescription>Performance detalhada dos últimos dias por campanha</CardDescription>
+              </div>
+              <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm font-medium">Data início:</label>
+                  <Input type="date" className="w-auto" value={tempStartDate} onChange={e => setTempStartDate(e.target.value)} />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm font-medium">Data fim:</label>
+                  <Input type="date" className="w-auto" value={tempEndDate} onChange={e => setTempEndDate(e.target.value)} />
+                </div>
+                <Button onClick={handleApplyFilters} className="flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  Filtrar
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <ChartContainer 
-              config={{
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>
+                      <Button variant="ghost" onClick={() => handleSort('date')} className="h-auto p-0 font-medium flex items-center gap-1">
+                        Data
+                        {getSortIcon('date')}
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <Button variant="ghost" onClick={() => handleSort('investment')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
+                        <div className="text-center">
+                          <div>Investimento</div>
+                          <div className="text-xs text-muted-foreground font-normal">Total: R$ {totals.totalInvestment.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                          })}</div>
+                        </div>
+                        {getSortIcon('investment')}
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <Button variant="ghost" onClick={() => handleSort('cadastros')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
+                        <div className="text-center">
+                          <div>Cadastros Meta</div>
+                          <div className="text-xs text-muted-foreground font-normal">Total: {totals.totalLeads.toLocaleString('pt-BR')}</div>
+                        </div>
+                        {getSortIcon('cadastros')}
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <Button variant="ghost" onClick={() => handleSort('group')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
+                        <div className="text-center">
+                          <div>Entrou no Grupo</div>
+                          <div className="text-xs text-muted-foreground font-normal">Total: {totals.totalGroup.toLocaleString('pt-BR')}</div>
+                        </div>
+                        {getSortIcon('group')}
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <Button variant="ghost" onClick={() => handleSort('cplMeta')} className="h-auto p-0 font-medium flex items-center gap-1">
+                        CPL Meta
+                        {getSortIcon('cplMeta')}
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <Button variant="ghost" onClick={() => handleSort('cplLiquido')} className="h-auto p-0 font-medium flex items-center gap-1">
+                        CPL Líquido
+                        {getSortIcon('cplLiquido')}
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <Button variant="ghost" onClick={() => handleSort('retention')} className="h-auto p-0 font-medium flex items-center gap-1">
+                        Taxa Retenção
+                        {getSortIcon('retention')}
+                      </Button>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedData.map((day, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">{day.date}</TableCell>
+                      <TableCell className="text-center font-medium">R$ {day.investment.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}</TableCell>
+                      <TableCell className="text-center font-medium">{day.cadastros.toLocaleString('pt-BR')}</TableCell>
+                      <TableCell className="text-center font-medium">{day.group.toLocaleString('pt-BR')}</TableCell>
+                      <TableCell className="text-center font-semibold">
+                        R$ {day.cplMeta.toFixed(2).replace('.', ',')}
+                      </TableCell>
+                      <TableCell className="text-center font-semibold">
+                        R$ {day.cplLiquido.toFixed(2).replace('.', ',')}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {day.retention}%
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {sortedData.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground">
+                        {isLoading ? 'Carregando dados...' : 'Nenhum dado encontrado para o período selecionado'}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Evolução do CPL e Recomendações - Lado a lado */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Gráfico de Evolução do CPL */}
+          <Card>
+            <CardHeader>
+              <CardTitle>📊 Evolução do CPL</CardTitle>
+              <CardDescription>Comparação entre CPL Meta e CPL Líquido ao longo dos dias</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={{
                 cplMeta: {
                   label: "CPL Meta",
                   color: "hsl(var(--chart-1))"
@@ -697,249 +394,125 @@ const TrafficAnalysis = () => {
                   label: "CPL Líquido",
                   color: "hsl(var(--chart-2))"
                 }
-              }} 
-              className="h-80"
-            >
-              <LineChart 
-                data={sortedData.map(day => ({
-                  dia: day.date,
-                  cplMeta: day.cplMeta,
-                  cplLiquido: day.cplLiquido
-                }))} 
-                width={800}
-                height={320}
-                margin={{
-                  top: 5,
-                  right: 30,
-                  left: 20,
-                  bottom: 5
-                }}
-              >
-                <XAxis dataKey="dia" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <YAxis 
-                  stroke="hsl(var(--muted-foreground))" 
-                  fontSize={12} 
-                  tickFormatter={value => `R$ ${value.toFixed(2)}`} 
-                />
-                <ChartTooltip 
-                  content={<ChartTooltipContent />} 
-                  formatter={(value, name) => [
-                    `R$ ${Number(value).toLocaleString('pt-BR', {
+              }} className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={sortedData.map(day => ({
+                    dia: day.date,
+                    cplMeta: day.cplMeta,
+                    cplLiquido: day.cplLiquido
+                  }))} margin={{
+                    top: 5,
+                    right: 30,
+                    left: 20,
+                    bottom: 5
+                  }}>
+                    <XAxis dataKey="dia" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={value => `R$ ${value.toFixed(2)}`} />
+                    <ChartTooltip content={<ChartTooltipContent />} formatter={(value, name) => [`R$ ${Number(value).toLocaleString('pt-BR', {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
-                    })}`, 
-                    name === 'cplLiquido' ? 'CPL Líquido' : 'CPL Meta'
-                  ]} 
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="cplLiquido" 
-                  stroke="hsl(var(--destructive))" 
-                  strokeWidth={4} 
-                  dot={false} 
-                  activeDot={{
-                    r: 6,
-                    fill: "hsl(var(--destructive))"
-                  }} 
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="cplMeta" 
-                  stroke="hsl(var(--primary))" 
-                  strokeWidth={2} 
-                  strokeDasharray="8 4" 
-                  dot={false} 
-                  activeDot={{
-                    r: 4,
-                    fill: "hsl(var(--primary))"
-                  }} 
-                />
-              </LineChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
+                    })}`, name === 'cplLiquido' ? 'CPL Líquido' : 'CPL Meta']} />
+                    <Line type="monotone" dataKey="cplLiquido" stroke="hsl(var(--destructive))" strokeWidth={4} dot={false} activeDot={{
+                      r: 6,
+                      fill: "hsl(var(--destructive))"
+                    }} />
+                    <Line type="monotone" dataKey="cplMeta" stroke="hsl(var(--primary))" strokeWidth={2} strokeDasharray="8 4" dot={false} activeDot={{
+                      r: 4,
+                      fill: "hsl(var(--primary))"
+                    }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+          
+          {/* Recomendações Baseadas em Dados */}
+          <Card>
+            <CardHeader>
+              <CardTitle>🎯 Recomendações Baseadas em Dados</CardTitle>
+              <CardDescription>Ações práticas para atingir a meta de CPL líquido</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                {/* Análise de CPL vs Meta */}
+                {cplLiquido < 2.00 ? (
+                  <div className="p-4 border-l-4 border-green-500 bg-green-50 dark:bg-green-950">
+                    <h5 className="font-semibold text-green-700 dark:text-green-300">✅ Performance Excelente</h5>
+                    <p className="text-sm text-green-600 dark:text-green-400">
+                      CPL Líquido (R$ {cplLiquido.toFixed(2)}) está {((1 - cplLiquido / 3.00) * 100).toFixed(0)}% abaixo da meta de R$ 3,00. Escalar gradualmente os conjuntos de anúncios com melhor performance.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-4 border-l-4 border-red-500 bg-red-50 dark:bg-red-950">
+                    <h5 className="font-semibold text-red-700 dark:text-red-300">❌ CPL Acima da Meta</h5>
+                    <p className="text-sm text-red-600 dark:text-red-400">
+                      CPL Líquido (R$ {cplLiquido.toFixed(2)}) está {((cplLiquido / 3.00 - 1) * 100).toFixed(0)}% acima da meta de R$ 3,00. Pausar conjuntos com pior performance e otimizar criativos.
+                    </p>
+                  </div>
+                )}
+                
+                {/* Análise de Retenção */}
+                {totals.totalLeads > 0 && (
+                  <div className={`p-4 border-l-4 ${totals.totalGroup / totals.totalLeads >= 0.7 ? 'border-green-500 bg-green-50 dark:bg-green-950' : totals.totalGroup / totals.totalLeads >= 0.5 ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950' : 'border-red-500 bg-red-50 dark:bg-red-950'}`}>
+                    <h5 className={`font-semibold ${totals.totalGroup / totals.totalLeads >= 0.7 ? 'text-green-700 dark:text-green-300' : totals.totalGroup / totals.totalLeads >= 0.5 ? 'text-yellow-700 dark:text-yellow-300' : 'text-red-700 dark:text-red-300'}`}>
+                      📊 Taxa de Retenção: {Math.round(totals.totalGroup / totals.totalLeads * 100)}%
+                    </h5>
+                    <p className={`text-sm ${totals.totalGroup / totals.totalLeads >= 0.7 ? 'text-green-600 dark:text-green-400' : totals.totalGroup / totals.totalLeads >= 0.5 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {totals.totalGroup / totals.totalLeads >= 0.7 ? 'Excelente qualidade de tráfego! Continuar investindo nos conjuntos atuais.' : totals.totalGroup / totals.totalLeads >= 0.5 ? 'Qualidade moderada. Testar novos públicos e criativos para melhorar conversão.' : 'Baixa qualidade de tráfego. Revisar audiências e melhorar qualificação no funil.'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        {/* Análise Profunda de Campanhas */}
         <Card>
           <CardHeader>
-            <CardTitle>🎯 Recomendações Baseadas em Dados</CardTitle>
-            <CardDescription>Ações práticas para atingir a meta de CPL líquido</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              {/* Análise de CPL vs Meta */}
-              {cplLiquido < 2.00 ? (
-                <div className="p-4 border-l-4 border-green-500 bg-green-50 dark:bg-green-950">
-                  <h5 className="font-semibold text-green-700 dark:text-green-300">✅ Performance Excelente</h5>
-                  <p className="text-sm text-green-600 dark:text-green-400">
-                    CPL Líquido (R$ {cplLiquido.toFixed(2)}) está {((1 - cplLiquido / 3.00) * 100).toFixed(0)}% abaixo da meta de R$ 3,00. Escalar gradualmente os conjuntos de anúncios com melhor performance.
-                  </p>
-                </div>
-              ) : (
-                <div className="p-4 border-l-4 border-red-500 bg-red-50 dark:bg-red-950">
-                  <h5 className="font-semibold text-red-700 dark:text-red-300">❌ CPL Acima da Meta</h5>
-                  <p className="text-sm text-red-600 dark:text-red-400">
-                    CPL Líquido (R$ {cplLiquido.toFixed(2)}) está {((cplLiquido / 3.00 - 1) * 100).toFixed(0)}% acima da meta de R$ 3,00. Pausar conjuntos com pior performance e otimizar criativos.
-                  </p>
-                </div>
-              )}
-
-              {/* Análise de Retenção */}
-              {totals.totalLeads > 0 && (
-                <div className={`p-4 border-l-4 ${
-                  totals.totalGroup / totals.totalLeads >= 0.7 
-                    ? 'border-green-500 bg-green-50 dark:bg-green-950' 
-                    : totals.totalGroup / totals.totalLeads >= 0.5 
-                    ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950' 
-                    : 'border-red-500 bg-red-50 dark:bg-red-950'
-                }`}>
-                  <h5 className={`font-semibold ${
-                    totals.totalGroup / totals.totalLeads >= 0.7 
-                      ? 'text-green-700 dark:text-green-300' 
-                      : totals.totalGroup / totals.totalLeads >= 0.5 
-                      ? 'text-yellow-700 dark:text-yellow-300' 
-                      : 'text-red-700 dark:text-red-300'
-                  }`}>
-                    📊 Taxa de Retenção: {Math.round(totals.totalGroup / totals.totalLeads * 100)}%
-                  </h5>
-                  <p className={`text-sm ${
-                    totals.totalGroup / totals.totalLeads >= 0.7 
-                      ? 'text-green-600 dark:text-green-400' 
-                      : totals.totalGroup / totals.totalLeads >= 0.5 
-                      ? 'text-yellow-600 dark:text-yellow-400' 
-                      : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {totals.totalGroup / totals.totalLeads >= 0.7 
-                      ? 'Excelente qualidade de tráfego! Continuar investindo nos conjuntos atuais.' 
-                      : totals.totalGroup / totals.totalLeads >= 0.5 
-                      ? 'Qualidade moderada. Testar novos públicos e criativos para melhorar conversão.' 
-                      : 'Baixa qualidade de tráfego. Revisar audiências e melhorar qualificação no funil.'}
-                  </p>
-                </div>
-              )}
-
-              {/* Análise dos Melhores Ad Sets */}
-              {bestAdSets.length > 0 && (
-                <div className="p-4 border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-950">
-                  <h5 className="font-semibold text-blue-700 dark:text-blue-300">🎯 Melhor Conjunto de Anúncios</h5>
-                  <p className="text-sm text-blue-600 dark:text-blue-400">
-                    "{bestAdSets[0].ad_set_name}" com CPL de R$ {bestAdSets[0].cpl.toFixed(2)}. 
-                    {bestAdSets[0].cpl < 2.00 
-                      ? ' Aumentar orçamento em 30-50% para escalar.' 
-                      : ' Analisar elementos de sucesso para replicar em outros conjuntos.'}
-                  </p>
-                </div>
-              )}
+            <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+              <div>
+                <CardTitle>🏆 Análise Profunda de Campanhas</CardTitle>
+                <CardDescription>Performance detalhada das campanhas do Meta</CardDescription>
+              </div>
             </div>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome da Campanha</TableHead>
+                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="text-center">Objetivo</TableHead>
+                  <TableHead className="text-center">ID da Campanha</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {campaigns.map((campaign, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium">{campaign.campaign_name || 'N/A'}</TableCell>
+                    <TableCell className="text-center">
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        campaign.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {campaign.status || 'N/A'}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">{campaign.objective || 'N/A'}</TableCell>
+                    <TableCell className="text-center font-mono text-sm">{campaign.campaign_id || 'N/A'}</TableCell>
+                  </TableRow>
+                ))}
+                {campaigns.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground">
+                      {isLoading ? 'Carregando dados...' : 'Nenhuma campanha encontrada'}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
-      </div>
-
-      {/* Top Ad Sets Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-            <div>
-              <CardTitle>🏆 Análise Profunda de Conjuntos de Anúncios</CardTitle>
-            </div>
-            <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium">Data início:</label>
-                <Input type="date" className="w-auto" value={tempAdSetStartDate} onChange={e => setTempAdSetStartDate(e.target.value)} />
-              </div>
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium">Data fim:</label>
-                <Input type="date" className="w-auto" value={tempAdSetEndDate} onChange={e => setTempAdSetEndDate(e.target.value)} />
-              </div>
-              <Button onClick={handleApplyAdSetFilters} className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                Filtrar
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>
-                  <Button variant="ghost" onClick={() => handleAdSetSort('ad_set_name')} className="h-auto p-0 font-medium flex items-center gap-1">
-                    Conjunto de Anúncios
-                    {getAdSetSortIcon('ad_set_name')}
-                  </Button>
-                </TableHead>
-                <TableHead className="text-center">
-                  <Button variant="ghost" onClick={() => handleAdSetSort('total_leads')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
-                    <div className="text-center">
-                      <div>Leads</div>
-                      <div className="text-xs text-muted-foreground font-normal">Total: {adSetTotals.totalLeads.toLocaleString('pt-BR')}</div>
-                    </div>
-                    {getAdSetSortIcon('total_leads')}
-                  </Button>
-                </TableHead>
-                <TableHead className="text-center">
-                  <Button variant="ghost" onClick={() => handleAdSetSort('total_spent')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
-                    <div className="text-center">
-                      <div>Investido</div>
-                      <div className="text-xs text-muted-foreground font-normal">
-                        Total: R$ {adSetTotals.totalSpent.toLocaleString('pt-BR', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2
-                        })}
-                      </div>
-                    </div>
-                    {getAdSetSortIcon('total_spent')}
-                  </Button>
-                </TableHead>
-                <TableHead className="text-center">
-                  <Button variant="ghost" onClick={() => handleAdSetSort('cpl')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
-                    <div className="text-center">
-                      <div>CPL Meta</div>
-                      <div className="text-xs text-muted-foreground font-normal">Média: R$ {adSetTotals.averageCPL.toFixed(2)}</div>
-                    </div>
-                    {getAdSetSortIcon('cpl')}
-                  </Button>
-                </TableHead>
-                <TableHead className="text-center">Link do Criativo</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedAdSets.map((adSet, index) => (
-                <TableRow key={index}>
-                  <TableCell>
-                    <div>
-                      <div className="font-semibold">{adSet.ad_set_name}</div>
-                      <div className="text-xs text-muted-foreground">{adSet.campaign_name}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center font-medium">{adSet.total_leads}</TableCell>
-                  <TableCell className="text-center font-medium">R$ {adSet.total_spent.toFixed(2).replace('.', ',')}</TableCell>
-                  <TableCell className="text-center font-medium">
-                    R$ {adSet.cpl.toFixed(2).replace('.', ',')}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {adSet.creative_link ? (
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={adSet.creative_link} target="_blank" rel="noopener noreferrer">
-                          <span className="text-xs">Ver Criativo</span>
-                        </a>
-                      </Button>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Sem link</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {sortedAdSets.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
-                    {loading ? 'Carregando dados...' : 'Nenhum conjunto de anúncios encontrado'}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
       </div>
     </div>
   );
