@@ -376,104 +376,74 @@ const TrafficAnalysis = () => {
           </CardContent>
         </Card>
         
-        {/* Evolução do CPL e Recomendações - Lado a lado */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Gráfico de Evolução do CPL */}
-          <Card>
-            <CardHeader>
-              <CardTitle>📊 Evolução do CPL</CardTitle>
-              <CardDescription>Comparação entre CPL Meta e CPL Líquido ao longo dos dias</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={{
-                cplMeta: {
-                  label: "CPL Meta",
-                  color: "hsl(var(--chart-1))"
-                },
-                cplLiquido: {
-                  label: "CPL Líquido",
-                  color: "hsl(var(--chart-2))"
-                }
-              }} className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={sortedData.map(day => ({
-                    dia: day.date,
-                    cplMeta: day.cplMeta,
-                    cplLiquido: day.cplLiquido
-                  }))} margin={{
-                    top: 5,
-                    right: 30,
-                    left: 20,
-                    bottom: 5
-                  }}>
-                    <XAxis dataKey="dia" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={value => `R$ ${value.toFixed(2)}`} />
-                    <ChartTooltip content={<ChartTooltipContent />} formatter={(value, name) => [`R$ ${Number(value).toLocaleString('pt-BR', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })}`, name === 'cplLiquido' ? 'CPL Líquido' : 'CPL Meta']} />
-                    <Line type="monotone" dataKey="cplLiquido" stroke="hsl(var(--destructive))" strokeWidth={4} dot={false} activeDot={{
-                      r: 6,
-                      fill: "hsl(var(--destructive))"
-                    }} />
-                    <Line type="monotone" dataKey="cplMeta" stroke="hsl(var(--primary))" strokeWidth={2} strokeDasharray="8 4" dot={false} activeDot={{
-                      r: 4,
-                      fill: "hsl(var(--primary))"
-                    }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-          
-          {/* Recomendações Baseadas em Dados */}
-          <Card>
-            <CardHeader>
-              <CardTitle>🎯 Recomendações Baseadas em Dados</CardTitle>
-              <CardDescription>Ações práticas para atingir a meta de CPL líquido</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                {/* Análise de CPL vs Meta */}
-                {cplLiquido < 2.00 ? (
-                  <div className="p-4 border-l-4 border-green-500 bg-green-50 dark:bg-green-950">
-                    <h5 className="font-semibold text-green-700 dark:text-green-300">✅ Performance Excelente</h5>
-                    <p className="text-sm text-green-600 dark:text-green-400">
-                      CPL Líquido (R$ {cplLiquido.toFixed(2)}) está {((1 - cplLiquido / 3.00) * 100).toFixed(0)}% abaixo da meta de R$ 3,00. Escalar gradualmente os conjuntos de anúncios com melhor performance.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="p-4 border-l-4 border-red-500 bg-red-50 dark:bg-red-950">
-                    <h5 className="font-semibold text-red-700 dark:text-red-300">❌ CPL Acima da Meta</h5>
-                    <p className="text-sm text-red-600 dark:text-red-400">
-                      CPL Líquido (R$ {cplLiquido.toFixed(2)}) está {((cplLiquido / 3.00 - 1) * 100).toFixed(0)}% acima da meta de R$ 3,00. Pausar conjuntos com pior performance e otimizar criativos.
-                    </p>
-                  </div>
-                )}
-                
-                {/* Análise de Retenção */}
-                {totals.totalLeads > 0 && (
-                  <div className={`p-4 border-l-4 ${totals.totalGroup / totals.totalLeads >= 0.7 ? 'border-green-500 bg-green-50 dark:bg-green-950' : totals.totalGroup / totals.totalLeads >= 0.5 ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950' : 'border-red-500 bg-red-50 dark:bg-red-950'}`}>
-                    <h5 className={`font-semibold ${totals.totalGroup / totals.totalLeads >= 0.7 ? 'text-green-700 dark:text-green-300' : totals.totalGroup / totals.totalLeads >= 0.5 ? 'text-yellow-700 dark:text-yellow-300' : 'text-red-700 dark:text-red-300'}`}>
-                      📊 Taxa de Retenção: {Math.round(totals.totalGroup / totals.totalLeads * 100)}%
-                    </h5>
-                    <p className={`text-sm ${totals.totalGroup / totals.totalLeads >= 0.7 ? 'text-green-600 dark:text-green-400' : totals.totalGroup / totals.totalLeads >= 0.5 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {totals.totalGroup / totals.totalLeads >= 0.7 ? 'Excelente qualidade de tráfego! Continuar investindo nos conjuntos atuais.' : totals.totalGroup / totals.totalLeads >= 0.5 ? 'Qualidade moderada. Testar novos públicos e criativos para melhorar conversão.' : 'Baixa qualidade de tráfego. Revisar audiências e melhorar qualificação no funil.'}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Gráfico de Evolução do CPL */}
+        <Card>
+          <CardHeader>
+            <CardTitle>📊 Evolução do CPL</CardTitle>
+            <CardDescription>Comparação entre CPL Meta e CPL Líquido ao longo dos dias</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={{
+              cplMeta: {
+                label: "CPL Meta",
+                color: "hsl(var(--chart-1))"
+              },
+              cplLiquido: {
+                label: "CPL Líquido",
+                color: "hsl(var(--chart-2))"
+              }
+            }} className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={sortedData.map(day => ({
+                  dia: day.date,
+                  cplMeta: day.cplMeta,
+                  cplLiquido: day.cplLiquido
+                }))} margin={{
+                  top: 5,
+                  right: 30,
+                  left: 20,
+                  bottom: 5
+                }}>
+                  <XAxis dataKey="dia" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={value => `R$ ${value.toFixed(2)}`} />
+                  <ChartTooltip content={<ChartTooltipContent />} formatter={(value, name) => [`R$ ${Number(value).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                  })}`, name === 'cplLiquido' ? 'CPL Líquido' : 'CPL Meta']} />
+                  <Line type="monotone" dataKey="cplLiquido" stroke="hsl(var(--destructive))" strokeWidth={4} dot={false} activeDot={{
+                    r: 6,
+                    fill: "hsl(var(--destructive))"
+                  }} />
+                  <Line type="monotone" dataKey="cplMeta" stroke="hsl(var(--primary))" strokeWidth={2} strokeDasharray="8 4" dot={false} activeDot={{
+                    r: 4,
+                    fill: "hsl(var(--primary))"
+                  }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </CardContent>
+        </Card>
         
-        {/* Análise Profunda de Campanhas */}
+        {/* Análise Profunda de Conjuntos de Anúncios */}
         <Card>
           <CardHeader>
             <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
               <div>
-                <CardTitle>🏆 Análise Profunda de Campanhas</CardTitle>
-                <CardDescription>Performance detalhada das campanhas do Meta</CardDescription>
+                <CardTitle>🏆 Análise Profunda de Conjuntos de Anúncios</CardTitle>
+              </div>
+              <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm font-medium">Data início:</label>
+                  <Input type="date" className="w-auto" value={tempStartDate} onChange={e => setTempStartDate(e.target.value)} />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm font-medium">Data fim:</label>
+                  <Input type="date" className="w-auto" value={tempEndDate} onChange={e => setTempEndDate(e.target.value)} />
+                </div>
+                <Button onClick={handleApplyFilters} className="flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  Filtrar
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -481,31 +451,68 @@ const TrafficAnalysis = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nome da Campanha</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                  <TableHead className="text-center">Objetivo</TableHead>
-                  <TableHead className="text-center">ID da Campanha</TableHead>
+                  <TableHead>
+                    <Button variant="ghost" onClick={() => handleSort('ad_set_name')} className="h-auto p-0 font-medium flex items-center gap-1">
+                      Conjunto de Anúncios
+                      {getSortIcon('ad_set_name')}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    <Button variant="ghost" onClick={() => handleSort('total_leads')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
+                      <div className="text-center">
+                        <div>Leads</div>
+                        <div className="text-xs text-muted-foreground font-normal">Total: {totals.totalLeads.toLocaleString('pt-BR')}</div>
+                      </div>
+                      {getSortIcon('total_leads')}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    <Button variant="ghost" onClick={() => handleSort('total_spent')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
+                      <div className="text-center">
+                        <div>Investido</div>
+                        <div className="text-xs text-muted-foreground font-normal">Total: R$ {totals.totalInvestment.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2
+                        })}</div>
+                      </div>
+                      {getSortIcon('total_spent')}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    <Button variant="ghost" onClick={() => handleSort('cpl')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
+                      <div className="text-center">
+                        <div>CPL Meta</div>
+                        <div className="text-xs text-muted-foreground font-normal">Média: R$ {totals.totalLeads > 0 ? (totals.totalInvestment / totals.totalLeads).toFixed(2) : '0,00'}</div>
+                      </div>
+                      {getSortIcon('cpl')}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-center">Link do Criativo</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {campaigns.map((campaign, index) => (
                   <TableRow key={index}>
-                    <TableCell className="font-medium">{campaign.campaign_name || 'N/A'}</TableCell>
-                    <TableCell className="text-center">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        campaign.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {campaign.status || 'N/A'}
-                      </span>
+                    <TableCell>
+                      <div>
+                        <div className="font-semibold">{campaign.campaign_name || 'N/A'}</div>
+                        <div className="text-xs text-muted-foreground">{campaign.campaign_name || 'N/A'}</div>
+                      </div>
                     </TableCell>
-                    <TableCell className="text-center">{campaign.objective || 'N/A'}</TableCell>
-                    <TableCell className="text-center font-mono text-sm">{campaign.campaign_id || 'N/A'}</TableCell>
+                    <TableCell className="text-center font-medium">{extractedDataV2?.metaData?.totalResults || 0}</TableCell>
+                    <TableCell className="text-center font-medium">R$ {(extractedDataV2?.metaData?.totalSpend || 0).toFixed(2).replace('.', ',')}</TableCell>
+                    <TableCell className="text-center font-medium">
+                      R$ {totals.totalLeads > 0 ? ((totals.totalInvestment / totals.totalLeads)).toFixed(2).replace('.', ',') : '0,00'}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className="text-xs text-muted-foreground">Sem link</span>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {campaigns.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground">
-                      {isLoading ? 'Carregando dados...' : 'Nenhuma campanha encontrada'}
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      {isLoading ? 'Carregando dados...' : 'Nenhum conjunto de anúncios encontrado'}
                     </TableCell>
                   </TableRow>
                 )}
