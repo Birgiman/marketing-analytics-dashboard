@@ -210,65 +210,65 @@ export default function SignIn() {
               </div>
             </div>
           </form>
-
-          {/* Modal de Reset de Senha */}
-          {showResetForm && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
-              <div className="bg-background rounded-lg max-w-md w-full p-6">
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold text-foreground">Recuperar Senha</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Digite seu email para receber as instruções de recuperação
-                  </p>
-                </div>
-                
-                <form onSubmit={handlePasswordReset} className="space-y-4">
-                  <div>
-                    <label htmlFor="reset-email" className="sr-only">
-                      Email
-                    </label>
-                    <input
-                      id="reset-email"
-                      name="reset-email"
-                      type="email"
-                      autoComplete="email"
-                      required
-                      className="relative block w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-foreground placeholder-muted-foreground focus:z-10 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:text-sm"
-                      placeholder="Digite seu email"
-                      value={resetEmail}
-                      onChange={(e) => setResetEmail(e.target.value)}
-                    />
-                  </div>
-                  
-                  <div className="flex space-x-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setShowResetForm(false);
-                        setResetEmail('');
-                        setError(null);
-                        setResetMessage(null);
-                      }}
-                      className="flex-1"
-                    >
-                      Cancelar
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={resetLoading}
-                      variant="primary"
-                      className="flex-1"
-                    >
-                      {resetLoading ? 'Enviando...' : 'Enviar'}
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
         </div>
       </main>
+
+      {/* Modal de Reset de Senha - Fora do main para ocupar 100% da tela */}
+      {showResetForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
+          <div className="bg-background rounded-lg max-w-md w-full p-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-foreground">Recuperar Senha</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Digite seu email para receber as instruções de recuperação
+              </p>
+            </div>
+            
+            <form onSubmit={handlePasswordReset} className="space-y-4">
+              <div>
+                <label htmlFor="reset-email" className="sr-only">
+                  Email
+                </label>
+                <input
+                  id="reset-email"
+                  name="reset-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  className="relative block w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-foreground placeholder-muted-foreground focus:z-10 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:text-sm"
+                  placeholder="Digite seu email"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                />
+              </div>
+              
+              <div className="flex space-x-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowResetForm(false);
+                    setResetEmail('');
+                    setError(null);
+                    setResetMessage(null);
+                  }}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={resetLoading}
+                  variant="primary"
+                  className="flex-1"
+                >
+                  {resetLoading ? 'Enviando...' : 'Enviar'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
