@@ -112,7 +112,7 @@ export default function SignIn() {
         return;
       }
 
-      setResetMessage('Email de recuperação enviado! Verifique sua caixa de entrada.');
+      setResetMessage('Email de recuperação enviado! Verifique sua caixa de entrada ou spam.');
       setShowResetForm(false);
       setResetEmail('');
     } catch (error: unknown) {
