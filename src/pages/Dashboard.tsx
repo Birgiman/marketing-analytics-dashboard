@@ -1,7 +1,7 @@
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { CreateLiveModal } from "@/components/CreateLiveModal";
+import HeaderV2 from "@/components/HeaderV2";
 import { LivesListModal } from "@/components/LivesListModal";
-import { SalesHeader } from "@/components/SalesHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,10 +27,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [isCreateLiveOpen, setIsCreateLiveOpen] = useState(false);
   const [isLivesListOpen, setIsLivesListOpen] = useState(false);
-const [lives, setLives] = useState<any[]>([]);
-  const [editingLive, setEditingLive] = useState<any>(null);
+const [lives, setLives] = useState<Live[]>([]);
+  const [editingLive, setEditingLive] = useState<Live | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [liveToDelete, setLiveToDelete] = useState<any>(null);
+  const [liveToDelete, setLiveToDelete] = useState<Live | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const { currentInstance } = useWhatsAppInstances();
@@ -146,11 +146,7 @@ const [lives, setLives] = useState<any[]>([]);
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Header */}
-      <SalesHeader 
-        title="LiveShop Analytics" 
-        salesTarget="R$ 1,10M / 10M"
-        salesPercentage="11%"
-      />
+      <HeaderV2 />
 
       {/* Stats Grid */}
       <div className="p-6">
@@ -321,7 +317,7 @@ const [lives, setLives] = useState<any[]>([]);
       <CreateLiveModal 
         open={isCreateLiveOpen} 
         onOpenChange={setIsCreateLiveOpen}
-        currentInstance={currentInstance}
+        currentInstance={currentInstance as any}
         onLiveCreated={() => {
           const checkAuth = async () => {
             try {
@@ -341,8 +337,8 @@ const [lives, setLives] = useState<any[]>([]);
       <CreateLiveModal 
         open={showEditModal} 
         onOpenChange={setShowEditModal}
-        currentInstance={currentInstance}
-        editingLive={editingLive}
+        currentInstance={currentInstance as any}
+        editingLive={editingLive || undefined}
         onLiveCreated={() => {
           setShowEditModal(false);
           setEditingLive(null);
@@ -365,7 +361,7 @@ const [lives, setLives] = useState<any[]>([]);
         open={isLivesListOpen} 
         onOpenChange={setIsLivesListOpen}
         lives={lives}
-        currentInstance={currentInstance}
+        currentInstance={currentInstance as any}
         onLivesUpdated={() => {
           const checkAuth = async () => {
             try {
