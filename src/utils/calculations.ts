@@ -16,10 +16,8 @@ export interface CalculatorResults {
   leadsPrevistos: number;
   participantesPrevistos: number;
   vendasPrevistas: number;
-  receitaPrevista: number;
-  roi: number; // em porcentagem
-  lucro: number;
-  margemLucro: number; // em porcentagem
+  faturamento: number;
+  roes: number; // em porcentagem
 }
 
 /**
@@ -54,46 +52,26 @@ export function calculateVendasPrevistas(participantesPrevistos: number, convers
 }
 
 /**
- * Calcula receita prevista baseado nas vendas e ticket médio
+ * Calcula faturamento baseado nas vendas e ticket médio
  * @param vendasPrevistas - Número de vendas previstas
  * @param ticketMedio - Ticket médio em reais
- * @returns Receita prevista em reais
+ * @returns Faturamento em reais
  */
-export function calculateReceitaPrevista(vendasPrevistas: number, ticketMedio: number): number {
+export function calculateFaturamento(vendasPrevistas: number, ticketMedio: number): number {
   return vendasPrevistas * ticketMedio;
 }
 
 /**
- * Calcula ROI (Return on Investment) baseado na receita e orçamento
- * @param receitaPrevista - Receita prevista em reais
+ * Calcula ROES (Return on Expenditure) baseado no faturamento e orçamento
+ * @param faturamento - Faturamento em reais
  * @param orcamento - Orçamento investido em reais
- * @returns ROI em porcentagem (limitado a 2 casas decimais)
+ * @returns ROES em porcentagem (limitado a 2 casas decimais)
  */
-export function calculateROI(receitaPrevista: number, orcamento: number): number {
+export function calculateROES(faturamento: number, orcamento: number): number {
   if (orcamento <= 0) return 0;
-  return Math.round(((receitaPrevista - orcamento) / orcamento) * 100 * 100) / 100;
+  return Math.round((faturamento / orcamento) * 100 * 100) / 100;
 }
 
-/**
- * Calcula lucro (receita - orçamento)
- * @param receitaPrevista - Receita prevista em reais
- * @param orcamento - Orçamento investido em reais
- * @returns Lucro em reais
- */
-export function calculateLucro(receitaPrevista: number, orcamento: number): number {
-  return receitaPrevista - orcamento;
-}
-
-/**
- * Calcula margem de lucro baseado na receita e orçamento
- * @param receitaPrevista - Receita prevista em reais
- * @param orcamento - Orçamento investido em reais
- * @returns Margem de lucro em porcentagem (limitado a 2 casas decimais)
- */
-export function calculateMargemLucro(receitaPrevista: number, orcamento: number): number {
-  if (receitaPrevista <= 0) return 0;
-  return Math.round(((receitaPrevista - orcamento) / receitaPrevista) * 100 * 100) / 100;
-}
 
 /**
  * Função principal que calcula todos os resultados da calculadora
@@ -114,19 +92,15 @@ export function calculateLiveShopProjection(inputs: CalculatorInputs): Calculato
   const leadsPrevistos = calculateLeadsPrevistos(processedInputs.orcamento, processedInputs.cplLiquido);
   const participantesPrevistos = calculateParticipantesPrevistos(leadsPrevistos, processedInputs.comparecimento);
   const vendasPrevistas = calculateVendasPrevistas(participantesPrevistos, processedInputs.conversao);
-  const receitaPrevista = calculateReceitaPrevista(vendasPrevistas, processedInputs.ticketMedio);
-  const lucro = calculateLucro(receitaPrevista, processedInputs.orcamento);
-  const roi = calculateROI(receitaPrevista, processedInputs.orcamento);
-  const margemLucro = calculateMargemLucro(receitaPrevista, processedInputs.orcamento);
+  const faturamento = calculateFaturamento(vendasPrevistas, processedInputs.ticketMedio);
+  const roes = calculateROES(faturamento, processedInputs.orcamento);
 
   return {
     leadsPrevistos,
     participantesPrevistos,
     vendasPrevistas,
-    receitaPrevista,
-    roi,
-    lucro,
-    margemLucro
+    faturamento,
+    roes
   };
 }
 

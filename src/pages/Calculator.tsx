@@ -42,10 +42,8 @@ interface SavedCalculation {
   leads_previstos: number;
   participantes: number;
   vendas_previstas: number;
-  receita_prevista: number;
-  roi: number;
-  lucro: number;
-  margem_lucro: number;
+  faturamento: number;
+  roes: number;
   created_at: string;
   updated_at: string;
 }
@@ -224,10 +222,8 @@ export default function Calculator() {
           leads_previstos: results.leadsPrevistos,
           participantes: results.participantesPrevistos,
           vendas_previstas: results.vendasPrevistas,
-          receita_prevista: results.receitaPrevista,
-          roi: results.roi,
-          lucro: results.lucro,
-          margem_lucro: results.margemLucro
+          faturamento: results.faturamento,
+          roes: results.roes
         })
         .select()
         .single();
@@ -500,42 +496,22 @@ export default function Calculator() {
               <div className="bg-orange-50 p-4 rounded-lg">
                 <div className="flex items-center space-x-2">
                   <DollarSign className="h-4 w-4 text-orange-600" />
-                  <span className="text-sm font-medium text-orange-800">Receita Prevista</span>
+                  <span className="text-sm font-medium text-orange-800">Faturamento</span>
                 </div>
                 <p className="text-2xl font-bold text-orange-900 mt-1">
-                  {formatCurrency(currentResults.receitaPrevista)}
+                  {formatCurrency(currentResults.faturamento)}
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mt-6">
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="flex items-center space-x-2">
                   <TrendingUp className="h-4 w-4 text-gray-600" />
-                  <span className="text-sm font-medium text-gray-800">ROI</span>
+                  <span className="text-sm font-medium text-gray-800">ROES</span>
                 </div>
                 <p className="text-2xl font-bold text-gray-900 mt-1">
-                  {formatPercentage(currentResults.roi)}
-                </p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <DollarSign className="h-4 w-4 text-gray-600" />
-                  <span className="text-sm font-medium text-gray-800">Lucro</span>
-                </div>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
-                  {formatCurrency(currentResults.lucro)}
-                </p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <Target className="h-4 w-4 text-gray-600" />
-                  <span className="text-sm font-medium text-gray-800">Margem de Lucro</span>
-                </div>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
-                  {formatPercentage(currentResults.margemLucro)}
+                  {formatPercentage(currentResults.roes)}
                 </p>
               </div>
             </div>
@@ -575,8 +551,8 @@ export default function Calculator() {
                   <TableHead>Data</TableHead>
                   <TableHead>Orçamento</TableHead>
                   <TableHead>CPL Líquido</TableHead>
-                  <TableHead>Receita Prevista</TableHead>
-                  <TableHead>ROI</TableHead>
+                  <TableHead>Faturamento</TableHead>
+                  <TableHead>ROES</TableHead>
                   <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -588,8 +564,8 @@ export default function Calculator() {
                     </TableCell>
                     <TableCell>{formatCurrency(calc.orcamento)}</TableCell>
                     <TableCell>{formatCurrency(calc.cpl_liquido)}</TableCell>
-                    <TableCell>{formatCurrency(calc.receita_prevista)}</TableCell>
-                    <TableCell className="text-green-600 font-medium">{formatPercentage(calc.roi)}</TableCell>
+                    <TableCell>{formatCurrency(calc.faturamento)}</TableCell>
+                    <TableCell className="text-green-600 font-medium">{formatPercentage(calc.roes)}</TableCell>
                     <TableCell>
                       <Button 
                         variant="ghost" 
