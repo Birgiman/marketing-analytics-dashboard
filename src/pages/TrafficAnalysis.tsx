@@ -269,7 +269,7 @@ const TrafficAnalysis = () => {
       day.retention = day.cadastros > 0 ? Math.round(day.group / day.cadastros * 100) : 0;
     });
     
-    return Object.values(dailyData).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    return Object.values(dailyData).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
   
   const tableData = calculateDailyData();
