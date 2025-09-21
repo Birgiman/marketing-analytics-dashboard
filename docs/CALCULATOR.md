@@ -2,7 +2,7 @@
 
 ## Visão Geral
 
-A Calculadora de LiveShop é uma ferramenta que permite calcular projeções de campanhas de marketing digital para lives de vendas. Ela recebe inputs do usuário e gera projeções detalhadas de leads, vendas, receita e ROI.
+A Calculadora de LiveShop é uma ferramenta que permite calcular projeções de campanhas de marketing digital para lives de vendas. Ela recebe inputs do usuário e gera projeções detalhadas de leads, vendas, faturamento e ROES.
 
 ## Funcionalidades
 
@@ -18,10 +18,25 @@ A Calculadora de LiveShop é uma ferramenta que permite calcular projeções de 
 - **Leads Previstos**: `orçamento / CPL líquido`
 - **Participantes Previstos**: `leads previstos * (comparecimento / 100)`
 - **Vendas Previstas**: `participantes previstos * (conversão / 100)`
-- **Receita Prevista**: `vendas previstas * ticket médio`
-- **ROI**: `((receita prevista - orçamento) / orçamento) * 100`
-- **Lucro**: `receita prevista - orçamento`
-- **Margem de Lucro**: `((receita prevista - orçamento) / receita prevista) * 100`
+- **Faturamento Projetado**: `vendas previstas * ticket médio`
+- **ROES**: `(faturamento / orçamento) * 100`
+
+## Layout e Interface
+
+### Design Horizontal
+A calculadora utiliza um layout horizontal responsivo com:
+- **Lado Esquerdo**: Formulário de dados da campanha
+- **Centro**: Ícone Shuffle animado (aparece após cálculo)
+- **Lado Direito**: Card de resultados com animação de entrada
+
+### Animações
+- **Ícone Shuffle**: Animação `animate-pulse` (opacidade 0-100%)
+- **Card de Resultados**: Animação `slide-in-from-left` + `fade-in` (1 segundo)
+- **Transições**: Efeitos suaves para melhor UX
+
+### Responsividade
+- **Desktop**: Layout em 3 colunas (formulário | ícone | resultados)
+- **Mobile**: Layout vertical com ícone centralizado acima dos cards
 
 ## Estrutura Técnica
 
@@ -42,10 +57,8 @@ interface CalculatorResults {
   leadsPrevistos: number;
   participantesPrevistos: number;
   vendasPrevistas: number;
-  receitaPrevista: number;
-  roi: number; // em porcentagem
-  lucro: number;
-  margemLucro: number; // em porcentagem
+  faturamento: number;
+  roes: number; // em porcentagem
 }
 ```
 
@@ -55,7 +68,6 @@ interface CalculatorResults {
 - `formatCurrency(value)`: Formata valores monetários
 - `formatPercentage(value)`: Formata porcentagens
 - `formatNumber(value)`: Formata números inteiros
-- `generateSimulationName(inputs)`: Gera nome automático para simulação
 
 ### 2. Banco de Dados (Supabase)
 
@@ -63,110 +75,51 @@ interface CalculatorResults {
 ```sql
 CREATE TABLE public.calculator_history (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  name text NOT NULL,
-  inputs jsonb NOT NULL,
-  results jsonb NOT NULL,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  user_id uuid,
+  name text,
+  ticket_medio numeric NOT NULL,
+  total_dias integer NOT NULL,
+  orcamento numeric NOT NULL,
+  cpl_liquido numeric NOT NULL,
+  comparecimento numeric NOT NULL,
+  conversao numeric NOT NULL,
+  leads_previstos integer,
+  participantes integer,
+  vendas_previstas integer,
+  faturamento numeric,
+  roes numeric,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT calculator_history_pkey PRIMARY KEY (id),
-  CONSTRAINT calculator_history_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+  CONSTRAINT calculator_history_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 ```
 
 #### Campos
 - **id**: Identificador único da simulação
 - **user_id**: Referência ao usuário que criou a simulação
-- **name**: Nome da simulação (definido pelo usuário ou gerado automaticamente)
-- **inputs**: JSON com parâmetros de entrada
-- **results**: JSON com resultados calculados
+- **name**: Nome da simulação (definido pelo usuário)
+- **ticket_medio**: Valor médio por venda
+- **total_dias**: Duração da campanha em dias
+- **orcamento**: Valor total investido
+- **cpl_liquido**: Custo por lead líquido
+- **comparecimento**: Taxa de comparecimento (%)
+- **conversao**: Taxa de conversão (%)
+- **leads_previstos**: Número de leads calculados
+- **participantes**: Número de participantes calculados
+- **vendas_previstas**: Número de vendas calculadas
+- **faturamento**: Faturamento projetado
+- **roes**: Retorno sobre o investimento (%)
 - **created_at**: Data de criação
 - **updated_at**: Data da última atualização
 
-#### Políticas de Segurança (RLS)
-- Usuários só podem acessar suas próprias simulações
-- Operações CRUD (Create, Read, Update, Delete) protegidas por RLS
+### 3. Frontend (`src/pages/Calculator.tsx`)
 
-### 3. API Edge Function (`/api/calculator/history`)
-
-#### Endpoints Disponíveis
-
-##### GET - Listar Histórico
-```typescript
-// Request
-GET /api/calculator/history
-
-// Response
-{
-  "data": [
-    {
-      "id": "uuid",
-      "name": "Simulação 16/01/2025 - R$ 1.000,00",
-      "inputs": { ... },
-      "results": { ... },
-      "created_at": "2025-01-16T19:00:00Z",
-      "updated_at": "2025-01-16T19:00:00Z"
-    }
-  ]
-}
-```
-
-##### POST - Salvar Nova Simulação
-```typescript
-// Request
-POST /api/calculator/history
-{
-  "name": "Minha Simulação",
-  "inputs": {
-    "ticketMedio": 100,
-    "diasCaptacao": 7,
-    "orcamento": 1000,
-    "cplLiquido": 25,
-    "comparecimento": 80,
-    "conversao": 15
-  },
-  "results": {
-    "leadsPrevistos": 40,
-    "participantesPrevistos": 32,
-    "vendasPrevistas": 4,
-    "receitaPrevista": 400,
-    "roi": -60,
-    "lucro": -600,
-    "margemLucro": -150
-  }
-}
-
-// Response
-{
-  "data": {
-    "id": "uuid",
-    "name": "Minha Simulação",
-    "inputs": { ... },
-    "results": { ... },
-    "created_at": "2025-01-16T19:00:00Z",
-    "updated_at": "2025-01-16T19:00:00Z"
-  }
-}
-```
-
-##### DELETE - Remover Simulação
-```typescript
-// Request
-DELETE /api/calculator/history?id=uuid
-
-// Response
-{
-  "success": true
-}
-```
-
-### 4. Frontend (`src/pages/Calculator.tsx`)
-
-#### Componentes
-- **Formulário de Inputs**: Campos para inserir dados da campanha
-- **Seção de Resultados**: Cards com projeções calculadas
-- **Tabela de Histórico**: Lista de simulações salvas
-- **Botões de Ação**: Calcular, Novo, Deletar
+#### Componentes Principais
+- **Card de Dados da Campanha**: Formulário com inputs e botões de ação
+- **Ícone Shuffle Animado**: Indicador visual entre formulário e resultados
+- **Card de Resultados**: Exibição dos dados inseridos e valores calculados
+- **Tabela de Cálculos Salvos**: Histórico com todas as colunas de dados
 
 #### Estados
 - `formData`: Dados do formulário
@@ -174,6 +127,38 @@ DELETE /api/calculator/history?id=uuid
 - `savedCalculations`: Lista de simulações salvas
 - `isLoading`: Estado de carregamento
 - `isCalculating`: Estado de cálculo
+- `isSaving`: Estado de salvamento
+- `saveDialogOpen`: Modal para nomear cálculo
+- `editDialogOpen`: Modal para editar nome
+- `deleteDialogOpen`: Modal de confirmação de exclusão
+
+#### Funcionalidades
+- **Calcular**: Executa cálculos e exibe resultados
+- **Limpar**: Limpa formulário e resultados
+- **Salvar Cálculo**: Salva com nome personalizado via modal
+- **Exibir**: Carrega cálculo salvo no formulário
+- **Editar**: Altera nome do cálculo salvo
+- **Excluir**: Remove cálculo com confirmação
+
+### 4. Animações CSS (`src/index.css`)
+
+#### Animação Customizada
+```css
+@keyframes slideInFromLeft {
+  0% {
+    transform: translateX(-100px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slideInFromLeft 1s ease-out;
+}
+```
 
 ## Exemplo de Uso
 
@@ -192,34 +177,26 @@ Conversão: 20%
 Leads Previstos: 66
 Participantes Previstos: 49
 Vendas Previstas: 9
-Receita Prevista: R$ 1.350,00
-ROI: -32,5%
-Lucro: -R$ 650,00
-Margem de Lucro: -48,1%
+Faturamento Projetado: R$ 1.350,00
+ROES: 67,5%
 ```
 
-### 3. JSON Salvo no Banco
+### 3. Dados Salvos no Banco
 ```json
 {
   "id": "123e4567-e89b-12d3-a456-426614174000",
-  "name": "Simulação 16/01/2025 - R$ 2.000,00",
-  "inputs": {
-    "ticketMedio": 150,
-    "diasCaptacao": 7,
-    "orcamento": 2000,
-    "cplLiquido": 30,
-    "comparecimento": 75,
-    "conversao": 20
-  },
-  "results": {
-    "leadsPrevistos": 66,
-    "participantesPrevistos": 49,
-    "vendasPrevistas": 9,
-    "receitaPrevista": 1350,
-    "roi": -32.5,
-    "lucro": -650,
-    "margemLucro": -48.1
-  },
+  "name": "Campanha Janeiro 2025",
+  "ticket_medio": 150,
+  "total_dias": 7,
+  "orcamento": 2000,
+  "cpl_liquido": 30,
+  "comparecimento": 75,
+  "conversao": 20,
+  "leads_previstos": 66,
+  "participantes": 49,
+  "vendas_previstas": 9,
+  "faturamento": 1350,
+  "roes": 67.5,
   "created_at": "2025-01-16T19:00:00Z",
   "updated_at": "2025-01-16T19:00:00Z"
 }
@@ -228,13 +205,13 @@ Margem de Lucro: -48,1%
 ## Validações
 
 ### Inputs Obrigatórios
-- Todos os campos devem ser preenchidos
-- Valores numéricos devem ser maiores que zero
-- Porcentagens devem estar entre 0% e 100%
+- **Orçamento**: > 0
+- **CPL Líquido**: > 0
+- Outros campos podem ser vazios (valores padrão aplicados)
 
 ### Validações Específicas
-- **Ticket Médio**: > 0
-- **Dias de Captação**: > 0
+- **Ticket Médio**: ≥ 0
+- **Dias de Captação**: ≥ 0
 - **Orçamento**: > 0
 - **CPL Líquido**: > 0
 - **Comparecimento**: 0% ≤ valor ≤ 100%
@@ -278,6 +255,7 @@ Margem de Lucro: -48,1%
 - Funções puras para cálculos
 - Validação client-side antes de enviar para API
 - Estados de loading para melhor UX
+- Animações CSS otimizadas
 
 ## Manutenção
 
@@ -286,10 +264,28 @@ Margem de Lucro: -48,1%
 - Toasts para feedback do usuário
 
 ### Monitoramento
-- Edge Functions com logs de erro
 - Validação de dados em múltiplas camadas
+- Estados de loading para melhor UX
 
 ### Escalabilidade
 - Estrutura preparada para múltiplos usuários
 - Índices no banco para performance
 - Funções utilitárias reutilizáveis
+- Animações CSS reutilizáveis
+
+## Histórico de Mudanças
+
+### Versão 2.0 (Janeiro 2025)
+- **Layout Horizontal**: Implementado layout em 3 colunas
+- **Animações**: Adicionado ícone Shuffle e animação de entrada do card de resultados
+- **Nomes Personalizados**: Campo `name` adicionado para nomes customizados
+- **Modais**: Implementados modais para salvar, editar e confirmar exclusão
+- **Tabela Expandida**: Todas as colunas de dados exibidas na tabela de cálculos salvos
+- **UX Melhorada**: Botões centralizados, máscara de porcentagem corrigida
+- **Cálculos Atualizados**: Removido lucro e margem de lucro, foco em faturamento e ROES
+
+### Versão 1.0 (Setembro 2024)
+- **Versão Inicial**: Layout vertical básico
+- **Cálculos Básicos**: Leads, participantes, vendas, receita, ROI
+- **Persistência**: Salvamento no banco de dados
+- **Validações**: Validação de inputs obrigatórios
