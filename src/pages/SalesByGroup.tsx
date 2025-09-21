@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { LiveGroup as LiveGroupType } from "@/types";
 import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 // These interfaces are no longer used as we now use LiveGroup from types
 
@@ -25,6 +25,7 @@ interface SalesData {
 const SalesByGroup = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const liveId = searchParams.get('live');
 
   // Usar cache localStorage para dados da Live
@@ -333,8 +334,29 @@ const SalesByGroup = () => {
   console.log('SalesByGroup Debug:', { liveId, live, liveGroups, totalGroupMembers, isLoading });
 
   return (
-    <div>
+    <div className="flex flex-col min-h-screen bg-background">
       <Header />
+      
+      {/* Navegação interna */}
+      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 items-center">
+          <div className="flex flex-1 items-center justify-center space-x-2">
+            <Button variant={location.pathname === "/details" ? "default" : "outline"} size="sm" asChild>
+              <Link to={`/details?live=${liveId}`}>Dashboard</Link>
+            </Button>
+            <Button variant={location.pathname === "/traffic-analysis" ? "default" : "outline"} size="sm" asChild>
+              <Link to={`/traffic-analysis?live=${liveId}`}>Análise de Tráfego</Link>
+            </Button>
+            <Button variant={location.pathname === "/research-insights" ? "default" : "outline"} size="sm" asChild>
+              <Link to={`/research-insights?live=${liveId}`}>Insights de Pesquisa</Link>
+            </Button>
+            <Button variant={location.pathname === "/sales-by-group" ? "default" : "outline"} size="sm" asChild>
+              <Link to={`/sales-by-group?live=${liveId}`}>Públicos</Link>
+            </Button>
+          </div>
+        </div>
+      </header>
+      
       <div className="container mx-auto p-6 space-y-8">
 
 

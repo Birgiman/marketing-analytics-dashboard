@@ -9,11 +9,12 @@ import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
 const TrafficAnalysis = () => {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const liveId = searchParams.get('live');
   
   // Estados para dados V2 (mesmo padrão da Details.tsx)
@@ -243,8 +244,29 @@ const TrafficAnalysis = () => {
   }
   
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-background">
       <Header />
+      
+      {/* Navegação interna */}
+      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 items-center">
+          <div className="flex flex-1 items-center justify-center space-x-2">
+            <Button variant={location.pathname === "/details" ? "default" : "outline"} size="sm" asChild>
+              <Link to={`/details?live=${liveId}`}>Dashboard</Link>
+            </Button>
+            <Button variant={location.pathname === "/traffic-analysis" ? "default" : "outline"} size="sm" asChild>
+              <Link to={`/traffic-analysis?live=${liveId}`}>Análise de Tráfego</Link>
+            </Button>
+            <Button variant={location.pathname === "/research-insights" ? "default" : "outline"} size="sm" asChild>
+              <Link to={`/research-insights?live=${liveId}`}>Insights de Pesquisa</Link>
+            </Button>
+            <Button variant={location.pathname === "/sales-by-group" ? "default" : "outline"} size="sm" asChild>
+              <Link to={`/sales-by-group?live=${liveId}`}>Públicos</Link>
+            </Button>
+          </div>
+        </div>
+      </header>
+      
       <div className="container mx-auto p-6 space-y-8">
         {/* Métricas Principais */}
         <LiveMetricsCards

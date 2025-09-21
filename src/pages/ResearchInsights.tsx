@@ -1,13 +1,13 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Header from "@/components/Header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, MapPin, Heart, Package, RefreshCw } from "lucide-react";
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import Header from "@/components/Header";
 import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache";
-import { useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Heart, MapPin, MessageSquare, Package, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 
 interface SurveyData {
   id: string;
@@ -21,6 +21,7 @@ interface SurveyData {
 
 const ResearchInsights = () => {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const liveId = searchParams.get('live');
 
   // Usar cache localStorage para dados da Live (mesmo que não use campanhas)
@@ -167,8 +168,29 @@ const ResearchInsights = () => {
   }
 
   return (
-    <div>
+    <div className="flex flex-col min-h-screen bg-background">
       <Header />
+      
+      {/* Navegação interna */}
+      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 items-center">
+          <div className="flex flex-1 items-center justify-center space-x-2">
+            <Button variant={location.pathname === "/details" ? "default" : "outline"} size="sm" asChild>
+              <Link to={`/details?live=${liveId}`}>Dashboard</Link>
+            </Button>
+            <Button variant={location.pathname === "/traffic-analysis" ? "default" : "outline"} size="sm" asChild>
+              <Link to={`/traffic-analysis?live=${liveId}`}>Análise de Tráfego</Link>
+            </Button>
+            <Button variant={location.pathname === "/research-insights" ? "default" : "outline"} size="sm" asChild>
+              <Link to={`/research-insights?live=${liveId}`}>Insights de Pesquisa</Link>
+            </Button>
+            <Button variant={location.pathname === "/sales-by-group" ? "default" : "outline"} size="sm" asChild>
+              <Link to={`/sales-by-group?live=${liveId}`}>Públicos</Link>
+            </Button>
+          </div>
+        </div>
+      </header>
+      
       <div className="container mx-auto p-6 space-y-8">
 
 
