@@ -568,8 +568,8 @@ const TrafficAnalysis = () => {
                       </Button>
                     </TableHead>
                     <TableHead className="text-center">
-                      <Button variant="ghost" onClick={() => handleSort('investment')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
-                        <div className="text-center">
+                      <Button variant="ghost" onClick={() => handleSort('investment')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
+                        <div className="text-center w-full">
                           <div>Investimento</div>
                           <div className="text-xs text-muted-foreground font-normal">Total: R$ {totals.totalInvestment.toLocaleString('pt-BR', {
                             minimumFractionDigits: 2,
@@ -580,8 +580,8 @@ const TrafficAnalysis = () => {
                       </Button>
                     </TableHead>
                     <TableHead className="text-center">
-                      <Button variant="ghost" onClick={() => handleSort('cadastros')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
-                        <div className="text-center">
+                      <Button variant="ghost" onClick={() => handleSort('cadastros')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
+                        <div className="text-center w-full">
                           <div>Cadastros Meta</div>
                           <div className="text-xs text-muted-foreground font-normal">Total: {totals.totalLeads.toLocaleString('pt-BR')}</div>
                         </div>
@@ -589,8 +589,8 @@ const TrafficAnalysis = () => {
                       </Button>
                     </TableHead>
                     <TableHead className="text-center">
-                      <Button variant="ghost" onClick={() => handleSort('group')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
-                        <div className="text-center">
+                      <Button variant="ghost" onClick={() => handleSort('group')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
+                        <div className="text-center w-full">
                           <div>Entrou no Grupo</div>
                           <div className="text-xs text-muted-foreground font-normal">Total: {totals.totalGroup.toLocaleString('pt-BR')}</div>
                         </div>
@@ -598,8 +598,8 @@ const TrafficAnalysis = () => {
                       </Button>
                     </TableHead>
                     <TableHead className="text-center">
-                      <Button variant="ghost" onClick={() => handleSort('groupExit')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
-                        <div className="text-center">
+                      <Button variant="ghost" onClick={() => handleSort('groupExit')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
+                        <div className="text-center w-full">
                           <div>Saiu do Grupo</div>
                           <div className="text-xs text-muted-foreground font-normal">Total: {totals.totalGroupExit.toLocaleString('pt-BR')}</div>
                         </div>
@@ -607,19 +607,19 @@ const TrafficAnalysis = () => {
                       </Button>
                     </TableHead>
                     <TableHead className="text-center">
-                      <Button variant="ghost" onClick={() => handleSort('cplMeta')} className="h-auto p-0 font-medium flex items-center gap-1">
+                      <Button variant="ghost" onClick={() => handleSort('cplMeta')} className="h-auto p-0 font-medium flex items-center gap-1 w-full">
                         CPL Meta
                         {getSortIcon('cplMeta')}
                       </Button>
                     </TableHead>
                     <TableHead className="text-center">
-                      <Button variant="ghost" onClick={() => handleSort('cplLiquido')} className="h-auto p-0 font-medium flex items-center gap-1">
+                      <Button variant="ghost" onClick={() => handleSort('cplLiquido')} className="h-auto p-0 font-medium flex items-center gap-1 w-full">
                         CPL Líquido
                         {getSortIcon('cplLiquido')}
                       </Button>
                     </TableHead>
                     <TableHead className="text-center">
-                      <Button variant="ghost" onClick={() => handleSort('retention')} className="h-auto p-0 font-medium flex items-center gap-1">
+                      <Button variant="ghost" onClick={() => handleSort('retention')} className="h-auto p-0 font-medium flex items-center gap-1 w-full">
                         Taxa Retenção
                         {getSortIcon('retention')}
                       </Button>
@@ -751,8 +751,8 @@ const TrafficAnalysis = () => {
                     </Button>
                   </TableHead>
                   <TableHead className="text-center">
-                    <Button variant="ghost" onClick={() => handleSort('total_leads')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
-                      <div className="text-center">
+                    <Button variant="ghost" onClick={() => handleSort('total_leads')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
+                      <div className="text-center w-full">
                         <div>Leads</div>
                         <div className="text-xs text-muted-foreground font-normal">Total: {totals.totalLeads.toLocaleString('pt-BR')}</div>
                       </div>
@@ -760,8 +760,8 @@ const TrafficAnalysis = () => {
                     </Button>
                   </TableHead>
                   <TableHead className="text-center">
-                    <Button variant="ghost" onClick={() => handleSort('total_spent')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
-                      <div className="text-center">
+                    <Button variant="ghost" onClick={() => handleSort('total_spent')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
+                      <div className="text-center w-full">
                         <div>Investido</div>
                         <div className="text-xs text-muted-foreground font-normal">Total: R$ {totals.totalInvestment.toLocaleString('pt-BR', {
                           minimumFractionDigits: 2,
@@ -772,8 +772,8 @@ const TrafficAnalysis = () => {
                     </Button>
                   </TableHead>
                   <TableHead className="text-center">
-                    <Button variant="ghost" onClick={() => handleSort('cpl')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
-                      <div className="text-center">
+                    <Button variant="ghost" onClick={() => handleSort('cpl')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
+                      <div className="text-center w-full">
                         <div>CPL Meta</div>
                         <div className="text-xs text-muted-foreground font-normal">Média: R$ {correctAverageCPL.toFixed(2).replace('.', ',')}</div>
                       </div>
