@@ -53,7 +53,33 @@ ALTER TABLE public.calculator_history DROP COLUMN IF EXISTS margem_lucro;
 - **Estilos**: Botão "Exibir" com outline, "Editar" e "Excluir" com ghost
 - **Modal de Confirmação**: Para exclusão de cálculos
 
-### 3. Planejamento de Criptografia
+### 3. Melhorias no Painel Administrativo
+
+#### Layout em Tabela
+- **Substituição**: Cards por tabela organizada
+- **Colunas**: Nome, E-mail, Telefone, Status, Data de Cadastro, Ações
+- **Responsividade**: Scroll horizontal em telas menores
+- **Hover**: Efeito visual nas linhas
+
+#### Busca por Nome/E-mail
+- **Campo de Busca**: Input com ícone de lupa
+- **Filtro em Tempo Real**: Busca instantânea
+- **Limpeza Automática**: Ao trocar filtros
+- **Placeholder**: "Buscar por nome ou e-mail"
+
+#### Máscara de Telefone
+- **Formato**: `(21) 9 8848-7643`
+- **Suporte**: DDD + 9 + 8 dígitos
+- **Código do País**: Removido automaticamente (55)
+- **Fallback**: "Não informado" se vazio
+
+#### Ações Contextuais
+- **Pendentes**: Aprovar (verde) e Rejeitar (vermelho)
+- **Aprovados**: Desabilitar (outline)
+- **Desabilitados**: Habilitar (outline)
+- **Rejeitados**: Sem ações
+
+### 4. Planejamento de Criptografia
 
 #### Problema Identificado
 - **Tokens em Texto Puro**: `meta_integrations.access_token`, `whatsapp_instances.api_token`, `meta_ad_accounts.access_token`
@@ -87,10 +113,12 @@ const whatsappConnect = async (req) => {
 
 ### Principais
 - `src/pages/Calculator.tsx` - Refatoração completa
+- `src/pages/Admin.tsx` - Layout em tabela, busca e máscara de telefone
 - `src/utils/calculations.ts` - Atualização de interfaces e funções
 - `src/components/PercentageInput.tsx` - Correção da máscara
 - `src/index.css` - Animação customizada
 - `docs/CALCULATOR.md` - Documentação atualizada
+- `docs/ADMIN_PANEL.md` - Nova documentação do painel administrativo
 
 ### Banco de Dados
 - `calculator_history` - Adicionado campo `name`
@@ -101,12 +129,17 @@ const whatsappConnect = async (req) => {
 
 ### Imediatos
 1. **Testar Calculadora**: Verificar funcionamento completo
-2. **Documentação**: Atualizar outras documentações se necessário
+2. **Testar Painel Admin**: Verificar novas funcionalidades
+3. **Documentação**: Atualizar outras documentações se necessário
 
 ### Futuros
 1. **Implementar Criptografia**: Após integração com Facebook
 2. **Edge Functions**: Para WhatsApp e Meta tokens
 3. **Migração de Dados**: Criptografar tokens existentes
+4. **Cálculos de CPL Diário**: Implementar média de CPL
+5. **Termos de Grupos por Emoji**: Sistema de categorização
+6. **Integração Meta OAuth**: Token automático do Facebook
+7. **Google Forms**: Coleta e salvamento de respostas
 
 ## Lições Aprendidas
 
@@ -150,3 +183,4 @@ git push
 - **Estrutura Flexível**: Preparada para futuras expansões
 - **Componentes Reutilizáveis**: Animações e utilitários
 - **Banco de Dados**: Schema otimizado para performance
+
