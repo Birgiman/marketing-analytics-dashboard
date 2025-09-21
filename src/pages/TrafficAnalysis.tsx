@@ -97,6 +97,35 @@ const TrafficAnalysis = () => {
   const [tempStartDate, setTempStartDate] = useState<string>('');
   const [tempEndDate, setTempEndDate] = useState<string>('');
   
+  // Estados para filtro de públicos
+  const [selectedPublico, setSelectedPublico] = useState<string[]>(['todos']);
+  const [showPublicoDropdown, setShowPublicoDropdown] = useState(false);
+  
+  // Opções de público (preparado para futuras implementações)
+  const publicoOptions = [
+    { value: 'todos', label: 'Todos os Públicos' },
+    // TODO: Adicionar opções de estados quando dados estiverem disponíveis
+    // { value: 'ES', label: 'Espírito Santo' },
+    // { value: 'MA', label: 'Maceió' },
+    // { value: 'BR', label: 'Brasília' },
+    // { value: 'NA', label: 'Nacional' },
+    // { value: 'NAB', label: 'Nacional Teste' }
+  ];
+  
+  // Fechar dropdown ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showPublicoDropdown) {
+        setShowPublicoDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showPublicoDropdown]);
+
   // Buscar dados completos (mesmo padrão da Details.tsx)
   useEffect(() => {
     const fetchData = async () => {
@@ -320,6 +349,33 @@ const TrafficAnalysis = () => {
     return 0;
   });
   
+  // Funções para filtro de públicos
+  const handlePublicoSelect = (value: string) => {
+    if (value === 'todos') {
+      setSelectedPublico(['todos']);
+    } else {
+      const newSelection = selectedPublico.includes('todos') 
+        ? [value] 
+        : selectedPublico.includes(value)
+          ? selectedPublico.filter(p => p !== value)
+          : [...selectedPublico, value];
+      
+      // Se nenhum público estiver selecionado, voltar para "todos"
+      setSelectedPublico(newSelection.length === 0 ? ['todos'] : newSelection);
+    }
+  };
+
+  const getPublicoDisplayText = () => {
+    if (selectedPublico.includes('todos')) {
+      return 'Todos os Públicos';
+    }
+    if (selectedPublico.length === 1) {
+      const option = publicoOptions.find(opt => opt.value === selectedPublico[0]);
+      return option?.label || 'Todos os Públicos';
+    }
+    return `${selectedPublico.length} públicos selecionados`;
+  };
+
   const handleApplyFilters = async () => {
     if (!tempStartDate || !tempEndDate) return;
     
@@ -463,6 +519,35 @@ const TrafficAnalysis = () => {
                 <div className="flex items-center space-x-2">
                   <label className="text-sm font-medium">Data fim:</label>
                   <Input type="date" className="w-auto" value={tempEndDate} onChange={e => setTempEndDate(e.target.value)} />
+                </div>
+                <div className="relative">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowPublicoDropdown(!showPublicoDropdown)}
+                    className="flex items-center gap-2 min-w-[180px] justify-between"
+                  >
+                    <span className="text-sm">{getPublicoDisplayText()}</span>
+                    <ArrowDown className="h-4 w-4" />
+                  </Button>
+                  {showPublicoDropdown && (
+                    <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                      {publicoOptions.map((option) => (
+                        <div
+                          key={option.value}
+                          className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                          onClick={() => handlePublicoSelect(option.value)}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedPublico.includes(option.value)}
+                            onChange={() => {}}
+                            className="mr-2"
+                          />
+                          <span className="text-sm">{option.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <Button onClick={handleApplyFilters} className="flex items-center gap-2">
                   <Filter className="h-4 w-4" />
@@ -647,6 +732,35 @@ const TrafficAnalysis = () => {
                 <div className="flex items-center space-x-2">
                   <label className="text-sm font-medium">Data fim:</label>
                   <Input type="date" className="w-auto" value={tempEndDate} onChange={e => setTempEndDate(e.target.value)} />
+                </div>
+                <div className="relative">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowPublicoDropdown(!showPublicoDropdown)}
+                    className="flex items-center gap-2 min-w-[180px] justify-between"
+                  >
+                    <span className="text-sm">{getPublicoDisplayText()}</span>
+                    <ArrowDown className="h-4 w-4" />
+                  </Button>
+                  {showPublicoDropdown && (
+                    <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                      {publicoOptions.map((option) => (
+                        <div
+                          key={option.value}
+                          className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                          onClick={() => handlePublicoSelect(option.value)}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedPublico.includes(option.value)}
+                            onChange={() => {}}
+                            className="mr-2"
+                          />
+                          <span className="text-sm">{option.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <Button onClick={handleApplyFilters} className="flex items-center gap-2">
                   <Filter className="h-4 w-4" />
