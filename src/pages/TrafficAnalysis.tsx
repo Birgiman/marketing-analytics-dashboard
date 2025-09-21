@@ -733,35 +733,6 @@ const TrafficAnalysis = () => {
                   <label className="text-sm font-medium">Data fim:</label>
                   <Input type="date" className="w-auto" value={tempEndDate} onChange={e => setTempEndDate(e.target.value)} />
                 </div>
-                <div className="relative">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setShowPublicoDropdown(!showPublicoDropdown)}
-                    className="flex items-center gap-2 min-w-[180px] justify-between"
-                  >
-                    <span className="text-sm">{getPublicoDisplayText()}</span>
-                    <ArrowDown className="h-4 w-4" />
-                  </Button>
-                  {showPublicoDropdown && (
-                    <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg z-10">
-                      {publicoOptions.map((option) => (
-                        <div
-                          key={option.value}
-                          className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
-                          onClick={() => handlePublicoSelect(option.value)}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedPublico.includes(option.value)}
-                            onChange={() => {}}
-                            className="mr-2"
-                          />
-                          <span className="text-sm">{option.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
                 <Button onClick={handleApplyFilters} className="flex items-center gap-2">
                   <Filter className="h-4 w-4" />
                   Filtrar
