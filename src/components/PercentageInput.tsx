@@ -1,5 +1,5 @@
-import { useState, useEffect, forwardRef } from "react";
 import { Input } from "@/components/ui/input";
+import { forwardRef, useEffect, useState } from "react";
 
 interface PercentageInputProps {
   value: string;
@@ -48,40 +48,18 @@ export const PercentageInput = forwardRef<HTMLInputElement, PercentageInputProps
       const inputValue = e.target.value;
       
       // Remove formatação atual para trabalhar apenas com números
-      const currentNumbers = displayValue.replace(/\D/g, "");
       const newNumbers = inputValue.replace(/\D/g, "");
       
-      // Se o usuário está digitando (adicionando números)
-      if (newNumbers.length > currentNumbers.length) {
-        // Adiciona o novo dígito
-        const updatedNumbers = newNumbers;
-        // Durante a digitação, não mostra o símbolo %
-        if (isFocused) {
-          setDisplayValue(updatedNumbers);
-        } else {
-          const formatted = formatPercentage(updatedNumbers);
-          setDisplayValue(formatted);
-        }
-        onChange(updatedNumbers);
-      } else if (newNumbers.length < currentNumbers.length) {
-        // Se o usuário está apagando
-        if (newNumbers === "") {
-          if (isFocused) {
-            setDisplayValue("");
-          } else {
-            setDisplayValue("0%");
-          }
-          onChange("0");
-        } else {
-          if (isFocused) {
-            setDisplayValue(newNumbers);
-          } else {
-            const formatted = formatPercentage(newNumbers);
-            setDisplayValue(formatted);
-          }
-          onChange(newNumbers);
-        }
+      // Durante a digitação, não mostra o símbolo %
+      if (isFocused) {
+        setDisplayValue(newNumbers);
+      } else {
+        const formatted = formatPercentage(newNumbers);
+        setDisplayValue(formatted);
       }
+      
+      // Sempre envia apenas os números para o onChange
+      onChange(newNumbers);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

@@ -3,21 +3,21 @@ import Header from "@/components/Header";
 import { PercentageInput } from "@/components/PercentageInput";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import {
-    calculateLiveShopProjection,
-    formatCurrency,
-    formatNumber,
-    formatPercentage,
-    validateCalculatorInputs,
-    type CalculatorInputs,
-    type CalculatorResults
+  calculateLiveShopProjection,
+  formatCurrency,
+  formatNumber,
+  validateCalculatorInputs,
+  type CalculatorInputs,
+  type CalculatorResults
 } from "@/utils/calculations";
-import { Calculator as CalculatorIcon, DollarSign, Plus, Target, Trash2, TrendingUp, Users } from "lucide-react";
+import { Calculator as CalculatorIcon, Edit, Save, Shuffle, Target, Trash2, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -33,6 +33,7 @@ interface CalculationData {
 interface SavedCalculation {
   id: string;
   user_id: string;
+  name: string;
   ticket_medio: number;
   total_dias: number;
   orcamento: number;
@@ -65,6 +66,12 @@ export default function Calculator() {
   const [isCalculating, setIsCalculating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editingCalculation, setEditingCalculation] = useState<SavedCalculation | null>(null);
+  const [deletingCalculation, setDeletingCalculation] = useState<SavedCalculation | null>(null);
+  const [calculationName, setCalculationName] = useState("");
 
   // Check authentication and load saved calculations on component mount
   useEffect(() => {
@@ -213,6 +220,7 @@ export default function Calculator() {
         .from('calculator_history')
         .insert({
           user_id: currentUser.id,
+          name: calculationName,
           ticket_medio: inputs.ticketMedio,
           total_dias: inputs.diasCaptacao,
           orcamento: inputs.orcamento,
@@ -254,6 +262,9 @@ export default function Calculator() {
       // Reload saved calculations
       await loadSavedCalculations();
 
+      setDeleteDialogOpen(false);
+      setDeletingCalculation(null);
+
       toast({
         title: "Cálculo removido",
         description: "O cálculo foi removido com sucesso.",
@@ -266,6 +277,11 @@ export default function Calculator() {
         variant: "destructive",
       });
     }
+  };
+
+  const startDelete = (calculation: SavedCalculation) => {
+    setDeletingCalculation(calculation);
+    setDeleteDialogOpen(true);
   };
 
   const handleClearForm = () => {
@@ -334,6 +350,128 @@ export default function Calculator() {
     setCurrentResults(null);
   };
 
+  const saveCalculationWithName = async () => {
+    if (!calculationName.trim() || !currentResults) {
+      toast({
+        title: "Erro",
+        description: "Nome do cálculo é obrigatório e você deve calcular primeiro.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    
+    try {
+      // Convert string inputs to numbers for saving
+      const inputs: CalculatorInputs = {
+        ticketMedio: parseFloat(formData.ticketMedio) / 100 || 0,
+        diasCaptacao: parseInt(formData.diasCaptacao) || 0,
+        orcamento: parseFloat(formData.orcamento) / 100 || 0,
+        cplLiquido: parseFloat(formData.cplLiquido) / 100 || 0,
+        comparecimento: parseFloat(formData.comparecimento) || 0,
+        conversao: parseFloat(formData.conversao) || 0
+      };
+
+      await saveCalculation(inputs, currentResults);
+
+      setSaveDialogOpen(false);
+      setCalculationName("");
+      
+      toast({
+        title: "Sucesso",
+        description: "Cálculo salvo com sucesso!",
+      });
+
+    } catch (error: unknown) {
+      console.error('Error saving calculation:', error);
+      toast({
+        title: "Erro",
+        description: `Não foi possível salvar o cálculo: ${error.message || error}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const startEdit = (calculation: SavedCalculation) => {
+    setEditingCalculation(calculation);
+    setCalculationName(calculation.name || `Projeção ${savedCalculations.indexOf(calculation) + 1}`);
+    setEditDialogOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!editingCalculation || !calculationName.trim()) {
+      toast({
+        title: "Erro",
+        description: "Nome do cálculo é obrigatório.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Update the calculation name in the database
+      const { error } = await supabase
+        .from('calculator_history')
+        .update({ 
+          name: calculationName,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingCalculation.id);
+
+      if (error) throw error;
+
+      // Reload saved calculations
+      await loadSavedCalculations();
+      
+      setEditDialogOpen(false);
+      setEditingCalculation(null);
+      setCalculationName("");
+      
+      toast({
+        title: "Sucesso",
+        description: "Cálculo editado com sucesso!",
+      });
+
+    } catch (error: unknown) {
+      console.error('Error editing calculation:', error);
+      toast({
+        title: "Erro",
+        description: `Não foi possível editar o cálculo: ${error.message || error}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const loadCalculation = (calculation: SavedCalculation) => {
+    // Convert the saved calculation back to form data
+    setFormData({
+      ticketMedio: (calculation.ticket_medio * 100).toString(), // Convert to centavos
+      diasCaptacao: calculation.total_dias.toString(),
+      orcamento: (calculation.orcamento * 100).toString(), // Convert to centavos
+      cplLiquido: (calculation.cpl_liquido * 100).toString(), // Convert to centavos
+      comparecimento: calculation.comparecimento.toString(),
+      conversao: calculation.conversao.toString()
+    });
+
+    // Set the results
+    const results: CalculatorResults = {
+      leadsPrevistos: calculation.leads_previstos,
+      participantesPrevistos: calculation.participantes,
+      vendasPrevistas: calculation.vendas_previstas,
+      faturamento: calculation.faturamento,
+      roes: calculation.roes
+    };
+    setCurrentResults(results);
+    
+    toast({
+      title: "Sucesso",
+      description: "Cálculo exibido no formulário!",
+    });
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background">
       <Header />
@@ -348,191 +486,269 @@ export default function Calculator() {
         </p>
       </div>
 
-      {/* Campaign Data Form */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center space-x-2">
-            <CalculatorIcon className="h-5 w-5" />
-            <CardTitle>Dados da Campanha</CardTitle>
-          </div>
-          <CardDescription>
-            Preencha os dados para calcular suas projeções
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="ticketMedio">Ticket Médio</Label>
-              <CurrencyInput
-                value={formData.ticketMedio}
-                onChange={(value) => handleInputChange("ticketMedio", value)}
-                placeholder="R$ 0,00"
-              />
-            </div>
+      {/* Main Calculator Layout - Horizontal */}
+        <div className="max-w-7xl mx-auto w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+            {/* Left Side - Campaign Data Form */}
+            <div className="lg:col-span-1">
+              <Card className="flex flex-col h-auto">
+            {/* Header - Fixo no topo */}
+            <CardHeader>
+              <div className="flex items-center space-x-2">
+                <CalculatorIcon className="h-5 w-5" />
+                <CardTitle>Dados da Campanha</CardTitle>
+              </div>
+              <CardDescription>
+                Preencha os dados para calcular suas projeções
+              </CardDescription>
+            </CardHeader>
             
-            <div className="space-y-2">
-              <Label htmlFor="diasCaptacao">Total de Dias de Captação</Label>
-              <Input
-                id="diasCaptacao"
-                placeholder="Ex: 7"
-                value={formData.diasCaptacao}
-                onChange={(e) => handleInputChange("diasCaptacao", e.target.value)}
-              />
+            {/* Body - Formulário e botões */}
+            <CardContent className="flex flex-col flex-1">
+              {/* Formulário */}
+              <div className="space-y-4 flex-1">
+                <div className="space-y-2">
+                  <Label htmlFor="ticketMedio">Ticket Médio</Label>
+                  <CurrencyInput
+                    value={formData.ticketMedio}
+                    onChange={(value) => handleInputChange("ticketMedio", value)}
+                    placeholder="R$ 0,00"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="diasCaptacao">Total de Dias de Captação</Label>
+                  <Input
+                    id="diasCaptacao"
+                    placeholder="Ex: 7"
+                    value={formData.diasCaptacao}
+                    onChange={(e) => handleInputChange("diasCaptacao", e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="orcamento">Orçamento</Label>
+                  <CurrencyInput
+                    value={formData.orcamento}
+                    onChange={(value) => handleInputChange("orcamento", value)}
+                    placeholder="R$ 0,00"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="cplLiquido">CPL Líquido</Label>
+                  <CurrencyInput
+                    value={formData.cplLiquido}
+                    onChange={(value) => handleInputChange("cplLiquido", value)}
+                    placeholder="R$ 0,00"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="comparecimento">Comparecimento</Label>
+                  <PercentageInput
+                    value={formData.comparecimento}
+                    onChange={(value) => handleInputChange("comparecimento", value)}
+                    placeholder="0%"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="conversao">Conversão</Label>
+                  <PercentageInput
+                    value={formData.conversao}
+                    onChange={(value) => handleInputChange("conversao", value)}
+                    placeholder="0%"
+                  />
+                </div>
+              </div>
+              
+              {/* Actions - Botões no final */}
+              <div className="space-y-4 mt-6">
+              {/* Primeira linha: Calcular e Limpar */}
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleCalculate}
+                  className="flex-1"
+                  size="lg"
+                  disabled={isCalculating}
+                >
+                  {isCalculating ? "Calculando..." : "Calcular"}
+                </Button>
+                <Button 
+                  onClick={handleClearForm}
+                  variant="outline"
+                  className="flex-1"
+                  size="lg"
+                  disabled={isCalculating}
+                >
+                  Limpar
+                </Button>
+              </div>
+              
+              {/* Segunda linha: Botão Salvar (só aparece quando há resultados) */}
+              {currentResults && (
+                <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      className="w-full" 
+                      size="lg"
+                      disabled={isSaving}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      {isSaving ? "Salvando..." : "Salvar Cálculo"}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Salvar Cálculo</DialogTitle>
+                      <DialogDescription>
+                        Digite um nome para salvar este cálculo
+                      </DialogDescription>
+                    </DialogHeader>
+                    <Input
+                      placeholder="Nome do cálculo"
+                      value={calculationName}
+                      onChange={(e) => setCalculationName(e.target.value)}
+                    />
+                    <DialogFooter>
+                      <Button onClick={saveCalculationWithName} disabled={isSaving}>
+                        {isSaving ? "Salvando..." : "Salvar"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+              
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="orcamento">Orçamento</Label>
-              <CurrencyInput
-                value={formData.orcamento}
-                onChange={(value) => handleInputChange("orcamento", value)}
-                placeholder="R$ 0,00"
-              />
+          </CardContent>
+        </Card>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="cplLiquido">CPL Líquido</Label>
-              <CurrencyInput
-                value={formData.cplLiquido}
-                onChange={(value) => handleInputChange("cplLiquido", value)}
-                placeholder="R$ 0,00"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="comparecimento">Comparecimento</Label>
-              <PercentageInput
-                value={formData.comparecimento}
-                onChange={(value) => handleInputChange("comparecimento", value)}
-                placeholder="0%"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="conversao">Conversão</Label>
-              <PercentageInput
-                value={formData.conversao}
-                onChange={(value) => handleInputChange("conversao", value)}
-                placeholder="0%"
-              />
-            </div>
-          </div>
-          
-          <div className="flex justify-start gap-3">
-            <Button 
-              onClick={handleCalculate}
-              className="w-full md:w-auto px-8"
-              size="lg"
-              disabled={isCalculating}
-            >
-              {isCalculating ? "Calculando..." : "Calcular"}
-            </Button>
-            <Button 
-              onClick={handleClearForm}
-              variant="outline"
-              className="w-full md:w-auto px-8"
-              size="lg"
-              disabled={isCalculating}
-            >
-              Limpar
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Results Section */}
-      {currentResults && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
+            {/* Center - Animated Icon */}
+            {currentResults && (
+              <div className="flex items-center justify-center lg:col-span-1">
+                <Shuffle className="w-16 h-16 text-primary animate-pulse mx-6" />
+              </div>
+            )}
+
+            {/* Right Side - Results */}
+            {currentResults && (
+              <div className="lg:col-span-1 transform transition-all duration-5000 ease-out animate-slide-in">
+                <Card>
+            <CardHeader>
               <div className="flex items-center space-x-2">
                 <TrendingUp className="h-5 w-5" />
                 <CardTitle>Resultados da Projeção</CardTitle>
               </div>
-              <Button 
-                onClick={handleSaveCalculation}
-                variant="outline"
-                size="sm"
-                disabled={isSaving}
-              >
-                {isSaving ? "Salvando..." : "Salvar Cálculo"}
-              </Button>
-            </div>
-            <CardDescription>
-              Projeções baseadas nos dados inseridos
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <Users className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-800">Leads Previstos</span>
+              <CardDescription>
+                Dados inseridos e valores calculados
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Dados Inseridos Manualmente */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Dados Inseridos</h4>
+                <div className="grid gap-3">
+                  <div className="flex justify-between items-center py-2 px-3 rounded border">
+                    <span className="text-sm">Ticket Médio</span>
+                    <span className="font-medium">{formatCurrency(parseFloat(formData.ticketMedio) / 100 || 0)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 px-3 rounded border">
+                    <span className="text-sm">Dias de Captação</span>
+                    <span className="font-medium">{formData.diasCaptacao || 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 px-3 rounded border">
+                    <span className="text-sm">Orçamento</span>
+                    <span className="font-medium">{formatCurrency(parseFloat(formData.orcamento) / 100 || 0)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 px-3 rounded border">
+                    <span className="text-sm">CPL Líquido</span>
+                    <span className="font-medium">{formatCurrency(parseFloat(formData.cplLiquido) / 100 || 0)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 px-3 rounded border">
+                    <span className="text-sm">Comparecimento</span>
+                    <span className="font-medium">{formData.comparecimento || 0}%</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 px-3 rounded border">
+                    <span className="text-sm">Conversão</span>
+                    <span className="font-medium">{formData.conversao || 0}%</span>
+                  </div>
                 </div>
-                <p className="text-2xl font-bold text-blue-900 mt-1">
-                  {formatNumber(currentResults.leadsPrevistos)}
-                </p>
               </div>
 
-              <div className="bg-green-50 p-4 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <Target className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium text-green-800">Participantes</span>
-                </div>
-                <p className="text-2xl font-bold text-green-900 mt-1">
-                  {formatNumber(currentResults.participantesPrevistos)}
-                </p>
-              </div>
+              {/* Valores Calculados */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-primary uppercase tracking-wide">Valores Calculados</h4>
+                <div className="grid gap-3">
+                  <div className="p-3 bg-muted/30 rounded-lg border border-muted">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Total de Leads</span>
+                      <Target className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="text-xl font-bold text-foreground mt-1">
+                      {formatNumber(currentResults.leadsPrevistos)}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Orçamento ÷ CPL Líquido
+                    </p>
+                  </div>
 
-              <div className="bg-purple-50 p-4 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <TrendingUp className="h-4 w-4 text-purple-600" />
-                  <span className="text-sm font-medium text-purple-800">Vendas Previstas</span>
-                </div>
-                <p className="text-2xl font-bold text-purple-900 mt-1">
-                  {formatNumber(currentResults.vendasPrevistas)}
-                </p>
-              </div>
+                  <div className="p-3 bg-muted/30 rounded-lg border border-muted">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Leads Presentes</span>
+                      <Target className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="text-xl font-bold text-foreground mt-1">
+                      {formatNumber(currentResults.participantesPrevistos)}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Total de Leads × Comparecimento
+                    </p>
+                  </div>
 
-              <div className="bg-orange-50 p-4 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <DollarSign className="h-4 w-4 text-orange-600" />
-                  <span className="text-sm font-medium text-orange-800">Faturamento</span>
-                </div>
-                <p className="text-2xl font-bold text-orange-900 mt-1">
-                  {formatCurrency(currentResults.faturamento)}
-                </p>
-              </div>
-            </div>
+                  <div className="p-3 bg-muted/30 rounded-lg border border-muted">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Vendas Esperadas</span>
+                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="text-xl font-bold text-foreground mt-1">
+                      {formatNumber(currentResults.vendasPrevistas)}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Total de Leads × Conversão
+                    </p>
+                  </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mt-6">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <TrendingUp className="h-4 w-4 text-gray-600" />
-                  <span className="text-sm font-medium text-gray-800">ROES</span>
+                  <div className="p-3 bg-primary/10 rounded-lg border border-primary/30">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-primary">Faturamento Projetado</span>
+                      <TrendingUp className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="text-xl font-bold text-primary mt-1">
+                      {formatCurrency(currentResults.faturamento)}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Vendas × Ticket Médio
+                    </p>
+                  </div>
                 </div>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
-                  {formatPercentage(currentResults.roes)}
-                </p>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+              </div>
+            )}
+          </div>
+      </div>
 
       {/* Saved Calculations */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <CardTitle>Cálculos Salvos</CardTitle>
-              <CardDescription>
-                Gerencie todos os seus cálculos de LiveShop
-              </CardDescription>
-            </div>
-            <Button onClick={handleNewCalculation} variant="outline" className="gap-2">
-              <Plus className="h-4 w-4" />
-              Novo
-            </Button>
+          <div className="space-y-1">
+            <CardTitle>Cálculos Salvos</CardTitle>
+            <CardDescription>
+              Gerencie todos os seus cálculos de LiveShop
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -548,33 +764,63 @@ export default function Calculator() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Nome</TableHead>
                   <TableHead>Data</TableHead>
+                  <TableHead>Ticket Médio</TableHead>
+                  <TableHead>Dias</TableHead>
                   <TableHead>Orçamento</TableHead>
-                  <TableHead>CPL Líquido</TableHead>
+                  <TableHead>CPL</TableHead>
+                  <TableHead>Comparecimento</TableHead>
+                  <TableHead>Conversão</TableHead>
+                  <TableHead>Leads</TableHead>
+                  <TableHead>Participantes</TableHead>
+                  <TableHead>Vendas</TableHead>
                   <TableHead>Faturamento</TableHead>
-                  <TableHead>ROES</TableHead>
-                  <TableHead>Ações</TableHead>
+                  <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {savedCalculations.map((calc) => (
                   <TableRow key={calc.id}>
+                    <TableCell className="font-medium">{calc.name || `Projeção ${savedCalculations.indexOf(calc) + 1}`}</TableCell>
                     <TableCell>
                       {new Date(calc.created_at).toLocaleDateString('pt-BR')}
                     </TableCell>
+                    <TableCell>{formatCurrency(calc.ticket_medio)}</TableCell>
+                    <TableCell>{calc.total_dias}</TableCell>
                     <TableCell>{formatCurrency(calc.orcamento)}</TableCell>
                     <TableCell>{formatCurrency(calc.cpl_liquido)}</TableCell>
+                    <TableCell>{calc.comparecimento}%</TableCell>
+                    <TableCell>{calc.conversao}%</TableCell>
+                    <TableCell>{formatNumber(calc.leads_previstos)}</TableCell>
+                    <TableCell>{formatNumber(calc.participantes)}</TableCell>
+                    <TableCell>{formatNumber(calc.vendas_previstas)}</TableCell>
                     <TableCell>{formatCurrency(calc.faturamento)}</TableCell>
-                    <TableCell className="text-green-600 font-medium">{formatPercentage(calc.roes)}</TableCell>
-                    <TableCell>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleDeleteCalculation(calc.id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    <TableCell className="text-center">
+                      <div className="flex gap-1 justify-center">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => loadCalculation(calc)}
+                        >
+                          Exibir
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => startEdit(calc)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => startDelete(calc)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -584,6 +830,54 @@ export default function Calculator() {
         </CardContent>
       </Card>
       </div>
+
+      {/* Dialog de Edição */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Editar Cálculo</DialogTitle>
+            <DialogDescription>
+              Modifique os dados do cálculo selecionado
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <Input
+              placeholder="Nome do cálculo"
+              value={calculationName}
+              onChange={(e) => setCalculationName(e.target.value)}
+            />
+            <div className="text-sm text-muted-foreground">
+              <p>Para editar os dados do cálculo, use a funcionalidade "Carregar" e faça as alterações no formulário principal.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={saveEdit}>Salvar Alterações</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Confirmação de Exclusão */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir o cálculo "{deletingCalculation?.name || 'Projeção'}"? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => deletingCalculation && handleDeleteCalculation(deletingCalculation.id)}
+            >
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
