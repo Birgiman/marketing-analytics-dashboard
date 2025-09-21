@@ -220,13 +220,27 @@ const TrafficAnalysis = () => {
     ativos: groups?.reduce((sum, group) => sum + (group.group_size || 0), 0) || 0
   };
   
-  // Calcular totais para os cabeçalhos das colunas
+  // Calcular totais e médias para os cabeçalhos das colunas
   const calculateTotals = () => {
+    const dailyData = calculateDailyData();
+    
+    // Calcular médias dos valores que são médias (não somas)
+    const cplMetaValues = dailyData.map(day => day.cplMeta).filter(val => val > 0);
+    const cplLiquidoValues = dailyData.map(day => day.cplLiquido).filter(val => val > 0);
+    const retentionValues = dailyData.map(day => day.retention).filter(val => val > 0);
+    
+    const averageCplMeta = cplMetaValues.length > 0 ? cplMetaValues.reduce((sum, val) => sum + val, 0) / cplMetaValues.length : 0;
+    const averageCplLiquido = cplLiquidoValues.length > 0 ? cplLiquidoValues.reduce((sum, val) => sum + val, 0) / cplLiquidoValues.length : 0;
+    const averageRetention = retentionValues.length > 0 ? retentionValues.reduce((sum, val) => sum + val, 0) / retentionValues.length : 0;
+    
     return {
       totalInvestment: extractedDataV2?.metaData?.totalSpend || 0,
       totalLeads: extractedDataV2?.metaData?.totalResults || 0,
       totalGroup: groupData.entrou,
-      totalGroupExit: groupData.saiu
+      totalGroupExit: groupData.saiu,
+      averageCplMeta,
+      averageCplLiquido,
+      averageRetention
     };
   };
   
@@ -607,20 +621,29 @@ const TrafficAnalysis = () => {
                       </Button>
                     </TableHead>
                     <TableHead className="text-center">
-                      <Button variant="ghost" onClick={() => handleSort('cplMeta')} className="h-auto p-0 font-medium flex items-center gap-1 w-full">
-                        CPL Meta
+                      <Button variant="ghost" onClick={() => handleSort('cplMeta')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
+                        <div className="text-center w-full">
+                          <div>CPL Meta</div>
+                          <div className="text-xs text-muted-foreground font-normal">Média: R$ {totals.averageCplMeta.toFixed(2).replace('.', ',')}</div>
+                        </div>
                         {getSortIcon('cplMeta')}
                       </Button>
                     </TableHead>
                     <TableHead className="text-center">
-                      <Button variant="ghost" onClick={() => handleSort('cplLiquido')} className="h-auto p-0 font-medium flex items-center gap-1 w-full">
-                        CPL Líquido
+                      <Button variant="ghost" onClick={() => handleSort('cplLiquido')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
+                        <div className="text-center w-full">
+                          <div>CPL Líquido</div>
+                          <div className="text-xs text-muted-foreground font-normal">Média: R$ {totals.averageCplLiquido.toFixed(2).replace('.', ',')}</div>
+                        </div>
                         {getSortIcon('cplLiquido')}
                       </Button>
                     </TableHead>
                     <TableHead className="text-center">
-                      <Button variant="ghost" onClick={() => handleSort('retention')} className="h-auto p-0 font-medium flex items-center gap-1 w-full">
-                        Taxa Retenção
+                      <Button variant="ghost" onClick={() => handleSort('retention')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
+                        <div className="text-center w-full">
+                          <div>Taxa Retenção</div>
+                          <div className="text-xs text-muted-foreground font-normal">Média: {Math.round(totals.averageRetention)}%</div>
+                        </div>
                         {getSortIcon('retention')}
                       </Button>
                     </TableHead>
