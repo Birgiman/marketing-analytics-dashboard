@@ -579,9 +579,9 @@ const TrafficAnalysis = () => {
                         {getSortIcon('investment')}
                       </Button>
                     </TableHead>
-                    <TableHead className="text-left">
-                      <Button variant="ghost" onClick={() => handleSort('cadastros')} className="h-auto p-0 font-medium flex flex-col items-start gap-1">
-                        <div className="text-left">
+                    <TableHead className="text-center">
+                      <Button variant="ghost" onClick={() => handleSort('cadastros')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
+                        <div className="text-center">
                           <div>Cadastros Meta</div>
                           <div className="text-xs text-muted-foreground font-normal">Total: {totals.totalLeads.toLocaleString('pt-BR')}</div>
                         </div>
@@ -639,7 +639,7 @@ const TrafficAnalysis = () => {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2
                       })}</TableCell>
-                      <TableCell className="text-left font-medium">{day.cadastros.toLocaleString('pt-BR')}</TableCell>
+                      <TableCell className="text-center font-medium">{day.cadastros.toLocaleString('pt-BR')}</TableCell>
                       <TableCell className="text-center font-medium">{day.group.toLocaleString('pt-BR')}</TableCell>
                       <TableCell className="text-center font-medium">{day.groupExit.toLocaleString('pt-BR')}</TableCell>
                       <TableCell className="text-center font-semibold">
