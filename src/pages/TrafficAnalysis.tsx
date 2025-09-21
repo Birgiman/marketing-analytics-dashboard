@@ -587,7 +587,7 @@ const TrafficAnalysis = () => {
             <CardTitle>📊 Evolução do CPL</CardTitle>
             <CardDescription>Comparação entre CPL Meta e CPL Líquido ao longo dos dias</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             <ChartContainer config={{
               cplMeta: {
                 label: "CPL Meta",
@@ -597,7 +597,7 @@ const TrafficAnalysis = () => {
                 label: "CPL Líquido",
                 color: "hsl(var(--chart-2))"
               }
-            }} className="h-80">
+            }} className="h-96 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={sortedData.map(day => ({
                   dia: new Date(day.date).toLocaleDateString('pt-BR', { 
