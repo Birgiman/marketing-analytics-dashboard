@@ -82,9 +82,15 @@ export interface LiveDataResponse {
 /**
  * Busca todos os dados relacionados a uma Live específica
  * @param liveId ID da Live para buscar os dados
+ * @param customStartDate Data de início personalizada (opcional)
+ * @param customEndDate Data de fim personalizada (opcional)
  * @returns Objeto completo com todos os dados relacionados
  */
-export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataResponse> {
+export async function fetchCompleteLiveData(
+  liveId: string, 
+  customStartDate?: string, 
+  customEndDate?: string
+): Promise<LiveDataResponse> {
   console.log(`[LiveDataFetcher] Iniciando busca completa para Live: ${liveId}`);
   
   try {
@@ -245,8 +251,14 @@ export async function fetchCompleteLiveData(liveId: string): Promise<LiveDataRes
             ]
           };
 
-          // Usar dateRange da Live se disponível
-          if (live.insights_date_since && live.insights_date_until) {
+          // Usar datas personalizadas se fornecidas, senão usar dateRange da Live
+          if (customStartDate && customEndDate) {
+            insightsOptions.dateRange = {
+              since: customStartDate,
+              until: customEndDate
+            };
+            console.log(`[LiveDataFetcher] Usando dateRange personalizado: ${customStartDate} até ${customEndDate}`);
+          } else if (live.insights_date_since && live.insights_date_until) {
             insightsOptions.dateRange = {
               since: live.insights_date_since,
               until: live.insights_date_until

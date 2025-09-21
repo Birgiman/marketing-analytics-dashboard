@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { calculateCorrectAverageCPL, CampaignData, extractCampaignData } from "@/utils/data-extractors-v2";
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
@@ -18,16 +19,75 @@ const TrafficAnalysis = () => {
   const liveId = searchParams.get('live');
   
   // Estados para dados V2 (mesmo padrão da Details.tsx)
-  const [live, setLive] = useState<any>(null);
-  const [groups, setGroups] = useState<any[]>([]);
-  const [campaigns, setCampaigns] = useState<any[]>([]);
-  const [campaignsWithInsights, setCampaignsWithInsights] = useState<any[]>([]);
+  const [live, setLive] = useState<{
+    id: string;
+    name: string;
+    ad_budget?: number;
+  } | null>(null);
+  const [groups, setGroups] = useState<Array<{
+    id: string;
+    group_id: string;
+    group_name: string;
+    group_size: number;
+    monitoring: boolean;
+    created_at: string;
+    updated_at: string;
+  }>>([]);
+  const [campaigns, setCampaigns] = useState<Array<{
+    campaign_id: string;
+    campaign_name: string;
+  }>>([]);
+  const [campaignsWithInsights, setCampaignsWithInsights] = useState<Array<{
+    campaign_id: string;
+    campaign_name?: string;
+    insights: Array<{
+      date_start: string;
+      spend: string;
+      impressions: string;
+      clicks: string;
+      reach: string;
+      actions?: Array<{
+        action_type: string;
+        value: string;
+      }>;
+    }>;
+  }>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   // Estados para métricas V2
-  const [metricsV2, setMetricsV2] = useState<any>(null);
-  const [extractedDataV2, setExtractedDataV2] = useState<any>(null);
+  const [metricsV2, setMetricsV2] = useState<{
+    cplLiquido: number;
+    cplMeta: number;
+    retentionRate: number;
+  } | null>(null);
+  const [extractedDataV2, setExtractedDataV2] = useState<{
+    metaData: {
+      totalSpend: number;
+      totalResults: number;
+      totalImpressions: number;
+      totalClicks: number;
+      totalReach: number;
+      campaignCount: number;
+      insightsCount: number;
+    };
+    groupData: {
+      totalMembers: number;
+      totalGroups: number;
+      entries: number;
+      exits: number;
+      activeMembers: number;
+    };
+    liveInfo: {
+      id: string;
+      name: string;
+      orcamentoGasto?: number;
+      orcamentoTotal?: number;
+    };
+  } | null>(null);
+  
+  // Estados para dados por campanha
+  const [campaignData, setCampaignData] = useState<CampaignData[]>([]);
   
   // Estados para filtros (baseado no exemplo)
   const [sortField, setSortField] = useState<string | null>(null);
@@ -56,13 +116,24 @@ const TrafficAnalysis = () => {
         });
         
         setLive(completeData.live);
-        setGroups(completeData.groups || []);
+        setGroups((completeData.groups || []).map(group => ({
+          ...group,
+          updated_at: (group as { updated_at?: string }).updated_at || group.created_at
+        })));
         setCampaigns(completeData.liveCampaigns || []);
         setCampaignsWithInsights(completeData.campaignInsights || []);
         
+        // Preencher campos de data com valores padrão da Live
+        if (completeData.live?.insights_date_since && completeData.live?.insights_date_until) {
+          setTempStartDate(completeData.live.insights_date_since);
+          setTempEndDate(completeData.live.insights_date_until);
+          setStartDate(completeData.live.insights_date_since);
+          setEndDate(completeData.live.insights_date_until);
+        }
+        
         // Calcular métricas V2 usando o mesmo padrão da Details.tsx
         // Validar se campaignInsights existe antes de mapear
-        const campaignInsights = (completeData.campaignInsights || []).map((campaign: any) => ({
+        const campaignInsights = (completeData.campaignInsights || []).map((campaign) => ({
           ...campaign,
           insights: campaign.insights || []
         }));
@@ -90,6 +161,12 @@ const TrafficAnalysis = () => {
         
         setMetricsV2(result.metrics);
         setExtractedDataV2(result.extractedData);
+        
+        // Extrair dados individuais por campanha
+        const individualCampaignData = extractCampaignData(campaignInsights, completeData.allUserCampaigns);
+        setCampaignData(individualCampaignData);
+        
+        console.log('🎯 [TrafficAnalysis] Dados por campanha:', individualCampaignData);
         
       } catch (err) {
         console.error('❌ [TrafficAnalysis] Erro ao carregar dados:', err);
@@ -126,18 +203,30 @@ const TrafficAnalysis = () => {
   
   const totals = calculateTotals();
   
+  // Calcular CPL médio correto para a tabela de campanhas
+  const correctAverageCPL = calculateCorrectAverageCPL(campaignData);
+  
   // Calcular dados diários (baseado no exemplo)
   const calculateDailyData = () => {
     if (!campaignsWithInsights || campaignsWithInsights.length === 0) {
       return [];
     }
     
-    const dailyData: Record<string, any> = {};
+    const dailyData: Record<string, {
+      date: string;
+      investment: number;
+      cadastros: number;
+      group: number;
+      groupExit: number;
+      cplMeta: number;
+      cplLiquido: number;
+      retention: number;
+    }> = {};
     
     campaignsWithInsights.forEach(campaign => {
       if (!campaign.insights || !Array.isArray(campaign.insights)) return;
       
-      campaign.insights.forEach((insight: any) => {
+      campaign.insights.forEach((insight) => {
         if (!insight.date_start) return;
         
         const dateKey = insight.date_start;
@@ -155,7 +244,7 @@ const TrafficAnalysis = () => {
         }
         
         const spend = parseFloat(insight.spend || '0');
-        const results = parseInt(insight.results?.[0]?.values?.[0]?.value || '0');
+        const results = parseInt(insight.actions?.[0]?.value || '0');
         
         dailyData[dateKey].investment += spend;
         dailyData[dateKey].cadastros += results;
@@ -163,19 +252,28 @@ const TrafficAnalysis = () => {
     });
     
     // Calcular CPL Meta e CPL Líquido para cada dia
-    Object.values(dailyData).forEach((day: any) => {
+    Object.values(dailyData).forEach((day) => {
       day.cplMeta = day.cadastros > 0 ? day.investment / day.cadastros : 0;
       day.cplLiquido = day.group > 0 ? day.investment / day.group : 0;
       day.retention = day.cadastros > 0 ? Math.round(day.group / day.cadastros * 100) : 0;
     });
     
-    return Object.values(dailyData).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    return Object.values(dailyData).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   };
   
   const tableData = calculateDailyData();
   
   // Filtrar dados por data
-  const filterDataByDate = (data: any[]) => {
+  const filterDataByDate = (data: Array<{
+    date: string;
+    investment: number;
+    cadastros: number;
+    group: number;
+    groupExit: number;
+    cplMeta: number;
+    cplLiquido: number;
+    retention: number;
+  }>) => {
     if (!startDate || !endDate) return data;
     
     return data.filter(day => {
@@ -211,9 +309,68 @@ const TrafficAnalysis = () => {
     return 0;
   });
   
-  const handleApplyFilters = () => {
-    setStartDate(tempStartDate);
-    setEndDate(tempEndDate);
+  const handleApplyFilters = async () => {
+    if (!tempStartDate || !tempEndDate) return;
+    
+    try {
+      setIsLoading(true);
+      console.log('🔄 [TrafficAnalysis] Aplicando filtros de data:', {
+        startDate: tempStartDate,
+        endDate: tempEndDate
+      });
+      
+      // Atualizar as datas ativas
+      setStartDate(tempStartDate);
+      setEndDate(tempEndDate);
+      
+      // Fazer nova requisição com o período filtrado
+      if (liveId) {
+        const completeData = await fetchCompleteLiveData(liveId, tempStartDate, tempEndDate);
+        
+        console.log('✅ [TrafficAnalysis] Dados filtrados obtidos:', {
+          live: completeData.live?.name,
+          groups: completeData.groups?.length,
+          campaigns: completeData.liveCampaigns?.length,
+          insights: completeData.campaignInsights?.length
+        });
+        
+        // Atualizar dados com o novo período
+        setGroups((completeData.groups || []).map(group => ({
+          ...group,
+          updated_at: (group as { updated_at?: string }).updated_at || group.created_at
+        })));
+        setCampaigns(completeData.liveCampaigns || []);
+        setCampaignsWithInsights(completeData.campaignInsights || []);
+        
+        // Recalcular métricas V2
+        const campaignInsights = (completeData.campaignInsights || []).map((campaign) => ({
+          ...campaign,
+          insights: campaign.insights || []
+        }));
+        
+        const liveDataForCalculations = {
+          live: completeData.live,
+          groups: completeData.groups || [],
+          campaignInsights: campaignInsights
+        };
+        
+        const result = calculateCompleteLiveMetrics(liveDataForCalculations);
+        setMetricsV2(result.metrics);
+        setExtractedDataV2(result.extractedData);
+        
+        // Recalcular dados por campanha
+        const individualCampaignData = extractCampaignData(campaignInsights, completeData.allUserCampaigns);
+        setCampaignData(individualCampaignData);
+        
+        console.log('🎯 [TrafficAnalysis] Dados filtrados por campanha:', individualCampaignData);
+      }
+      
+    } catch (err) {
+      console.error('❌ [TrafficAnalysis] Erro ao aplicar filtros:', err);
+      setError(err instanceof Error ? err.message : 'Erro ao aplicar filtros');
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   if (isLoading) {
@@ -504,7 +661,7 @@ const TrafficAnalysis = () => {
                     <Button variant="ghost" onClick={() => handleSort('cpl')} className="h-auto p-0 font-medium flex flex-col items-center gap-1">
                       <div className="text-center">
                         <div>CPL Meta</div>
-                        <div className="text-xs text-muted-foreground font-normal">Média: R$ {totals.totalLeads > 0 ? (totals.totalInvestment / totals.totalLeads).toFixed(2) : '0,00'}</div>
+                        <div className="text-xs text-muted-foreground font-normal">Média: R$ {correctAverageCPL.toFixed(2).replace('.', ',')}</div>
                       </div>
                       {getSortIcon('cpl')}
                     </Button>
@@ -513,7 +670,7 @@ const TrafficAnalysis = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {[...campaigns].sort((a, b) => {
+                {campaignData.sort((a, b) => {
                   if (!sortField) return 0;
                   
                   if (sortField === 'ad_set_name') {
@@ -522,27 +679,38 @@ const TrafficAnalysis = () => {
                     return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
                   }
                   
-                  // Para outras colunas, usar valores fixos por enquanto
+                  if (sortField === 'total_leads') {
+                    return sortDirection === 'asc' ? a.totalResults - b.totalResults : b.totalResults - a.totalResults;
+                  }
+                  
+                  if (sortField === 'total_spent') {
+                    return sortDirection === 'asc' ? a.totalSpend - b.totalSpend : b.totalSpend - a.totalSpend;
+                  }
+                  
+                  if (sortField === 'cpl') {
+                    return sortDirection === 'asc' ? a.cpl - b.cpl : b.cpl - a.cpl;
+                  }
+                  
                   return 0;
                 }).map((campaign, index) => (
-                  <TableRow key={index}>
+                  <TableRow key={campaign.campaign_id}>
                     <TableCell>
                       <div>
-                        <div className="font-semibold">{campaign.campaign_name || 'N/A'}</div>
-                        <div className="text-xs text-muted-foreground">{campaign.campaign_name || 'N/A'}</div>
+                        <div className="font-semibold">{campaign.ad_set_name || campaign.campaign_name}</div>
+                        <div className="text-xs text-muted-foreground">{campaign.campaign_name}</div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-center font-medium">{extractedDataV2?.metaData?.totalResults || 0}</TableCell>
-                    <TableCell className="text-center font-medium">R$ {(extractedDataV2?.metaData?.totalSpend || 0).toFixed(2).replace('.', ',')}</TableCell>
+                    <TableCell className="text-center font-medium">{campaign.totalResults.toLocaleString('pt-BR')}</TableCell>
+                    <TableCell className="text-center font-medium">R$ {campaign.totalSpend.toFixed(2).replace('.', ',')}</TableCell>
                     <TableCell className="text-center font-medium">
-                      R$ {totals.totalLeads > 0 ? ((totals.totalInvestment / totals.totalLeads)).toFixed(2).replace('.', ',') : '0,00'}
+                      R$ {campaign.cpl.toFixed(2).replace('.', ',')}
                     </TableCell>
                     <TableCell className="text-center">
                       <span className="text-xs text-muted-foreground">Sem link</span>
                     </TableCell>
                   </TableRow>
                 ))}
-                {campaigns.length === 0 && (
+                {campaignData.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground">
                       {isLoading ? 'Carregando dados...' : 'Nenhum conjunto de anúncios encontrado'}

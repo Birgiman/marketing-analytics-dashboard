@@ -58,6 +58,10 @@ export interface MetaInsight {
   }>;
   date_start: string;
   date_stop: string;
+  campaign_name?: string;
+  campaign_id?: string;
+  ad_set_name?: string;
+  ad_name?: string;
 }
 
 const BASE_URL = 'https://graph.facebook.com/v23.0';

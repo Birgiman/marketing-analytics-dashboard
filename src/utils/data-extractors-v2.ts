@@ -190,8 +190,20 @@ export function extractGroupData(groups: Array<{
  * @returns Dados extraídos e processados
  */
 export function extractLiveDataForCalculations(liveData: {
-  live: any;
-  groups: any[];
+  live: {
+    id: string;
+    name: string;
+    ad_budget?: number;
+  };
+  groups: Array<{
+    id: string;
+    group_id: string;
+    group_name: string;
+    group_size: number;
+    monitoring: boolean;
+    created_at: string;
+    updated_at: string;
+  }>;
   campaignInsights: Array<{
     campaign_id: string;
     insights: MetaInsight[];
@@ -300,35 +312,109 @@ export function logExtractedData(extractedData: ExtractedLiveData): void {
 }
 
 // ============================================================================
-// EXEMPLO DE USO
+// EXTRATORES DE DADOS POR CAMPANHA (NÍVEL CAMPANHA)
 // ============================================================================
 
 /**
- * Exemplo de uso das funções
- * 
- * const liveData = {
- *   live: { id: '123', name: 'Live Teste', ad_budget: 10000 },
- *   groups: [
- *     { group_size: 500, group_name: 'Grupo 1' },
- *     { group_size: 350, group_name: 'Grupo 2' }
- *   ],
- *   campaignInsights: [
- *     {
- *       campaign_id: '123456',
- *       insights: [
- *         { spend: '5000', actions: [{ action_type: 'lead', value: '1000' }] }
- *       ]
- *     }
- *   ]
- * };
- * 
- * const extractedData = extractLiveDataForCalculations(liveData);
- * const validation = validateExtractedData(extractedData);
- * 
- * if (validation.isValid) {
- *   logExtractedData(extractedData);
- *   // Prosseguir com cálculos
- * } else {
- *   console.error('Erros encontrados:', validation.errors);
- * }
+ * Interface para dados individuais de cada campanha
  */
+export interface CampaignData {
+  campaign_id: string;
+  campaign_name: string;
+  ad_set_name?: string;
+  totalSpend: number;
+  totalResults: number;
+  totalImpressions: number;
+  totalClicks: number;
+  totalReach: number;
+  insightsCount: number;
+  cpl: number;
+}
+
+/**
+ * Extrai dados individuais de cada campanha
+ * @param campaignInsights - Array de insights das campanhas
+ * @returns Array com dados individuais de cada campanha
+ */
+export function extractCampaignData(
+  campaignInsights: Array<{
+    campaign_id: string;
+    campaign_name?: string;
+    insights: MetaInsight[];
+  }>,
+  allUserCampaigns?: Array<{
+    id: string;
+    name: string;
+    status: string;
+  }>
+): CampaignData[] {
+  return campaignInsights.map(({ campaign_id, campaign_name, insights }) => {
+    let totalSpend = 0;
+    let totalResults = 0;
+    let totalImpressions = 0;
+    let totalClicks = 0;
+    let totalReach = 0;
+    let insightsCount = 0;
+    let actualCampaignName = campaign_name;
+
+    insights.forEach(insight => {
+      // Soma dos gastos
+      totalSpend += parseFloat(insight.spend || '0');
+      
+      // Soma das impressões
+      totalImpressions += parseInt(insight.impressions || '0');
+      
+      // Soma dos cliques
+      totalClicks += parseInt(insight.clicks || '0');
+      
+      // Soma do reach
+      totalReach += parseInt(insight.reach || '0');
+      
+      // Soma dos results/leads
+      totalResults += extractLeadsFromActions(insight.actions || []);
+      
+      // Tentar obter o nome da campanha do insight se não tiver
+      if (!actualCampaignName && insight.campaign_name) {
+        actualCampaignName = insight.campaign_name;
+      }
+      
+      insightsCount++;
+    });
+
+    // Se ainda não tem nome, tentar buscar nas campanhas do usuário
+    if (!actualCampaignName && allUserCampaigns) {
+      const campaignFromUser = allUserCampaigns.find(c => c.id === campaign_id);
+      if (campaignFromUser) {
+        actualCampaignName = campaignFromUser.name;
+      }
+    }
+
+    // Calcular CPL individual da campanha
+    const cpl = totalResults > 0 ? totalSpend / totalResults : 0;
+
+    return {
+      campaign_id,
+      campaign_name: actualCampaignName || `Campanha ${campaign_id}`,
+      ad_set_name: actualCampaignName || `Conjunto ${campaign_id}`,
+      totalSpend,
+      totalResults,
+      totalImpressions,
+      totalClicks,
+      totalReach,
+      insightsCount,
+      cpl
+    };
+  });
+}
+
+/**
+ * Calcula CPL médio correto (soma dos investimentos / soma dos leads)
+ * @param campaignData - Array com dados das campanhas
+ * @returns CPL médio correto
+ */
+export function calculateCorrectAverageCPL(campaignData: CampaignData[]): number {
+  const totalSpend = campaignData.reduce((sum, campaign) => sum + campaign.totalSpend, 0);
+  const totalResults = campaignData.reduce((sum, campaign) => sum + campaign.totalResults, 0);
+  
+  return totalResults > 0 ? totalSpend / totalResults : 0;
+}
