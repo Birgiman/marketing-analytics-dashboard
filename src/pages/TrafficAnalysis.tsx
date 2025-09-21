@@ -599,7 +599,7 @@ const TrafficAnalysis = () => {
               }
             }} className="h-96 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={sortedData.map(day => ({
+                <LineChart data={[...sortedData].reverse().map(day => ({
                   dia: new Date(day.date).toLocaleDateString('pt-BR', { 
                     day: '2-digit', 
                     month: '2-digit' 
