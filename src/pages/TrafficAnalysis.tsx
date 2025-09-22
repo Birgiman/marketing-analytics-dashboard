@@ -6,9 +6,9 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AdSetData, calculateCorrectAverageCPL, CampaignData, extractAdSetData, extractCampaignData } from "@/utils/data-extractors-v2";
-import { fetchAdSets } from "@/utils/metaApi";
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
+import { fetchAdSets } from "@/utils/metaApi";
 import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
@@ -200,8 +200,16 @@ const TrafficAnalysis = () => {
         setCampaignData(individualCampaignData);
         
         // Buscar conjuntos de anúncios diretamente da API
+        console.log('🔍 [TrafficAnalysis] Verificando metaIntegration:', {
+          hasMetaIntegration: !!completeData.metaIntegration,
+          hasAccountId: !!completeData.metaIntegration?.account_id,
+          hasAccessToken: !!completeData.metaIntegration?.access_token,
+          campaignIds: completeData.liveCampaigns?.map(c => c.id) || []
+        });
+        
         if (completeData.metaIntegration?.account_id && completeData.metaIntegration?.access_token) {
           try {
+            console.log('🚀 [TrafficAnalysis] Chamando fetchAdSets...');
             const adSets = await fetchAdSets(
               completeData.metaIntegration.account_id,
               completeData.metaIntegration.access_token,
@@ -348,6 +356,13 @@ const TrafficAnalysis = () => {
   
   // Calcular CPL médio correto para a tabela de conjuntos de anúncios
   const correctAverageCPL = calculateCorrectAverageCPL(adSetData);
+  
+  // Debug: verificar estado dos dados
+  console.log('🔍 [TrafficAnalysis] Estado dos dados:', {
+    campaignDataLength: campaignData.length,
+    adSetDataLength: adSetData.length,
+    correctAverageCPL
+  });
 
   // Filtrar dados por data
   const filterDataByDate = (data: Array<{
@@ -476,8 +491,16 @@ const TrafficAnalysis = () => {
         setCampaignData(individualCampaignData);
         
         // Buscar conjuntos de anúncios diretamente da API
+        console.log('🔍 [TrafficAnalysis] Verificando metaIntegration (filtros):', {
+          hasMetaIntegration: !!completeData.metaIntegration,
+          hasAccountId: !!completeData.metaIntegration?.account_id,
+          hasAccessToken: !!completeData.metaIntegration?.access_token,
+          campaignIds: completeData.liveCampaigns?.map(c => c.id) || []
+        });
+        
         if (completeData.metaIntegration?.account_id && completeData.metaIntegration?.access_token) {
           try {
+            console.log('🚀 [TrafficAnalysis] Chamando fetchAdSets (filtros)...');
             const adSets = await fetchAdSets(
               completeData.metaIntegration.account_id,
               completeData.metaIntegration.access_token,
@@ -911,7 +934,7 @@ const TrafficAnalysis = () => {
                 {adSetData.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      {isLoading ? 'Carregando dados...' : 'Nenhum conjunto de anúncios encontrado'}
+                      {isLoading ? 'Carregando dados...' : `Nenhum conjunto de anúncios encontrado (${adSetData.length} itens)`}
                   </TableCell>
                 </TableRow>
               )}
