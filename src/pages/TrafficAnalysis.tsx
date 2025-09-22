@@ -184,7 +184,7 @@ const TrafficAnalysis = () => {
           campaignInsights: liveDataForCalculations.campaignInsights?.length
         });
         
-        const result = calculateCompleteLiveMetrics(liveDataForCalculations);
+        const result = await calculateCompleteLiveMetrics(liveDataForCalculations);
         
         console.log('🧮 [TrafficAnalysis] Métricas V2 calculadas:', {
           cplLiquido: result.metrics.cplLiquido,
@@ -476,7 +476,7 @@ const TrafficAnalysis = () => {
           campaignInsights: campaignInsights
         };
         
-        const result = calculateCompleteLiveMetrics(liveDataForCalculations);
+        const result = await calculateCompleteLiveMetrics(liveDataForCalculations);
         setMetricsV2(result.metrics);
         setExtractedDataV2(result.extractedData);
         

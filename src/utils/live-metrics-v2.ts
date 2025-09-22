@@ -58,7 +58,7 @@ export interface LiveMetricsOptions {
  * @param options - Opções de configuração
  * @returns Resultado completo com métricas, dados e validação
  */
-export function calculateCompleteLiveMetrics(
+export async function calculateCompleteLiveMetrics(
   liveData: {
     live: any;
     groups: any[];
@@ -68,7 +68,7 @@ export function calculateCompleteLiveMetrics(
     }>;
   },
   options: LiveMetricsOptions = {}
-): LiveMetricsResult {
+): Promise<LiveMetricsResult> {
   const {
     enableLogging = true,
     enableValidation = true,
@@ -76,7 +76,7 @@ export function calculateCompleteLiveMetrics(
   } = options;
 
   // 1. Extrair dados das APIs
-  const extractedData = extractLiveDataForCalculations(liveData);
+  const extractedData = await extractLiveDataForCalculations(liveData);
   
   // 2. Validar dados (se habilitado)
   const validation = enableValidation ? validateExtractedData(extractedData) : {
