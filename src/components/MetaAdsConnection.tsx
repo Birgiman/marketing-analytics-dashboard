@@ -23,6 +23,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { useMetaIntegration } from '@/hooks/useMetaIntegration';
+import { facebookOAuthService } from '@/services/facebookOAuthService';
 
 interface MetaAdsConnectionProps {
   isOpen: boolean;
@@ -54,6 +55,25 @@ export const MetaAdsConnection = ({ isOpen, onClose }: MetaAdsConnectionProps) =
       setShowTokenInput(false);
     } catch (err) {
       console.error('Connection error:', err);
+    }
+  };
+
+  const handleFacebookOAuth = async () => {
+    // Use the existing setIsValidating and clearError from the hook
+    try {
+      console.log('🔄 Starting Facebook OAuth...');
+      
+      const result = await facebookOAuthService.startOAuthFlow();
+
+      if (result.success && result.accessToken) {
+        console.log('✅ Facebook OAuth successful, connecting with token...');
+        await connectWithToken(result.accessToken);
+      } else {
+        // Error will be handled by the hook
+        console.error('Facebook OAuth failed:', result.error);
+      }
+    } catch (err: unknown) {
+      console.error('❌ Facebook OAuth error:', err);
     }
   };
   
@@ -113,53 +133,91 @@ export const MetaAdsConnection = ({ isOpen, onClose }: MetaAdsConnectionProps) =
                     Conecte sua conta Meta Ads
                   </h3>
                   <p className="text-gray-600 mb-6">
-                    Cole seu token de acesso do Facebook Developer para importar dados de campanhas
+                    Escolha uma das opções abaixo para conectar sua conta
                   </p>
                   
-                  {!showTokenInput ? (
-                    <Button 
-                      onClick={() => setShowTokenInput(true)}
-                      className="gap-2"
-                    >
-                      <Facebook className="h-4 w-4" />
-                      Conectar Meta Ads
-                    </Button>
-                  ) : (
-                    <div className="max-w-md mx-auto space-y-4">
-                      <div>
-                        <Label htmlFor="token">Access Token</Label>
-                        <Input
-                          id="token"
-                          placeholder="Seu token de acesso do Meta..."
-                          value={accessToken}
-                          onChange={(e) => setAccessToken(e.target.value)}
-                          className="mt-1"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Obtenha seu token em: developers.facebook.com/tools/explorer
-                        </p>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <Button 
-                          onClick={handleConnect}
-                          disabled={!accessToken.trim() || isValidating}
-                          className="flex-1"
-                        >
-                          {isValidating ? 'Validando...' : 'Conectar'}
-                        </Button>
-                        <Button 
-                          onClick={() => {
-                            setShowTokenInput(false);
-                            setAccessToken('');
-                          }}
-                          variant="outline"
-                        >
-                          Cancelar
-                        </Button>
-                      </div>
+                  {/* OAuth Option - Recommended */}
+                  <div className="max-w-md mx-auto space-y-4 mb-6">
+                    <div className="border rounded-lg p-4 bg-blue-50">
+                      <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                        <Facebook className="h-4 w-4" />
+                        Conectar com Facebook (Recomendado)
+                      </h4>
+                      <p className="text-sm text-blue-700 mb-3">
+                        Login automático e seguro via Facebook
+                      </p>
+                      <Button 
+                        onClick={handleFacebookOAuth}
+                        disabled={isValidating}
+                        className="w-full bg-blue-600 hover:bg-blue-700"
+                      >
+                        {isValidating ? (
+                          <div className="flex items-center gap-2">
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                            Conectando...
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Facebook className="h-4 w-4" />
+                            Entrar com Facebook
+                          </div>
+                        )}
+                      </Button>
                     </div>
-                  )}
+                  </div>
+
+                  {/* Manual Token Option */}
+                  <div className="max-w-md mx-auto">
+                    <div className="border-t pt-4">
+                      <p className="text-sm text-gray-500 mb-3">Ou cole seu token manualmente:</p>
+                      
+                      {!showTokenInput ? (
+                        <Button 
+                          onClick={() => setShowTokenInput(true)}
+                          variant="outline"
+                          className="gap-2"
+                        >
+                          <Settings className="h-4 w-4" />
+                          Cole seu token manualmente
+                        </Button>
+                      ) : (
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="token">Access Token</Label>
+                            <Input
+                              id="token"
+                              placeholder="Seu token de acesso do Meta..."
+                              value={accessToken}
+                              onChange={(e) => setAccessToken(e.target.value)}
+                              className="mt-1"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              Obtenha seu token em: developers.facebook.com/tools/explorer
+                            </p>
+                          </div>
+                          
+                          <div className="flex gap-2">
+                            <Button 
+                              onClick={handleConnect}
+                              disabled={!accessToken.trim() || isValidating}
+                              className="flex-1"
+                            >
+                              {isValidating ? 'Validando...' : 'Conectar'}
+                            </Button>
+                            <Button 
+                              onClick={() => {
+                                setShowTokenInput(false);
+                                setAccessToken('');
+                              }}
+                              variant="outline"
+                            >
+                              Cancelar
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">

@@ -1,0 +1,134 @@
+/**
+ * Facebook OAuth Service
+ * Handles Facebook Login with OAuth to get Marketing API Access Token
+ */
+
+declare global {
+  interface Window {
+    FB: any;
+  }
+}
+
+export interface FacebookOAuthResult {
+  success: boolean;
+  accessToken?: string;
+  userInfo?: {
+    id: string;
+    name: string;
+    email?: string;
+  };
+  error?: string;
+}
+
+class FacebookOAuthService {
+  private isSDKLoaded = false;
+  private readonly APP_ID = '3826966940927542'; // Facebook App ID (placeholder - deve ser configurado)
+  
+  /**
+   * Initialize Facebook SDK
+   */
+  private async initFacebookSDK(): Promise<void> {
+    if (this.isSDKLoaded) return;
+
+    return new Promise((resolve, reject) => {
+      // Load Facebook SDK script
+      const script = document.createElement('script');
+      script.src = 'https://connect.facebook.net/pt_BR/sdk.js';
+      script.async = true;
+      script.defer = true;
+      script.crossOrigin = 'anonymous';
+      
+      script.onload = () => {
+        window.FB.init({
+          appId: this.APP_ID,
+          cookie: true,
+          xfbml: true,
+          version: 'v19.0'
+        });
+        
+        this.isSDKLoaded = true;
+        console.log('🟢 Facebook SDK loaded successfully');
+        resolve();
+      };
+      
+      script.onerror = () => {
+        console.error('❌ Failed to load Facebook SDK');
+        reject(new Error('Failed to load Facebook SDK'));
+      };
+      
+      document.head.appendChild(script);
+    });
+  }
+
+  /**
+   * Start Facebook OAuth flow to get Marketing API access token
+   */
+  async startOAuthFlow(): Promise<FacebookOAuthResult> {
+    try {
+      // Initialize SDK first
+      await this.initFacebookSDK();
+
+      console.log('🔄 Starting Facebook OAuth flow...');
+
+      return new Promise((resolve) => {
+        window.FB.login((response: any) => {
+          console.log('Facebook login response:', response);
+
+          if (response.authResponse) {
+            const { accessToken, userID } = response.authResponse;
+            
+            // Get user info
+            window.FB.api('/me', { fields: 'name,email' }, (userResponse: any) => {
+              console.log('✅ Facebook OAuth successful:', {
+                accessToken: accessToken.substring(0, 20) + '...',
+                userId: userID,
+                userName: userResponse.name
+              });
+
+              resolve({
+                success: true,
+                accessToken,
+                userInfo: {
+                  id: userID,
+                  name: userResponse.name,
+                  email: userResponse.email
+                }
+              });
+            });
+          } else {
+            console.log('❌ Facebook OAuth failed or cancelled');
+            resolve({
+              success: false,
+              error: 'Login cancelado ou falhou'
+            });
+          }
+        }, {
+          scope: 'ads_read,ads_management,public_profile,email',
+          return_scopes: true
+        });
+      });
+
+    } catch (error) {
+      console.error('❌ Facebook OAuth error:', error);
+      return {
+        success: false,
+        error: 'Erro ao inicializar Facebook OAuth'
+      };
+    }
+  }
+
+  /**
+   * Check if Facebook SDK is ready
+   */
+  async ensureSDKReady(): Promise<boolean> {
+    try {
+      await this.initFacebookSDK();
+      return true;
+    } catch (error) {
+      console.error('Facebook SDK not ready:', error);
+      return false;
+    }
+  }
+}
+
+export const facebookOAuthService = new FacebookOAuthService();
