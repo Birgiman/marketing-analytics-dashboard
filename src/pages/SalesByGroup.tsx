@@ -29,7 +29,7 @@ import {
 import { fetchMetaCampaignsForLive, MetaCampaign } from "@/utils/metaCampaignsService";
 import EmojiPicker from 'emoji-picker-react';
 import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 // These interfaces are no longer used as we now use LiveGroup from types
@@ -159,9 +159,13 @@ const SalesByGroup = () => {
 
   // Buscar integração Meta
   const fetchMetaIntegration = async () => {
-    if (!userId) return;
+    if (!userId) {
+      console.log('⚠️ [SalesByGroup] userId não disponível para buscar Meta integration');
+      return;
+    }
 
     try {
+      console.log('🔍 [SalesByGroup] Buscando Meta integration para userId:', userId);
       const { data: metaIntegrationData, error } = await supabase
         .from('meta_integrations')
         .select('access_token')
@@ -170,9 +174,11 @@ const SalesByGroup = () => {
         .single();
 
       if (error || !metaIntegrationData?.access_token) {
-        console.warn('Meta integration não encontrada');
+        console.warn('⚠️ [SalesByGroup] Meta integration não encontrada:', error);
         return;
       }
+
+      console.log('✅ [SalesByGroup] Meta integration encontrada, buscando account_id...');
 
       // Buscar account_id das campanhas da Live
       const { data: liveCampaigns } = await supabase
@@ -182,13 +188,17 @@ const SalesByGroup = () => {
         .limit(1);
 
       if (liveCampaigns && liveCampaigns.length > 0) {
-        setMetaIntegration({
+        const integration = {
           account_id: liveCampaigns[0].account_id || '',
           access_token: metaIntegrationData.access_token
-        });
+        };
+        console.log('✅ [SalesByGroup] Meta integration configurada:', integration);
+        setMetaIntegration(integration);
+      } else {
+        console.warn('⚠️ [SalesByGroup] Account ID não encontrado para Live:', liveId);
       }
     } catch (error) {
-      console.error('Erro ao buscar integração Meta:', error);
+      console.error('❌ [SalesByGroup] Erro ao buscar integração Meta:', error);
     }
   };
 
@@ -219,7 +229,7 @@ const SalesByGroup = () => {
   };
 
   // Gerar correlações para todos os públicos
-  const generateAllCorrelations = async (audiences: PublicAudience[]) => {
+  const generateAllCorrelations = useCallback(async (audiences: PublicAudience[]) => {
     if (!metaIntegration?.account_id || !metaIntegration?.access_token) {
       console.warn('Meta integration não disponível para gerar correlações');
       return;
@@ -246,7 +256,7 @@ const SalesByGroup = () => {
     } catch (error) {
       console.error('❌ [SalesByGroup] Erro ao gerar correlações:', error);
     }
-  };
+  }, [metaIntegration, live]);
 
   // Buscar campanhas do Meta para dropdown
   const fetchMetaCampaignsData = async () => {
@@ -327,6 +337,14 @@ const SalesByGroup = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showEmojiPicker]);
+
+  // Gerar correlações quando metaIntegration estiver disponível
+  useEffect(() => {
+    if (metaIntegration && publicAudiences.length > 0 && audienceCorrelations.length === 0) {
+      console.log('🔄 [SalesByGroup] Meta integration disponível, gerando correlações...');
+      generateAllCorrelations(publicAudiences);
+    }
+  }, [metaIntegration, publicAudiences, audienceCorrelations.length, generateAllCorrelations]);
 
   // Calculate statistics from Live groups
   const totalGroupMembers = liveGroups.reduce((sum, group) => sum + group.group_size, 0);
