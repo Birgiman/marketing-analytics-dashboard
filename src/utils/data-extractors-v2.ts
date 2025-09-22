@@ -432,22 +432,11 @@ export function extractCampaignData(
 export function extractAdSetDataFromInsights(
   adSetInsights: MetaInsight[]
 ): AdSetData[] {
-  console.log('🔍 [extractAdSetDataFromInsights] Iniciando processamento:', {
-    totalInsights: adSetInsights.length,
-    firstInsight: adSetInsights[0]
-  });
 
   const adSetMap = new Map<string, AdSetData>();
 
   adSetInsights.forEach((insight, index) => {
     const adSetId = insight.adset_id;
-    console.log(`🔍 [extractAdSetDataFromInsights] Processando insight ${index}:`, {
-      adSetId,
-      adSetName: insight.adset_name,
-      campaignId: insight.campaign_id,
-      campaignName: insight.campaign_name,
-      spend: insight.spend
-    });
 
     if (!adSetId) {
       console.warn(`⚠️ [extractAdSetDataFromInsights] Insight ${index} sem adset_id:`, insight);
@@ -469,7 +458,6 @@ export function extractAdSetDataFromInsights(
         cpl: 0,
         insightsCount: 0
       });
-      console.log(`✅ [extractAdSetDataFromInsights] Criado novo ad set: ${adSetId}`);
     }
 
     const adSet = adSetMap.get(adSetId)!;
@@ -486,20 +474,7 @@ export function extractAdSetDataFromInsights(
     adSet.cpl = adSet.totalResults > 0 ? adSet.totalSpend / adSet.totalResults : 0;
   });
 
-  const result = Array.from(adSetMap.values());
-  console.log('🎯 [extractAdSetDataFromInsights] Resultado final:', {
-    totalAdSets: result.length,
-    adSets: result.map(adSet => ({
-      id: adSet.ad_set_id,
-      name: adSet.ad_set_name,
-      campaign: adSet.campaign_name,
-      spend: adSet.totalSpend,
-      results: adSet.totalResults,
-      cpl: adSet.cpl
-    }))
-  });
-
-  return result;
+  return Array.from(adSetMap.values());
 }
 
 /**

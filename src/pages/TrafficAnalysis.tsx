@@ -200,14 +200,6 @@ const TrafficAnalysis = () => {
         setCampaignData(individualCampaignData);
         
         // Buscar conjuntos de anúncios diretamente da API
-        console.log('🔍 [TrafficAnalysis] Verificando metaIntegration:', {
-          hasMetaIntegration: !!completeData.metaIntegration,
-          hasAccountId: !!completeData.metaIntegration?.account_id,
-          hasAccessToken: !!completeData.metaIntegration?.access_token,
-          campaignIds: completeData.liveCampaigns?.map(c => c.id) || [],
-          liveCampaigns: completeData.liveCampaigns,
-          firstCampaignAccountId: completeData.liveCampaigns?.[0]?.account_id
-        });
         
         // Usar fallback para account_id se metaIntegration não tiver
         const fallbackAccountId = completeData.liveCampaigns?.[0]?.account_id;
@@ -215,8 +207,6 @@ const TrafficAnalysis = () => {
         
         if (accountId && completeData.metaIntegration?.access_token) {
           try {
-            console.log('🚀 [TrafficAnalysis] Chamando fetchAdSetInsights...');
-            console.log('🔍 [TrafficAnalysis] Account ID usado:', accountId, '(Meta:', completeData.metaIntegration?.account_id || 'undefined', 'Fallback:', fallbackAccountId || 'undefined', ')');
             const adSetInsights = await fetchAdSetInsights(
               accountId,
               completeData.metaIntegration.access_token,
@@ -233,8 +223,6 @@ const TrafficAnalysis = () => {
             const individualAdSetData = extractAdSetDataFromInsights(adSetInsights);
             setAdSetData(individualAdSetData);
             
-            console.log('🎯 [TrafficAnalysis] Insights de conjuntos de anúncios da API:', adSetInsights);
-            console.log('🎯 [TrafficAnalysis] Dados processados por conjunto de anúncios:', individualAdSetData);
           } catch (error) {
             console.error('❌ [TrafficAnalysis] Erro ao buscar conjuntos de anúncios:', error);
             // Fallback para método antigo se a API falhar
@@ -368,12 +356,6 @@ const TrafficAnalysis = () => {
   // Calcular CPL médio correto para a tabela de conjuntos de anúncios
   const correctAverageCPL = calculateCorrectAverageCPL(adSetData);
   
-  // Debug: verificar estado dos dados
-  console.log('🔍 [TrafficAnalysis] Estado dos dados:', {
-    campaignDataLength: campaignData.length,
-    adSetDataLength: adSetData.length,
-    correctAverageCPL
-  });
 
   // Filtrar dados por data
   const filterDataByDate = (data: Array<{
@@ -502,14 +484,6 @@ const TrafficAnalysis = () => {
         setCampaignData(individualCampaignData);
         
         // Buscar conjuntos de anúncios diretamente da API
-        console.log('🔍 [TrafficAnalysis] Verificando metaIntegration (filtros):', {
-          hasMetaIntegration: !!completeData.metaIntegration,
-          hasAccountId: !!completeData.metaIntegration?.account_id,
-          hasAccessToken: !!completeData.metaIntegration?.access_token,
-          campaignIds: completeData.liveCampaigns?.map(c => c.id) || [],
-          liveCampaigns: completeData.liveCampaigns,
-          firstCampaignAccountId: completeData.liveCampaigns?.[0]?.account_id
-        });
         
         // Usar fallback para account_id se metaIntegration não tiver
         const fallbackAccountId = completeData.liveCampaigns?.[0]?.account_id;
@@ -517,8 +491,6 @@ const TrafficAnalysis = () => {
         
         if (accountId && completeData.metaIntegration?.access_token) {
           try {
-            console.log('🚀 [TrafficAnalysis] Chamando fetchAdSetInsights (filtros)...');
-            console.log('🔍 [TrafficAnalysis] Account ID usado (filtros):', accountId, '(Meta:', completeData.metaIntegration?.account_id || 'undefined', 'Fallback:', fallbackAccountId || 'undefined', ')');
             const adSetInsights = await fetchAdSetInsights(
               accountId,
               completeData.metaIntegration.access_token,
@@ -535,8 +507,6 @@ const TrafficAnalysis = () => {
             const individualAdSetData = extractAdSetDataFromInsights(adSetInsights);
             setAdSetData(individualAdSetData);
             
-            console.log('🎯 [TrafficAnalysis] Insights de conjuntos de anúncios filtrados da API:', adSetInsights);
-            console.log('🎯 [TrafficAnalysis] Dados processados por conjunto de anúncios:', individualAdSetData);
           } catch (error) {
             console.error('❌ [TrafficAnalysis] Erro ao buscar conjuntos de anúncios filtrados:', error);
             // Fallback para método antigo se a API falhar

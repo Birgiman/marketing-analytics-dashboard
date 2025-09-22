@@ -213,12 +213,6 @@ export async function fetchAdSetInsights(
   }
 
   const url = `${BASE_URL}/${adAccountId}/insights?${params.toString()}`;
-  console.log('🔍 [MetaAPI] Buscando insights de conjuntos de anúncios:', url);
-  console.log('🔍 [MetaAPI] Parâmetros:', {
-    dateRange,
-    searchTerm,
-    fields: 'adset_id,adset_name,campaign_id,campaign_name,spend,actions,impressions,clicks,reach'
-  });
   
   const response = await fetch(url);
 
@@ -228,7 +222,6 @@ export async function fetchAdSetInsights(
   }
 
   const data = await response.json();
-  console.log('📊 [MetaAPI] Resposta da API de insights de conjuntos de anúncios:', JSON.stringify(data, null, 2));
   return data.data || [];
 }
 
