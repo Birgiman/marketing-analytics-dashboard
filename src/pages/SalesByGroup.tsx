@@ -27,10 +27,10 @@ import {
   generateAudienceCorrelation
 } from "@/utils/audienceService";
 import { fetchMetaCampaignsForLive, MetaCampaign } from "@/utils/metaCampaignsService";
+import EmojiPicker from 'emoji-picker-react';
 import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import EmojiPicker from 'emoji-picker-react';
 
 // These interfaces are no longer used as we now use LiveGroup from types
 
@@ -421,19 +421,26 @@ const SalesByGroup = () => {
   };
 
   // Generate correlation data from audience correlations
-  const correlationData = audienceCorrelations.map(correlation => ({
-    id: correlation.id,
-    audienceName: correlation.title,
-    campaignTerm: correlation.campaign_term,
-    groupEmoji: correlation.emoji,
-    trafficLeads: correlation.metrics.totalLeads,
-    trafficInvestment: correlation.metrics.totalSpend,
-    trafficCPL: correlation.metrics.cplMeta,
-    trafficCPLLiquido: correlation.metrics.cplLiquido,
-    groupEntradas: correlation.metrics.groupEntradas,
-    groupSaidas: correlation.metrics.groupSaidas,
-    groupAtivos: correlation.metrics.groupAtivos
-  }));
+  const correlationData = audienceCorrelations.map(correlation => {
+    // Extrair apenas a parte específica do termo de campanha
+    const searchTerm = live?.campaign_search_term || '';
+    const campaignTermDisplay = correlation.campaign_term.replace(searchTerm, '').replace(/^_+/, '') || correlation.campaign_term;
+    
+    return {
+      id: correlation.id,
+      audienceName: correlation.title,
+      campaignTerm: correlation.campaign_term,
+      campaignTermDisplay,
+      groupEmoji: correlation.emoji,
+      trafficLeads: correlation.metrics.totalLeads,
+      trafficInvestment: correlation.metrics.totalSpend,
+      trafficCPL: correlation.metrics.cplMeta,
+      trafficCPLLiquido: correlation.metrics.cplLiquido,
+      groupEntradas: correlation.metrics.groupEntradas,
+      groupSaidas: correlation.metrics.groupSaidas,
+      groupAtivos: correlation.metrics.groupAtivos
+    };
+  });
 
   // Sales upload functionality
   const handleSalesUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -654,7 +661,9 @@ const SalesByGroup = () => {
                         <Badge variant="secondary">{row.audienceName}</Badge>
                       </td>
                       <td className="p-3 text-sm">
-                        <code className="bg-muted px-2 py-1 rounded">{row.campaignTerm}</code>
+                        <code className="bg-muted px-2 py-1 rounded block max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap" title={row.campaignTerm}>
+                          {row.campaignTermDisplay}
+                        </code>
                       </td>
                       <td className="p-3 text-center text-lg">
                         {row.groupEmoji}
@@ -666,10 +675,10 @@ const SalesByGroup = () => {
                         R$ {row.trafficInvestment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="p-3 text-center font-medium">
-                        R$ {Math.floor(row.trafficCPL * 100) / 100}
+                        R$ {(Math.floor(row.trafficCPL * 100) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="p-3 text-center font-medium">
-                        R$ {Math.floor(row.trafficCPLLiquido * 100) / 100}
+                        R$ {(Math.floor(row.trafficCPLLiquido * 100) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="p-3 text-center font-medium text-green-600">
                         {row.groupEntradas.toLocaleString()}
@@ -760,7 +769,7 @@ const SalesByGroup = () => {
                           )}
                         </Button>
                         {showEmojiPicker && (
-                          <div className="absolute top-10 left-0 z-50 emoji-picker-container">
+                          <div className="absolute top-10 left-0 z-[9999] emoji-picker-container">
                             <EmojiPicker
                               onEmojiClick={(emojiData) => {
                                 setNewAudience({ ...newAudience, emoji: emojiData.emoji });
