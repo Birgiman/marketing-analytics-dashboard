@@ -440,24 +440,24 @@ export function extractAdSetDataFromInsights(
   const adSetMap = new Map<string, AdSetData>();
 
   adSetInsights.forEach((insight, index) => {
-    const adSetId = insight.ad_set_id;
+    const adSetId = insight.adset_id;
     console.log(`🔍 [extractAdSetDataFromInsights] Processando insight ${index}:`, {
       adSetId,
-      adSetName: insight.ad_set_name,
+      adSetName: insight.adset_name,
       campaignId: insight.campaign_id,
       campaignName: insight.campaign_name,
       spend: insight.spend
     });
 
     if (!adSetId) {
-      console.warn(`⚠️ [extractAdSetDataFromInsights] Insight ${index} sem ad_set_id:`, insight);
+      console.warn(`⚠️ [extractAdSetDataFromInsights] Insight ${index} sem adset_id:`, insight);
       return;
     }
 
     if (!adSetMap.has(adSetId)) {
       adSetMap.set(adSetId, {
         ad_set_id: adSetId,
-        ad_set_name: insight.ad_set_name || 'Nome não disponível',
+        ad_set_name: insight.adset_name || 'Nome não disponível',
         ad_set_status: 'ACTIVE', // Status não vem nos insights, assumir ativo
         campaign_id: insight.campaign_id || '',
         campaign_name: insight.campaign_name || 'Campanha não disponível',

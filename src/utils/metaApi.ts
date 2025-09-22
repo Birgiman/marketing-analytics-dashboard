@@ -70,8 +70,8 @@ export interface MetaInsight {
   date_stop: string;
   campaign_name?: string;
   campaign_id?: string;
-  ad_set_name?: string;
-  ad_set_id?: string;
+  adset_name?: string;
+  adset_id?: string;
   ad_name?: string;
 }
 
