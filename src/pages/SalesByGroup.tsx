@@ -15,9 +15,10 @@ import {
   fetchPublicAudiences,
   generateAudienceCorrelation
 } from "@/utils/audienceService";
-import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { AudienceTestComponent } from "@/components/AudienceTestComponent";
 
 // These interfaces are no longer used as we now use LiveGroup from types
 
@@ -693,6 +694,14 @@ const SalesByGroup = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Componente de Teste - Remover em produção */}
+        {process.env.NODE_ENV === 'development' && (
+          <AudienceTestComponent 
+            liveId={liveId || ''} 
+            metaIntegration={metaIntegration || undefined}
+          />
+        )}
 
         {/* Tabela Principal de Grupos */}
         <Card>
