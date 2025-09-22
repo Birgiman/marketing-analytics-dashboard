@@ -100,7 +100,13 @@ const Details = () => {
     cplLiquidoPlanejamento: number;
   } | null>(null);
   const [extractedDataV2, setExtractedDataV2] = useState<{
-    groupData: { totalGroups: number; totalMembers: number };
+    groupData: { 
+      totalGroups: number; 
+      totalMembers: number;
+      entries: number;
+      exits: number;
+      activeMembers: number;
+    };
     metaData: { campaignCount: number; totalSpend: number; totalResults: number };
   } | null>(null);
   const [validationV2, setValidationV2] = useState<{
@@ -164,51 +170,55 @@ const Details = () => {
 
   // Calcular métricas V2 quando os dados estiverem disponíveis
   useEffect(() => {
-    // Aguardar que todos os dados estejam carregados
-    if (live && groups && campaignsWithInsights.length > 0 && !isLoading) {
-      console.log('🔄 [Details V2] Calculando métricas com novos cálculos...');
-      console.log('📊 [Details V2] Dados disponíveis:', {
-        live: !!live,
-        groups: groups.length,
-        campaignsWithInsights: campaignsWithInsights.length,
-        isLoading
-      });
-      
-      try {
-        // Preparar dados no formato esperado pelos novos cálculos
-        const liveData = {
-          live,
-          groups,
-          campaignInsights: campaignsWithInsights.map(campaign => ({
-            campaign_id: campaign.campaign_id,
-            insights: campaign.insights || []
-          }))
-        };
-
-        // Calcular métricas usando a nova função
-        const result = calculateCompleteLiveMetrics(liveData, {
-          enableLogging: true,
-          enableValidation: true,
-          orcamentoGasto: live.ad_budget
+    const calculateMetrics = async () => {
+      // Aguardar que todos os dados estejam carregados
+      if (live && groups && campaignsWithInsights.length > 0 && !isLoading) {
+        console.log('🔄 [Details V2] Calculando métricas com novos cálculos...');
+        console.log('📊 [Details V2] Dados disponíveis:', {
+          live: !!live,
+          groups: groups.length,
+          campaignsWithInsights: campaignsWithInsights.length,
+          isLoading
         });
+        
+        try {
+          // Preparar dados no formato esperado pelos novos cálculos
+          const liveData = {
+            live,
+            groups,
+            campaignInsights: campaignsWithInsights.map(campaign => ({
+              campaign_id: campaign.campaign_id,
+              insights: campaign.insights || []
+            }))
+          };
 
-        setMetricsV2(result.metrics);
-        setExtractedDataV2(result.extractedData);
-        setValidationV2(result.validation);
-        setSummaryV2(result.summary);
+          // Calcular métricas usando a nova função
+          const result = await calculateCompleteLiveMetrics(liveData, {
+            enableLogging: true,
+            enableValidation: true,
+            orcamentoGasto: live?.ad_budget
+          });
 
-        console.log('✅ [Details V2] Métricas calculadas com sucesso:', result.summary);
-      } catch (error) {
-        console.error('❌ [Details V2] Erro ao calcular métricas:', error);
+          setMetricsV2(result.metrics);
+          setExtractedDataV2(result.extractedData);
+          setValidationV2(result.validation);
+          setSummaryV2(result.summary);
+
+          console.log('✅ [Details V2] Métricas calculadas com sucesso:', result.summary);
+        } catch (error) {
+          console.error('❌ [Details V2] Erro ao calcular métricas:', error);
+        }
+      } else {
+        console.log('⏳ [Details V2] Aguardando dados completos:', {
+          live: !!live,
+          groups: groups.length,
+          campaignsWithInsights: campaignsWithInsights.length,
+          isLoading
+        });
       }
-    } else {
-      console.log('⏳ [Details V2] Aguardando dados completos:', {
-        live: !!live,
-        groups: groups.length,
-        campaignsWithInsights: campaignsWithInsights.length,
-        isLoading
-      });
-    }
+    };
+
+    calculateMetrics();
   }, [live, groups, campaignsWithInsights, isLoading]);
 
   // ============================================================================
@@ -277,7 +287,7 @@ const Details = () => {
         }))
       };
 
-      const result = calculateCompleteLiveMetrics(liveData, {
+      const result = await calculateCompleteLiveMetrics(liveData, {
         enableLogging: true,
         enableValidation: true,
         orcamentoGasto: undefined // TODO: Adicionar ad_budget ao tipo LiveDataResponse
@@ -331,7 +341,7 @@ const Details = () => {
       const { data: metaIntegration } = await supabase
         .from('meta_integrations')
         .select('access_token')
-        .eq('user_id', live.user_id)
+        .eq('user_id', live?.user_id)
         .eq('is_active', true)
         .single();
       
