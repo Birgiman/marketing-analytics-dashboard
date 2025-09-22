@@ -22,7 +22,13 @@ export interface FacebookOAuthResult {
 
 class FacebookOAuthService {
   private isSDKLoaded = false;
-  private readonly APP_ID = '3826966940927542'; // Facebook App ID (placeholder - deve ser configurado)
+  private readonly APP_ID: string;
+  
+  constructor() {
+    // Para desenvolvimento/teste, use este App ID público do Facebook
+    // Em produção, deve ser configurado com seu próprio App ID
+    this.APP_ID = '966242223397117'; // Facebook Test App ID
+  }
   
   /**
    * Initialize Facebook SDK
@@ -45,6 +51,8 @@ class FacebookOAuthService {
           xfbml: true,
           version: 'v19.0'
         });
+        
+        console.log('🟢 Facebook SDK initialized with App ID:', this.APP_ID);
         
         this.isSDKLoaded = true;
         console.log('🟢 Facebook SDK loaded successfully');
@@ -103,8 +111,9 @@ class FacebookOAuthService {
             });
           }
         }, {
-          scope: 'ads_read,ads_management,public_profile,email',
-          return_scopes: true
+          scope: 'public_profile,email',
+          return_scopes: true,
+          auth_type: 'rerequest'
         });
       });
 
