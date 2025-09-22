@@ -647,7 +647,7 @@ const SalesByGroup = () => {
         </div>
 
         {/* Tabela Unificada de Públicos */}
-        <Card style={{ zIndex: 1 }}>
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5" />
@@ -774,7 +774,7 @@ const SalesByGroup = () => {
                       </Select>
                     </td>
                     <td className="p-3">
-                      <div className="relative">
+                      <div className="space-y-2">
                         <Button
                           type="button"
                           variant="outline"
@@ -790,7 +790,7 @@ const SalesByGroup = () => {
                           )}
                         </Button>
                         {showEmojiPicker && (
-                          <div className="absolute top-10 left-0 z-[2] emoji-picker-container">
+                          <div className="emoji-picker-container">
                             <EmojiPicker
                               onEmojiClick={(emojiData) => {
                                 setNewAudience({ ...newAudience, emoji: emojiData.emoji });
