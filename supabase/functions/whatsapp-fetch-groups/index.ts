@@ -105,12 +105,43 @@ serve(async (req: any) => {
 
     console.log(`🔄 Fetching groups from Evolution API: ${evolutionUrl}`)
     
-    const response = await fetch(evolutionUrl, {
-      method: 'GET',
-      headers: {
-        'apikey': apiKey
+    // Add retry logic and shorter timeout
+    let response;
+    let lastError;
+    
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        console.log(`📡 Attempt ${attempt}/3 to fetch groups`)
+        response = await fetch(evolutionUrl, {
+          method: 'GET',
+          headers: {
+            'apikey': apiKey,
+            'User-Agent': 'Supabase-Edge-Function',
+            'Accept': 'application/json'
+          },
+          signal: AbortSignal.timeout(15000) // 15 second timeout
+        })
+        
+        if (response.ok) {
+          console.log(`✅ Successfully fetched groups on attempt ${attempt}`)
+          break;
+        } else {
+          console.log(`⚠️ Attempt ${attempt} failed with status: ${response.status}`)
+          lastError = new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+      } catch (error) {
+        console.log(`❌ Attempt ${attempt} failed:`, error)
+        lastError = error
+        if (attempt < 3) {
+          console.log(`⏳ Waiting 2s before retry...`)
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        }
       }
-    })
+    }
+    
+    if (!response || !response.ok) {
+      throw lastError || new Error('Failed to fetch groups after 3 attempts')
+    }
 
     if (!response.ok) {
       console.error(`❌ Evolution API error: ${response.status} ${response.statusText}`)

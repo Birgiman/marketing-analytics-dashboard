@@ -95,22 +95,42 @@ serve(async (req: any) => {
     const evolutionUrl = `${cleanApiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false`
     console.log(`🌐 Calling Evolution API: ${evolutionUrl}`)
 
-    const response = await fetch(evolutionUrl, {
-      method: 'GET',
-      headers: {
-        'apikey': apiKey
+    // Add retry logic and shorter timeout
+    let response;
+    let lastError;
+    
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        console.log(`📡 Attempt ${attempt}/3 to search groups`)
+        response = await fetch(evolutionUrl, {
+          method: 'GET',
+          headers: {
+            'apikey': apiKey,
+            'User-Agent': 'Supabase-Edge-Function',
+            'Accept': 'application/json'
+          },
+          signal: AbortSignal.timeout(15000) // 15 second timeout
+        })
+        
+        if (response.ok) {
+          console.log(`✅ Successfully fetched groups for search on attempt ${attempt}`)
+          break;
+        } else {
+          console.log(`⚠️ Search attempt ${attempt} failed with status: ${response.status}`)
+          lastError = new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+      } catch (error) {
+        console.log(`❌ Search attempt ${attempt} failed:`, error)
+        lastError = error
+        if (attempt < 3) {
+          console.log(`⏳ Waiting 2s before retry...`)
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        }
       }
-    })
-
-    if (!response.ok) {
-      console.error(`❌ Evolution API error: ${response.status} ${response.statusText}`)
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `Evolution API error: ${response.status} ${response.statusText}` 
-        }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    }
+    
+    if (!response || !response.ok) {
+      throw lastError || new Error('Failed to search groups after 3 attempts')
     }
 
     const groupsData = await response.json()
