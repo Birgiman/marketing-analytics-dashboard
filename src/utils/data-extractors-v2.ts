@@ -62,6 +62,20 @@ export function extractMetaData(campaignInsights: Array<{
   let totalReach = 0;
   let insightsCount = 0;
 
+  // Verificar se campaignInsights existe e não está vazio
+  if (!campaignInsights || campaignInsights.length === 0) {
+    console.warn('⚠️ [extractMetaData] Nenhum insight de campanha disponível');
+    return {
+      totalSpend: 0,
+      totalResults: 0,
+      totalImpressions: 0,
+      totalClicks: 0,
+      totalReach: 0,
+      campaignCount: 0,
+      insightsCount: 0
+    };
+  }
+
   campaignInsights.forEach(({ campaign_id, insights }) => {
     insights.forEach(insight => {
       // Soma dos gastos
@@ -278,6 +292,22 @@ export function validateExtractedData(extractedData: ExtractedLiveData): {
   const warnings: string[] = [];
   const errors: string[] = [];
 
+  // Validações de estrutura básica
+  if (!extractedData) {
+    errors.push('Dados extraídos não estão disponíveis');
+    return { isValid: false, warnings, errors };
+  }
+
+  if (!extractedData.metaData) {
+    errors.push('Dados do Meta não estão disponíveis');
+    return { isValid: false, warnings, errors };
+  }
+
+  if (!extractedData.groupData) {
+    errors.push('Dados dos grupos não estão disponíveis');
+    return { isValid: false, warnings, errors };
+  }
+
   // Validações de erro (impedem cálculo)
   if (extractedData.metaData.totalSpend < 0) {
     errors.push('Gasto total do Meta não pode ser negativo');
@@ -326,25 +356,46 @@ export function validateExtractedData(extractedData: ExtractedLiveData): {
 export function logExtractedData(extractedData: ExtractedLiveData): void {
   console.log('📊 [DATA-EXTRACTORS-V2] Dados extraídos:');
   console.log('==========================================');
+  
+  // Verificar se os dados existem antes de logar
+  if (!extractedData) {
+    console.log('❌ Dados extraídos não disponíveis');
+    return;
+  }
+
   console.log('🎯 META DATA:');
-  console.log(`  • Total gasto: R$ ${extractedData.metaData.totalSpend.toFixed(2)}`);
-  console.log(`  • Total results/leads: ${extractedData.metaData.totalResults}`);
-  console.log(`  • Total impressões: ${extractedData.metaData.totalImpressions.toLocaleString()}`);
-  console.log(`  • Total cliques: ${extractedData.metaData.totalClicks.toLocaleString()}`);
-  console.log(`  • Campanhas analisadas: ${extractedData.metaData.campaignCount}`);
-  console.log(`  • Insights processados: ${extractedData.metaData.insightsCount}`);
+  if (extractedData.metaData) {
+    console.log(`  • Total gasto: R$ ${extractedData.metaData.totalSpend.toFixed(2)}`);
+    console.log(`  • Total results/leads: ${extractedData.metaData.totalResults}`);
+    console.log(`  • Total impressões: ${extractedData.metaData.totalImpressions.toLocaleString()}`);
+    console.log(`  • Total cliques: ${extractedData.metaData.totalClicks.toLocaleString()}`);
+    console.log(`  • Campanhas analisadas: ${extractedData.metaData.campaignCount}`);
+    console.log(`  • Insights processados: ${extractedData.metaData.insightsCount}`);
+  } else {
+    console.log('  ❌ Dados do Meta não disponíveis');
+  }
+  
   console.log('');
   console.log('👥 GROUP DATA:');
-  console.log(`  • Total de membros: ${extractedData.groupData.totalMembers}`);
-  console.log(`  • Total de grupos: ${extractedData.groupData.totalGroups}`);
-  console.log(`  • Entradas: ${extractedData.groupData.entries}`);
-  console.log(`  • Saídas: ${extractedData.groupData.exits}`);
-  console.log(`  • Membros ativos: ${extractedData.groupData.activeMembers}`);
+  if (extractedData.groupData) {
+    console.log(`  • Total de membros: ${extractedData.groupData.totalMembers}`);
+    console.log(`  • Total de grupos: ${extractedData.groupData.totalGroups}`);
+    console.log(`  • Entradas: ${extractedData.groupData.entries}`);
+    console.log(`  • Saídas: ${extractedData.groupData.exits}`);
+    console.log(`  • Membros ativos: ${extractedData.groupData.activeMembers}`);
+  } else {
+    console.log('  ❌ Dados dos grupos não disponíveis');
+  }
+  
   console.log('');
   console.log('📋 LIVE INFO:');
-  console.log(`  • ID: ${extractedData.liveInfo.id}`);
-  console.log(`  • Nome: ${extractedData.liveInfo.name}`);
-  console.log(`  • Orçamento gasto: ${extractedData.liveInfo.orcamentoGasto ? `R$ ${extractedData.liveInfo.orcamentoGasto.toFixed(2)}` : 'Não definido'}`);
+  if (extractedData.liveInfo) {
+    console.log(`  • ID: ${extractedData.liveInfo.id}`);
+    console.log(`  • Nome: ${extractedData.liveInfo.name}`);
+    console.log(`  • Orçamento gasto: ${extractedData.liveInfo.orcamentoGasto ? `R$ ${extractedData.liveInfo.orcamentoGasto.toFixed(2)}` : 'Não definido'}`);
+  } else {
+    console.log('  ❌ Informações da Live não disponíveis');
+  }
   console.log('==========================================');
 }
 
