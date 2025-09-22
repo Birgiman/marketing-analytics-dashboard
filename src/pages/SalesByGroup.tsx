@@ -1,5 +1,16 @@
 import Header from "@/components/Header";
 import { MetricCard } from "@/components/MetricCard";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +30,7 @@ import { fetchMetaCampaignsForLive, MetaCampaign } from "@/utils/metaCampaignsSe
 import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import EmojiPicker from 'emoji-picker-react';
 
 // These interfaces are no longer used as we now use LiveGroup from types
 
@@ -84,6 +96,9 @@ const SalesByGroup = () => {
   const [whatsappGroups, setWhatsappGroups] = useState<LiveGroupType[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
 
+  // Emoji picker state
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
   // Fetch Live-specific data from Supabase (agora usa cache principalmente)
   const fetchData = async () => {
     try {
@@ -125,14 +140,14 @@ const SalesByGroup = () => {
       // Buscar integração Meta
       await fetchMetaIntegration();
 
-      // Buscar públicos da Live
-      await fetchPublicAudiencesData();
-
       // Buscar campanhas do Meta para dropdown
       await fetchMetaCampaignsData();
 
       // Buscar grupos do WhatsApp para dropdown
       await fetchWhatsappGroupsData();
+
+      // Buscar públicos da Live (após metaIntegration estar disponível)
+      await fetchPublicAudiencesData();
 
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -182,15 +197,23 @@ const SalesByGroup = () => {
     if (!liveId) return;
 
     try {
+      console.log('🔍 [SalesByGroup] Buscando públicos para Live:', liveId);
       const audiences = await fetchPublicAudiences(liveId);
+      console.log('✅ [SalesByGroup] Públicos encontrados:', audiences.length, audiences);
       setPublicAudiences(audiences);
       
       // Gerar correlações para cada público
       if (audiences.length > 0 && metaIntegration) {
+        console.log('🔄 [SalesByGroup] Gerando correlações para', audiences.length, 'públicos');
         await generateAllCorrelations(audiences);
+      } else {
+        console.log('⚠️ [SalesByGroup] Não foi possível gerar correlações:', {
+          audiencesLength: audiences.length,
+          hasMetaIntegration: !!metaIntegration
+        });
       }
     } catch (error) {
-      console.error('Erro ao buscar públicos:', error);
+      console.error('❌ [SalesByGroup] Erro ao buscar públicos:', error);
     }
   };
 
@@ -286,6 +309,21 @@ const SalesByGroup = () => {
       setLiveGroups(groups);
     }
   }, [groups]);
+
+  // Fechar emoji picker ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showEmojiPicker) {
+        const target = event.target as HTMLElement;
+        if (!target.closest('.emoji-picker-container')) {
+          setShowEmojiPicker(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showEmojiPicker]);
 
   // Calculate statistics from Live groups
   const totalGroupMembers = liveGroups.reduce((sum, group) => sum + group.group_size, 0);
@@ -628,10 +666,10 @@ const SalesByGroup = () => {
                         R$ {row.trafficInvestment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="p-3 text-center font-medium">
-                        R$ {row.trafficCPL.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {Math.floor(row.trafficCPL * 100) / 100}
                       </td>
                       <td className="p-3 text-center font-medium">
-                        R$ {row.trafficCPLLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {Math.floor(row.trafficCPLLiquido * 100) / 100}
                       </td>
                       <td className="p-3 text-center font-medium text-green-600">
                         {row.groupEntradas.toLocaleString()}
@@ -643,14 +681,36 @@ const SalesByGroup = () => {
                         {row.groupAtivos.toLocaleString()}
                       </td>
                       <td className="p-3 text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeAudience(row.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja deletar o público <strong>"{row.audienceName}"</strong>?
+                                <br />
+                                Esta ação não pode ser desfeita.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => removeAudience(row.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Deletar
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </td>
                     </tr>
                   ))}
@@ -684,25 +744,36 @@ const SalesByGroup = () => {
                       </Select>
                     </td>
                     <td className="p-3">
-                      <Select
-                        value={newAudience.emoji}
-                        onValueChange={(value) => setNewAudience({ ...newAudience, emoji: value })}
-                        disabled={isCreatingAudience || isLoadingGroups}
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue placeholder={isLoadingGroups ? "Carregando..." : "Selecionar grupo"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {whatsappGroups.map((group) => (
-                            <SelectItem key={group.id} value={group.group_name}>
-                              <div className="flex items-center gap-2">
-                                <span className="text-lg">{group.group_name}</span>
-                                <span className="text-xs text-muted-foreground">({group.group_size} membros)</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="relative">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-full justify-start"
+                          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                          disabled={isCreatingAudience}
+                        >
+                          {newAudience.emoji ? (
+                            <span className="text-lg">{newAudience.emoji}</span>
+                          ) : (
+                            <span className="text-muted-foreground">Selecionar emoji</span>
+                          )}
+                        </Button>
+                        {showEmojiPicker && (
+                          <div className="absolute top-10 left-0 z-50 emoji-picker-container">
+                            <EmojiPicker
+                              onEmojiClick={(emojiData) => {
+                                setNewAudience({ ...newAudience, emoji: emojiData.emoji });
+                                setShowEmojiPicker(false);
+                              }}
+                              searchDisabled={false}
+                              skinTonesDisabled={false}
+                              width={300}
+                              height={400}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="p-3 text-center text-muted-foreground">-</td>
                     <td className="p-3 text-center text-muted-foreground">-</td>
