@@ -229,6 +229,16 @@ const Details = () => {
 
   // Calcular dados dos grupos V2
   const calculateGroupDataV2 = () => {
+    // Usar dados reais extraídos se disponíveis
+    if (extractedDataV2?.groupData) {
+      return {
+        entrou: extractedDataV2.groupData.entries,
+        saiu: extractedDataV2.groupData.exits,
+        ativos: extractedDataV2.groupData.activeMembers
+      };
+    }
+
+    // Fallback para dados antigos se dados reais não estiverem disponíveis
     if (!groups || groups.length === 0) {
       return { entrou: 0, saiu: 0, ativos: 0 };
     }
@@ -423,6 +433,17 @@ const Details = () => {
   const cplMeta = metricsV2?.cplMeta || 0;
   const retentionRate = metricsV2?.retentionRate || 0;
   const totalSpend = extractedDataV2?.metaData?.totalSpend || 0;
+
+  // Debug: Log dos dados que serão exibidos nos cards
+  console.log('🎯 [Details] Dados para os cards:', {
+    cplLiquido,
+    cplMeta,
+    retentionRate,
+    groupData,
+    totalSpend,
+    metricsV2: !!metricsV2,
+    extractedDataV2: !!extractedDataV2
+  });
 
   return (
     <div className="flex flex-col min-h-screen bg-background">

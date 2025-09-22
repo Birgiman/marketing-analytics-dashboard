@@ -21,12 +21,18 @@ serve(async (req: any) => {
   }
 
   try {
+    console.log('🚀 [whatsapp-fetch-groups] Function started');
+    console.log('📋 [whatsapp-fetch-groups] Request method:', req.method);
+    console.log('📋 [whatsapp-fetch-groups] Request headers:', Object.fromEntries(req.headers.entries()));
+
     const supabase = createClient(
       // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
       // @ts-ignore
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+
+    console.log('✅ [whatsapp-fetch-groups] Supabase client created');
 
     if (req.method !== 'POST') {
       return new Response(
@@ -35,9 +41,22 @@ serve(async (req: any) => {
       )
     }
 
+    console.log('📥 [whatsapp-fetch-groups] Parsing request body...');
     const { instanceName, userId, searchTerm }: FetchGroupsRequest = await req.json()
     
+    console.log('📥 [whatsapp-fetch-groups] Request body parsed:', {
+      instanceName,
+      userId,
+      searchTerm,
+      hasInstanceName: !!instanceName,
+      hasUserId: !!userId
+    });
+    
     if (!instanceName || !userId) {
+      console.error('❌ [whatsapp-fetch-groups] Missing required parameters:', {
+        instanceName: !!instanceName,
+        userId: !!userId
+      });
       return new Response(
         JSON.stringify({ success: false, error: 'instanceName and userId are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -320,11 +339,16 @@ serve(async (req: any) => {
 
 
   } catch (error) {
-    console.error('❌ Function error:', error)
+    console.error('❌ [whatsapp-fetch-groups] Function error:', error)
+    console.error('❌ [whatsapp-fetch-groups] Error stack:', (error as Error).stack)
+    console.error('❌ [whatsapp-fetch-groups] Error name:', (error as Error).name)
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: (error as Error).message 
+        error: (error as Error).message,
+        errorType: (error as Error).name,
+        timestamp: new Date().toISOString()
       }),
       { 
         status: 500, 
