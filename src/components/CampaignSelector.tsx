@@ -555,7 +555,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                     <Checkbox
                       id="status-active"
                       checked={showActive}
-                      onCheckedChange={setShowActive}
+                      onCheckedChange={(checked) => setShowActive(checked === true)}
                     />
                     <label htmlFor="status-active" className="text-sm text-gray-600">Ativas</label>
                   </div>
@@ -563,7 +563,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                     <Checkbox
                       id="status-paused"
                       checked={showPaused}
-                      onCheckedChange={setShowPaused}
+                      onCheckedChange={(checked) => setShowPaused(checked === true)}
                     />
                     <label htmlFor="status-paused" className="text-sm text-gray-600">Pausadas</label>
                   </div>
@@ -682,9 +682,10 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                       <p className="text-sm text-red-600 mt-1">{error}</p>
                       <Button 
                         variant="outline" 
-                        onClick={() => loadCampaignsFromAccount(selectedAccount)}
+                        onClick={() => selectedAccount && loadCampaignsFromAccount(selectedAccount)}
                         className="mt-3"
                         size="sm"
+                        disabled={!selectedAccount}
                       >
                         Tentar Novamente
                       </Button>

@@ -17,13 +17,6 @@ Deno.serve(async (req) => {
     )
 
     // Create live_campaigns table using raw SQL execution
-    const { error: createTableError } = await supabase
-      .from('_migrations') // This will fail but allow us to execute SQL
-      .select('*')
-      .limit(0)
-
-    // Since we can't use execute_sql, let's use a different approach
-    // We'll create the table step by step using the SQL editor
     const createTableSql = `
         -- Create live_campaigns table to link Meta campaigns to lives
         CREATE TABLE IF NOT EXISTS public.live_campaigns (
@@ -127,15 +120,18 @@ Deno.serve(async (req) => {
 
         -- RLS Policies
         ALTER TABLE public.live_campaigns ENABLE ROW LEVEL SECURITY;
-      `
-    })
+      `;
+
+    const { error: createTableError } = await supabase.rpc('execute_sql', {
+      sql: createTableSql
+    });
 
     if (createTableError) {
-      console.error('Error creating table:', createTableError)
+      console.error('Error creating table:', createTableError);
       return new Response(JSON.stringify({ error: createTableError }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      });
     }
 
     // Create RLS policies
@@ -184,15 +180,15 @@ Deno.serve(async (req) => {
             )
           )`
       }
-    ]
+    ];
 
     for (const policy of policies) {
       const { error: policyError } = await supabase.rpc('execute_sql', {
         sql: `DROP POLICY IF EXISTS "${policy.name}" ON public.live_campaigns; ${policy.definition};`
-      })
+      });
 
       if (policyError) {
-        console.error(`Error creating policy ${policy.name}:`, policyError)
+        console.error(`Error creating policy ${policy.name}:`, policyError);
       }
     }
 
@@ -201,13 +197,13 @@ Deno.serve(async (req) => {
       message: 'live_campaigns table created successfully with RLS policies' 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    });
 
   } catch (error) {
-    console.error('Migration error:', error)
+    console.error('Migration error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    });
   }
-})
+});

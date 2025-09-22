@@ -292,7 +292,7 @@ export const MetaApiTestModal = ({ open, onOpenChange, liveId }: MetaApiTestModa
           until: dateRange.until
         },
         filtering: filters,
-        limit: limit
+        limit: 100 // Default limit for testing
       };
 
 

@@ -149,7 +149,10 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
           group_name: group.group_name,
           group_size: group.group_size,
           selectable: true,
-          group_created_formatted: 'N/A'
+          group_created_formatted: 'N/A',
+          live_id: editingLive.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         }));
         setSelectedGroups(groups);
       }
