@@ -204,14 +204,21 @@ const TrafficAnalysis = () => {
           hasMetaIntegration: !!completeData.metaIntegration,
           hasAccountId: !!completeData.metaIntegration?.account_id,
           hasAccessToken: !!completeData.metaIntegration?.access_token,
-          campaignIds: completeData.liveCampaigns?.map(c => c.id) || []
+          campaignIds: completeData.liveCampaigns?.map(c => c.id) || [],
+          liveCampaigns: completeData.liveCampaigns,
+          firstCampaignAccountId: completeData.liveCampaigns?.[0]?.account_id
         });
         
-        if (completeData.metaIntegration?.account_id && completeData.metaIntegration?.access_token) {
+        // Usar fallback para account_id se metaIntegration não tiver
+        const fallbackAccountId = completeData.liveCampaigns?.[0]?.account_id;
+        const accountId = completeData.metaIntegration?.account_id || fallbackAccountId;
+        
+        if (accountId && completeData.metaIntegration?.access_token) {
           try {
             console.log('🚀 [TrafficAnalysis] Chamando fetchAdSets...');
+            console.log('🔍 [TrafficAnalysis] Account ID usado:', accountId, '(Meta:', completeData.metaIntegration?.account_id || 'undefined', 'Fallback:', fallbackAccountId || 'undefined', ')');
             const adSets = await fetchAdSets(
-              completeData.metaIntegration.account_id,
+              accountId,
               completeData.metaIntegration.access_token,
               {
                 campaignIds: completeData.liveCampaigns?.map(c => c.id) || []
@@ -495,14 +502,21 @@ const TrafficAnalysis = () => {
           hasMetaIntegration: !!completeData.metaIntegration,
           hasAccountId: !!completeData.metaIntegration?.account_id,
           hasAccessToken: !!completeData.metaIntegration?.access_token,
-          campaignIds: completeData.liveCampaigns?.map(c => c.id) || []
+          campaignIds: completeData.liveCampaigns?.map(c => c.id) || [],
+          liveCampaigns: completeData.liveCampaigns,
+          firstCampaignAccountId: completeData.liveCampaigns?.[0]?.account_id
         });
         
-        if (completeData.metaIntegration?.account_id && completeData.metaIntegration?.access_token) {
+        // Usar fallback para account_id se metaIntegration não tiver
+        const fallbackAccountId = completeData.liveCampaigns?.[0]?.account_id;
+        const accountId = completeData.metaIntegration?.account_id || fallbackAccountId;
+        
+        if (accountId && completeData.metaIntegration?.access_token) {
           try {
             console.log('🚀 [TrafficAnalysis] Chamando fetchAdSets (filtros)...');
+            console.log('🔍 [TrafficAnalysis] Account ID usado (filtros):', accountId, '(Meta:', completeData.metaIntegration?.account_id || 'undefined', 'Fallback:', fallbackAccountId || 'undefined', ')');
             const adSets = await fetchAdSets(
-              completeData.metaIntegration.account_id,
+              accountId,
               completeData.metaIntegration.access_token,
               {
                 campaignIds: completeData.liveCampaigns?.map(c => c.id) || []
