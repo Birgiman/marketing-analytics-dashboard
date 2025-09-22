@@ -46,17 +46,17 @@ export interface ProjectionData {
 
 /**
  * Calcula CPL Líquido
- * Fórmula: Total de pessoas que entrou no grupo / Total gasto (Meta)
+ * Fórmula: Total gasto (Meta) / Total de leads do Meta
  * 
- * @param totalGroupMembers - Total de pessoas que entrou no grupo
  * @param totalSpend - Total gasto no Meta (amount spend)
+ * @param totalLeads - Total de leads do Meta
  * @returns CPL Líquido em reais
  */
-export function calculateCPLLiquido(totalGroupMembers: number, totalSpend: number): number {
-  if (totalGroupMembers <= 0) return 0;
+export function calculateCPLLiquido(totalSpend: number, totalLeads: number): number {
+  if (totalLeads <= 0) return 0;
   if (totalSpend <= 0) return 0;
   
-  return totalSpend / totalGroupMembers;
+  return totalSpend / totalLeads;
 }
 
 /**
@@ -121,7 +121,7 @@ export function calculateLiveMetricsV2(
   metaData: MetaCampaignData,
   orcamentoGasto?: number
 ): LiveMetricsV2 {
-  const cplLiquido = calculateCPLLiquido(groupData.totalMembers, metaData.spend);
+  const cplLiquido = calculateCPLLiquido(metaData.spend, metaData.results);
   const cplMeta = calculateCPLMeta(metaData.spend, metaData.results);
   const retentionRate = calculateRetentionRate(groupData.totalMembers, metaData.results);
   
@@ -276,7 +276,7 @@ export function logCalculationsV2(
   console.log(`  • Leads do Meta: ${formatNumberV2(metaData.results)}`);
   console.log('');
   console.log('🧮 CÁLCULOS:');
-  console.log(`  • CPL Líquido: ${formatCurrencyV2(metaData.spend)} ÷ ${formatNumberV2(groupData.totalMembers)} = ${formatCurrencyV2(metrics.cplLiquido)}`);
+  console.log(`  • CPL Líquido: ${formatCurrencyV2(metaData.spend)} ÷ ${formatNumberV2(metaData.results)} = ${formatCurrencyV2(metrics.cplLiquido)}`);
   console.log(`  • CPL Meta: ${formatCurrencyV2(metaData.spend)} ÷ ${formatNumberV2(metaData.results)} = ${formatCurrencyV2(metrics.cplMeta)}`);
   console.log(`  • Taxa de Retenção: ${formatNumberV2(groupData.totalMembers)} ÷ ${formatNumberV2(metaData.results)} × 100 = ${formatPercentageV2(metrics.retentionRate)}`);
   console.log('==========================================');
