@@ -46,15 +46,15 @@ export interface ProjectionData {
 
 /**
  * Calcula CPL Líquido
- * Fórmula: Total de pessoas que entrou no grupo / Total gasto (Meta)
+ * Fórmula: Total gasto (Meta) / Total de membros ativos no grupo
  * 
- * @param totalGroupMembers - Total de pessoas que entrou no grupo
  * @param totalSpend - Total gasto no Meta (amount spend)
+ * @param totalGroupMembers - Total de membros ativos no grupo (entrou - saiu)
  * @returns CPL Líquido em reais
  */
-export function calculateCPLLiquido(totalGroupMembers: number, totalSpend: number): number {
-  if (totalSpend <= 0) return 0;
+export function calculateCPLLiquido(totalSpend: number, totalGroupMembers: number): number {
   if (totalGroupMembers <= 0) return 0;
+  if (totalSpend <= 0) return 0;
   
   return totalSpend / totalGroupMembers;
 }
@@ -121,7 +121,7 @@ export function calculateLiveMetricsV2(
   metaData: MetaCampaignData,
   orcamentoGasto?: number
 ): LiveMetricsV2 {
-  const cplLiquido = calculateCPLLiquido(groupData.totalMembers, metaData.spend);
+  const cplLiquido = calculateCPLLiquido(metaData.spend, groupData.totalMembers);
   const cplMeta = calculateCPLMeta(metaData.spend, metaData.results);
   const retentionRate = calculateRetentionRate(groupData.totalMembers, metaData.results);
   
