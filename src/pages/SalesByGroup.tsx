@@ -27,6 +27,7 @@ import {
   generateAudienceCorrelation
 } from "@/utils/audienceService";
 import { fetchMetaCampaignsForLive, MetaCampaign } from "@/utils/metaCampaignsService";
+import { getWhatsAppGroupsLogData } from "@/utils/whatsappGroupsLog";
 import EmojiPicker from 'emoji-picker-react';
 import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -95,6 +96,19 @@ const SalesByGroup = () => {
   // WhatsApp groups for dropdown
   const [whatsappGroups, setWhatsappGroups] = useState<LiveGroupType[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+
+  // Processed groups data state
+  const [processedGroups, setProcessedGroups] = useState<{
+    id: number;
+    name: string;
+    campaign: string;
+    entered: number;
+    left: number;
+    active: number;
+    sales: number;
+    revenue: number;
+    averageTicket: number;
+  }[]>([]);
 
   // Emoji picker state
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -316,12 +330,87 @@ const SalesByGroup = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveId, userId]);
 
+  // Função para atualizar dados dos grupos com informações reais do WhatsApp Groups Log
+  const updateGroupsWithRealData = useCallback(async () => {
+    if (!live?.insights_date_since || !live?.insights_date_until || !userId) {
+      console.log('📱 [SalesByGroup] Dados insuficientes para consulta real, usando dados simulados');
+      return;
+    }
+
+    try {
+      const groupIds = liveGroups.map(group => group.group_id);
+      
+      console.log('📱 [SalesByGroup] Consultando dados reais dos grupos:', {
+        groupIds: groupIds.length,
+        dateFrom: live.insights_date_since,
+        dateTo: live.insights_date_until,
+        userId
+      });
+
+      const groupLogData = await getWhatsAppGroupsLogData(
+        groupIds,
+        live.insights_date_since,
+        live.insights_date_until,
+        userId
+      );
+
+      console.log('📱 [SalesByGroup] Dados reais dos grupos obtidos:', groupLogData);
+
+      // Atualizar dados dos grupos com informações reais
+      setProcessedGroups(prevGroups => 
+        prevGroups.map((group) => {
+          const realData = groupLogData.groupsData.find(g => g.id_grupo === liveGroups[group.id - 1]?.group_id);
+          
+          // Encontrar a correlação de público para este grupo
+          const groupCorrelation = audienceCorrelations.find(correlation => 
+            correlation.groups.some(g => g.name === liveGroups[group.id - 1]?.group_name)
+          );
+          
+          if (realData) {
+            return {
+              ...group,
+              campaign: groupCorrelation?.title || "N/A", // Atualizar com nome do público
+              entered: realData.entries,
+              left: realData.exits,
+              active: realData.activeMembers
+            };
+          }
+          
+          // Mesmo sem dados reais, atualizar a correlação
+          return {
+            ...group,
+            campaign: groupCorrelation?.title || "N/A"
+          };
+        })
+      );
+
+    } catch (error) {
+      console.warn('⚠️ [SalesByGroup] Erro ao consultar dados reais dos grupos:', error);
+    }
+  }, [live, userId, liveGroups, audienceCorrelations]);
+
   // Atualizar grupos quando cache mudar
   useEffect(() => {
     if (groups && groups.length > 0) {
       setLiveGroups(groups);
     }
   }, [groups]);
+
+  // Update groups with real data when liveData is available
+  useEffect(() => {
+    if (live && liveGroups.length > 0) {
+      console.log('📱 [SalesByGroup] Atualizando dados dos grupos com informações reais');
+      updateGroupsWithRealData();
+    }
+  }, [live, liveGroups, updateGroupsWithRealData]);
+
+  // Update groups data when correlations change
+  useEffect(() => {
+    if (audienceCorrelations.length > 0 && liveGroups.length > 0) {
+      console.log('🔄 [SalesByGroup] Atualizando dados dos grupos com correlações de públicos');
+      updateGroupsWithRealData();
+    }
+  }, [audienceCorrelations, liveGroups.length, updateGroupsWithRealData]);
 
   // Fechar emoji picker ao clicar fora
   useEffect(() => {
@@ -351,17 +440,25 @@ const SalesByGroup = () => {
   const totalGroups = liveGroups.length;
 
   // Convert Live groups to table display format
-  const processedGroupsData = liveGroups.map((group, index) => ({
-    id: index + 1,
-    name: group.group_name,
-    campaign: "N/A", // TODO: Add campaign detection based on group name patterns
-    entered: group.group_size,
-    left: 0, // TODO: Implement exit tracking
-    active: group.group_size,
-    sales: 0, // TODO: Implement sales tracking per group
-    revenue: 0, // TODO: Implement revenue tracking per group
-    averageTicket: 0 // Will be calculated when sales data is available
-  }));
+
+  const processedGroupsData = liveGroups.map((group, index) => {
+    // Encontrar a correlação de público para este grupo
+    const groupCorrelation = audienceCorrelations.find(correlation => 
+      correlation.groups.some(g => g.name === group.group_name)
+    );
+    
+    return {
+      id: index + 1,
+      name: group.group_name,
+      campaign: groupCorrelation?.title || "N/A", // Usar o nome do público da correlação
+      entered: group.group_size,
+      left: 0, // Será atualizado com dados reais se disponível
+      active: group.group_size,
+      sales: 0, // TODO: Implement sales tracking per group
+      revenue: 0, // TODO: Implement revenue tracking per group
+      averageTicket: 0 // Will be calculated when sales data is available
+    };
+  });
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -993,7 +1090,13 @@ const SalesByGroup = () => {
                 <tbody>
                   {filteredAndSortedData.map((group) => (
                     <tr key={group.id} className="border-b hover:bg-muted/50">
-                      <td className="p-3 font-medium">{group.name}</td>
+                      <td className="p-3 font-medium">
+                        <div className="max-w-[200px] overflow-hidden group">
+                          <div className="whitespace-nowrap overflow-x-auto scrollbar-hide group-hover:scrollbar-show transition-all duration-200">
+                            {group.name}
+                          </div>
+                        </div>
+                      </td>
                       <td className="p-3">
                         <Badge variant="outline">{group.campaign || 'N/A'}</Badge>
                       </td>

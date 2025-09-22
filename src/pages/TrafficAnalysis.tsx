@@ -308,8 +308,8 @@ const TrafficAnalysis = () => {
     });
     
     // Processar dados dos grupos (WhatsApp/Evolution API)
-    // TODO: Implementar lógica de grupos quando dados estiverem disponíveis
     // Por enquanto, usar dados simulados baseados nos cadastros
+    // TODO: Implementar consulta real ao WhatsApp Groups Log
     Object.values(dailyData).forEach((day) => {
       // Simular entrada no grupo baseado nos cadastros (80% de retenção)
       day.group = Math.round(day.cadastros * 0.8);

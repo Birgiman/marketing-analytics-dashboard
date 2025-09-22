@@ -2,6 +2,39 @@
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
+/* Custom scrollbar styles for group names */
+.scrollbar-hide {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* WebKit */
+}
+
+.scrollbar-show {
+  scrollbar-width: thin; /* Firefox */
+  -ms-overflow-style: auto; /* Internet Explorer 10+ */
+}
+
+.scrollbar-show::-webkit-scrollbar {
+  display: block; /* WebKit */
+  height: 4px;
+}
+
+.scrollbar-show::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-show::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+.scrollbar-show::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;

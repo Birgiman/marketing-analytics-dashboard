@@ -7,6 +7,7 @@
 
 import { MetaAction } from '@/types/live';
 import { MetaInsight } from './metaApi';
+import { getWhatsAppGroupsLogData } from './whatsappGroupsLog';
 
 // ============================================================================
 // INTERFACES
@@ -151,25 +152,53 @@ export function extractLeadsFromActions(actions: MetaAction[]): number {
 /**
  * Extrai dados consolidados dos grupos do WhatsApp
  * @param groups - Array de grupos vinculados à Live
+ * @param dateFrom - Data de início do período (opcional)
+ * @param dateTo - Data de fim do período (opcional)
+ * @param userId - ID do usuário logado (opcional)
  * @returns Dados consolidados dos grupos
  */
-export function extractGroupData(groups: Array<{
-  id: string;
-  group_id: string;
-  group_name: string;
-  group_size: number;
-  monitoring: boolean;
-  created_at: string;
-  updated_at: string;
-}>): ExtractedGroupData {
+export async function extractGroupData(
+  groups: Array<{
+    id: string;
+    group_id: string;
+    group_name: string;
+    group_size: number;
+    monitoring: boolean;
+    created_at: string;
+    updated_at: string;
+  }>,
+  dateFrom?: string,
+  dateTo?: string,
+  userId?: string
+): Promise<ExtractedGroupData> {
   const totalMembers = groups.reduce((sum, group) => sum + (group.group_size || 0), 0);
   const totalGroups = groups.length;
   
-  // Por enquanto, assumimos que todos os membros são "entradas"
-  // TODO: Implementar tracking de entradas/saídas quando disponível
+  // Se temos parâmetros para consulta real, usar dados reais
+  if (dateFrom && dateTo && userId) {
+    try {
+      const groupIds = groups.map(group => group.group_id);
+      const logData = await getWhatsAppGroupsLogData(groupIds, dateFrom, dateTo, userId);
+      
+      console.log('📱 [extractGroupData] Usando dados reais do WhatsApp Groups Log:', logData);
+      
+      return {
+        totalMembers,
+        totalGroups,
+        entries: logData.totalEntries,
+        exits: logData.totalExits,
+        activeMembers: logData.totalActiveMembers
+      };
+    } catch (error) {
+      console.warn('⚠️ [extractGroupData] Erro ao consultar dados reais, usando fallback:', error);
+    }
+  }
+  
+  // Fallback: usar dados simulados (comportamento anterior)
+  console.log('📱 [extractGroupData] Usando dados simulados (fallback)');
   const entries = totalMembers;
-  const exits = 0; // TODO: Implementar quando Evolution API fornecer esses dados
-  const activeMembers = totalMembers; // Assumindo que todos estão ativos
+  const exits = 0;
+  const activeMembers = totalMembers;
 
   return {
     totalMembers,
@@ -187,30 +216,38 @@ export function extractGroupData(groups: Array<{
 /**
  * Extrai todos os dados necessários para os cálculos
  * @param liveData - Dados completos da Live
+ * @param dateFrom - Data de início do período (opcional)
+ * @param dateTo - Data de fim do período (opcional)
+ * @param userId - ID do usuário logado (opcional)
  * @returns Dados extraídos e processados
  */
-export function extractLiveDataForCalculations(liveData: {
-  live: {
-    id: string;
-    name: string;
-    ad_budget?: number;
-  };
-  groups: Array<{
-    id: string;
-    group_id: string;
-    group_name: string;
-    group_size: number;
-    monitoring: boolean;
-    created_at: string;
-    updated_at: string;
-  }>;
-  campaignInsights: Array<{
-    campaign_id: string;
-    insights: MetaInsight[];
-  }>;
-}): ExtractedLiveData {
+export async function extractLiveDataForCalculations(
+  liveData: {
+    live: {
+      id: string;
+      name: string;
+      ad_budget?: number;
+    };
+    groups: Array<{
+      id: string;
+      group_id: string;
+      group_name: string;
+      group_size: number;
+      monitoring: boolean;
+      created_at: string;
+      updated_at: string;
+    }>;
+    campaignInsights: Array<{
+      campaign_id: string;
+      insights: MetaInsight[];
+    }>;
+  },
+  dateFrom?: string,
+  dateTo?: string,
+  userId?: string
+): Promise<ExtractedLiveData> {
   const metaData = extractMetaData(liveData.campaignInsights);
-  const groupData = extractGroupData(liveData.groups);
+  const groupData = await extractGroupData(liveData.groups, dateFrom, dateTo, userId);
 
   return {
     metaData,
