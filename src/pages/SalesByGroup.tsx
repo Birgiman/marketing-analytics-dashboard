@@ -7,13 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache";
 import { supabase } from "@/integrations/supabase/client";
-import { LiveGroup as LiveGroupType, LiveCacheData } from "@/types/live";
 import { PublicAudience, PublicAudienceCorrelation } from "@/types/audience";
-import { 
-  fetchPublicAudiences, 
-  createPublicAudience, 
-  deletePublicAudience, 
-  generateAudienceCorrelation 
+import { LiveGroup as LiveGroupType } from "@/types/live";
+import {
+  createPublicAudience,
+  deletePublicAudience,
+  fetchPublicAudiences,
+  generateAudienceCorrelation
 } from "@/utils/audienceService";
 import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -211,6 +211,7 @@ const SalesByGroup = () => {
     if (liveId) {
       fetchData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveId, userId]);
 
   // Atualizar grupos quando cache mudar
@@ -512,130 +513,186 @@ const SalesByGroup = () => {
           />
         </div>
 
-        {/* Tabela Unificada de Públicos */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
-              Correlação de Públicos
-            </CardTitle>
-            <CardDescription>
-              Configure públicos e visualize a correlação entre campanhas de tráfego e grupos
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-3 font-medium">Público</th>
-                    <th className="text-left p-3 font-medium">Termo Campanha</th>
-                    <th className="text-center p-3 font-medium">Emoji Grupo</th>
-                    <th className="text-center p-3 font-medium">Leads Tráfego</th>
-                    <th className="text-center p-3 font-medium">Investimento</th>
-                    <th className="text-center p-3 font-medium">CPL Meta</th>
-                    <th className="text-center p-3 font-medium">Entrou Grupo</th>
-                    <th className="text-center p-3 font-medium">Saiu Grupo</th>
-                    <th className="text-center p-3 font-medium">Ativos Grupo</th>
-                    <th className="text-center p-3 font-medium">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {correlationData.map((row) => (
-                    <tr key={row.id} className="border-b hover:bg-muted/50">
-                      <td className="p-3">
-                        <Badge variant="secondary">{row.audienceName}</Badge>
-                      </td>
-                      <td className="p-3 text-sm">
-                        <code className="bg-muted px-2 py-1 rounded">{row.campaignTerm}</code>
-                      </td>
-                      <td className="p-3 text-center text-lg">
-                        {row.groupEmoji}
-                      </td>
-                      <td className="p-3 text-center font-medium">
-                        {row.trafficLeads.toLocaleString()}
-                      </td>
-                      <td className="p-3 text-center font-medium">
-                        R$ {row.trafficInvestment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="p-3 text-center font-medium">
-                        R$ {row.trafficCPL.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="p-3 text-center font-medium text-green-600">
-                        {row.groupEntradas.toLocaleString()}
-                      </td>
-                      <td className="p-3 text-center font-medium text-red-600">
-                        {row.groupSaidas.toLocaleString()}
-                      </td>
-                      <td className="p-3 text-center font-medium text-blue-600">
-                        {row.groupAtivos.toLocaleString()}
-                      </td>
-                      <td className="p-3 text-center">
+        {/* Cards de Públicos com Métricas Detalhadas */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5" />
+                Públicos Configurados
+              </CardTitle>
+              <CardDescription>
+                Visualize e gerencie seus públicos com correlação automática de campanhas e grupos
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Formulário para criar novo público */}
+              <div className="mb-6 p-4 border rounded-lg bg-muted/20">
+                <h4 className="font-medium mb-3">Criar Novo Público</h4>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <Input
+                    placeholder="Nome do público (ex: Público 100 reais)"
+                    value={newAudience.title}
+                    onChange={(e) => setNewAudience({ ...newAudience, title: e.target.value })}
+                    disabled={isCreatingAudience}
+                  />
+                  <Input
+                    placeholder="Termo de campanha (ex: NOVOS_MACEIO)"
+                    value={newAudience.campaign_term}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\s+/g, '');
+                      setNewAudience({ ...newAudience, campaign_term: value });
+                    }}
+                    disabled={isCreatingAudience}
+                  />
+                  <Input
+                    placeholder="Emoji do grupo (ex: 🚀)"
+                    value={newAudience.emoji}
+                    onChange={(e) => setNewAudience({ ...newAudience, emoji: e.target.value })}
+                    className="text-center"
+                    disabled={isCreatingAudience}
+                  />
+                  <Button 
+                    onClick={addAudience} 
+                    disabled={isCreatingAudience || !newAudience.title || !newAudience.campaign_term || !newAudience.emoji}
+                    className="w-full"
+                  >
+                    {isCreatingAudience ? "Criando..." : "Criar Público"}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Cards dos públicos existentes */}
+              <div className="grid gap-4">
+                {audienceCorrelations.map((correlation) => (
+                  <Card key={correlation.id} className="border-l-4 border-l-blue-500">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Badge variant="secondary" className="text-lg">
+                            {correlation.emoji} {correlation.title}
+                          </Badge>
+                          <code className="bg-muted px-2 py-1 rounded text-sm">
+                            {correlation.campaign_term}
+                          </code>
+                        </div>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => removeAudience(row.id)}
+                          onClick={() => removeAudience(correlation.id)}
                           className="text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                      </td>
-                    </tr>
-                  ))}
-                  {/* Add new audience row */}
-                  <tr className="border-b bg-muted/30">
-                    <td className="p-3">
-                      <Input
-                        placeholder="Nome do público"
-                        value={newAudience.title}
-                        onChange={(e) => setNewAudience({ ...newAudience, title: e.target.value })}
-                        className="h-8"
-                        disabled={isCreatingAudience}
-                      />
-                    </td>
-                    <td className="p-3">
-                      <Input
-                        placeholder="termo"
-                        value={newAudience.campaign_term}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\s+/g, '');
-                          setNewAudience({ ...newAudience, campaign_term: value });
-                        }}
-                        className="h-8"
-                        disabled={isCreatingAudience}
-                      />
-                    </td>
-                    <td className="p-3">
-                      <Input
-                        placeholder="emoji"
-                        value={newAudience.emoji}
-                        onChange={(e) => setNewAudience({ ...newAudience, emoji: e.target.value })}
-                        className="h-8 text-center"
-                        disabled={isCreatingAudience}
-                      />
-                    </td>
-                    <td className="p-3 text-center text-muted-foreground">-</td>
-                    <td className="p-3 text-center text-muted-foreground">-</td>
-                    <td className="p-3 text-center text-muted-foreground">-</td>
-                    <td className="p-3 text-center text-muted-foreground">-</td>
-                    <td className="p-3 text-center text-muted-foreground">-</td>
-                    <td className="p-3 text-center text-muted-foreground">-</td>
-                    <td className="p-3 text-center">
-                      <Button 
-                        onClick={addAudience} 
-                        size="sm" 
-                        className="h-8"
-                        disabled={isCreatingAudience || !newAudience.title || !newAudience.campaign_term || !newAudience.emoji}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {/* Métricas principais */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-blue-600">
+                            {correlation.metrics.totalLeads.toLocaleString()}
+                          </div>
+                          <div className="text-sm text-muted-foreground">Leads Tráfego</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600">
+                            R$ {correlation.metrics.totalSpend.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </div>
+                          <div className="text-sm text-muted-foreground">Investimento</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-purple-600">
+                            R$ {correlation.metrics.cplMeta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </div>
+                          <div className="text-sm text-muted-foreground">CPL Meta</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-orange-600">
+                            R$ {correlation.metrics.cplLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </div>
+                          <div className="text-sm text-muted-foreground">CPL Líquido</div>
+                        </div>
+                      </div>
+
+                      {/* Métricas de grupos */}
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div className="text-center">
+                          <div className="text-xl font-bold text-green-600">
+                            {correlation.metrics.groupEntradas.toLocaleString()}
+                          </div>
+                          <div className="text-sm text-muted-foreground">Entraram no Grupo</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xl font-bold text-red-600">
+                            {correlation.metrics.groupSaidas.toLocaleString()}
+                          </div>
+                          <div className="text-sm text-muted-foreground">Sairam do Grupo</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xl font-bold text-blue-600">
+                            {correlation.metrics.groupAtivos.toLocaleString()}
+                          </div>
+                          <div className="text-sm text-muted-foreground">Ativos no Grupo</div>
+                        </div>
+                      </div>
+
+                      {/* Detalhes das campanhas e grupos */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <h5 className="font-medium mb-2">Campanhas Correlacionadas ({correlation.campaigns.length})</h5>
+                          <div className="space-y-1 max-h-32 overflow-y-auto">
+                            {correlation.campaigns.length > 0 ? (
+                              correlation.campaigns.map((campaign) => (
+                                <div key={campaign.id} className="text-sm p-2 bg-muted/50 rounded">
+                                  <div className="font-medium">{campaign.name}</div>
+                                  <div className="text-muted-foreground">
+                                    R$ {campaign.spend.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} • {campaign.leads} leads
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-sm text-muted-foreground italic">
+                                Nenhuma campanha encontrada com o termo "{correlation.campaign_term}"
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <h5 className="font-medium mb-2">Grupos Correlacionados ({correlation.groups.length})</h5>
+                          <div className="space-y-1 max-h-32 overflow-y-auto">
+                            {correlation.groups.length > 0 ? (
+                              correlation.groups.map((group) => (
+                                <div key={group.id} className="text-sm p-2 bg-muted/50 rounded">
+                                  <div className="font-medium">{group.name}</div>
+                                  <div className="text-muted-foreground">
+                                    {group.size} membros
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-sm text-muted-foreground italic">
+                                Nenhum grupo encontrado com o emoji "{correlation.emoji}"
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {audienceCorrelations.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Target className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Nenhum público configurado ainda.</p>
+                    <p className="text-sm">Crie seu primeiro público usando o formulário acima.</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Tabela Principal de Grupos */}
         <Card>
