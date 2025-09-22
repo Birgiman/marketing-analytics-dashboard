@@ -44,6 +44,16 @@ export interface MetaCampaign {
   account_name?: string;
 }
 
+export interface MetaAdSet {
+  id: string;
+  name: string;
+  status: string;
+  campaign: {
+    id: string;
+    name: string;
+  };
+}
+
 export interface MetaInsight {
   impressions: string;
   clicks: string;
@@ -150,6 +160,71 @@ export async function fetchCampaigns(
   }
 
   const data = await response.json();
+
+  return data.data || [];
+}
+
+/**
+ * Busca conjuntos de anúncios (Ad Sets) de uma conta de anúncios
+ * @param adAccountId - ID da conta de anúncios
+ * @param accessToken - Token de acesso do Meta
+ * @param options - Opções de busca
+ * @returns Array de conjuntos de anúncios com dados da campanha
+ */
+export async function fetchAdSets(
+  adAccountId: string,
+  accessToken: string,
+  options: {
+    limit?: number;
+    status?: string[];
+    campaignIds?: string[];
+  } = {}
+): Promise<MetaAdSet[]> {
+  const {
+    limit = 1000,
+    status = ['ACTIVE', 'PAUSED'],
+    campaignIds = []
+  } = options;
+
+  // Construir parâmetros da URL
+  const params = new URLSearchParams({
+    fields: 'id,name,status,campaign{id,name}',
+    limit: limit.toString(),
+    access_token: accessToken
+  });
+
+  // Adicionar filtro de status se especificado
+  if (status.length > 0) {
+    params.append('filtering', JSON.stringify([{
+      field: 'effective_status',
+      operator: 'IN',
+      value: status
+    }]));
+  }
+
+  // Adicionar filtro de campanhas se especificado
+  if (campaignIds.length > 0) {
+    params.append('filtering', JSON.stringify([{
+      field: 'campaign.id',
+      operator: 'IN',
+      value: campaignIds
+    }]));
+  }
+
+  const url = `${BASE_URL}/${adAccountId}/adsets?${params.toString()}`;
+  
+  console.log('🔍 [MetaAPI] Buscando conjuntos de anúncios:', url);
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Erro ao buscar conjuntos de anúncios: ${response.status} - ${errorData.error?.message || response.statusText}`);
+  }
+
+  const data = await response.json();
+  
+  console.log('📊 [MetaAPI] Resposta da API de conjuntos de anúncios:', JSON.stringify(data, null, 2));
 
   return data.data || [];
 }

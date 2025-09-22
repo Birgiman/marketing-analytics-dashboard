@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { calculateCorrectAverageCPL, CampaignData, AdSetData, extractCampaignData, extractAdSetData } from "@/utils/data-extractors-v2";
+import { AdSetData, calculateCorrectAverageCPL, CampaignData, extractAdSetData, extractCampaignData } from "@/utils/data-extractors-v2";
+import { fetchAdSets } from "@/utils/metaApi";
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
@@ -198,12 +199,36 @@ const TrafficAnalysis = () => {
         const individualCampaignData = extractCampaignData(campaignInsights, completeData.allUserCampaigns);
         setCampaignData(individualCampaignData);
         
-        // Extrair dados individuais por conjunto de anúncios
-        const individualAdSetData = extractAdSetData(campaignInsights, completeData.allUserCampaigns);
-        setAdSetData(individualAdSetData);
+        // Buscar conjuntos de anúncios diretamente da API
+        if (completeData.metaIntegration?.account_id && completeData.metaIntegration?.access_token) {
+          try {
+            const adSets = await fetchAdSets(
+              completeData.metaIntegration.account_id,
+              completeData.metaIntegration.access_token,
+              {
+                campaignIds: completeData.liveCampaigns?.map(c => c.id) || []
+              }
+            );
+            
+            // Extrair dados individuais por conjunto de anúncios
+            const individualAdSetData = extractAdSetData(adSets, campaignInsights);
+            setAdSetData(individualAdSetData);
+            
+            console.log('🎯 [TrafficAnalysis] Conjuntos de anúncios da API:', adSets);
+            console.log('🎯 [TrafficAnalysis] Dados processados por conjunto de anúncios:', individualAdSetData);
+          } catch (error) {
+            console.error('❌ [TrafficAnalysis] Erro ao buscar conjuntos de anúncios:', error);
+            // Fallback para método antigo se a API falhar
+            const individualAdSetData = extractAdSetData([], campaignInsights);
+            setAdSetData(individualAdSetData);
+          }
+        } else {
+          // Fallback para método antigo se não tiver dados da API
+          const individualAdSetData = extractAdSetData([], campaignInsights);
+          setAdSetData(individualAdSetData);
+        }
         
         console.log('🎯 [TrafficAnalysis] Dados por campanha:', individualCampaignData);
-        console.log('🎯 [TrafficAnalysis] Dados por conjunto de anúncios:', individualAdSetData);
         
       } catch (err) {
         console.error('❌ [TrafficAnalysis] Erro ao carregar dados:', err);
@@ -450,12 +475,36 @@ const TrafficAnalysis = () => {
         const individualCampaignData = extractCampaignData(campaignInsights, completeData.allUserCampaigns);
         setCampaignData(individualCampaignData);
         
-        // Recalcular dados por conjunto de anúncios
-        const individualAdSetData = extractAdSetData(campaignInsights, completeData.allUserCampaigns);
-        setAdSetData(individualAdSetData);
+        // Buscar conjuntos de anúncios diretamente da API
+        if (completeData.metaIntegration?.account_id && completeData.metaIntegration?.access_token) {
+          try {
+            const adSets = await fetchAdSets(
+              completeData.metaIntegration.account_id,
+              completeData.metaIntegration.access_token,
+              {
+                campaignIds: completeData.liveCampaigns?.map(c => c.id) || []
+              }
+            );
+            
+            // Extrair dados individuais por conjunto de anúncios
+            const individualAdSetData = extractAdSetData(adSets, campaignInsights);
+            setAdSetData(individualAdSetData);
+            
+            console.log('🎯 [TrafficAnalysis] Conjuntos de anúncios filtrados da API:', adSets);
+            console.log('🎯 [TrafficAnalysis] Dados processados por conjunto de anúncios:', individualAdSetData);
+          } catch (error) {
+            console.error('❌ [TrafficAnalysis] Erro ao buscar conjuntos de anúncios filtrados:', error);
+            // Fallback para método antigo se a API falhar
+            const individualAdSetData = extractAdSetData([], campaignInsights);
+            setAdSetData(individualAdSetData);
+          }
+        } else {
+          // Fallback para método antigo se não tiver dados da API
+          const individualAdSetData = extractAdSetData([], campaignInsights);
+          setAdSetData(individualAdSetData);
+        }
         
         console.log('🎯 [TrafficAnalysis] Dados filtrados por campanha:', individualCampaignData);
-        console.log('🎯 [TrafficAnalysis] Dados filtrados por conjunto de anúncios:', individualAdSetData);
       }
       
     } catch (err) {
