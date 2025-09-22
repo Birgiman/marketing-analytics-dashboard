@@ -7,7 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache";
 import { supabase } from "@/integrations/supabase/client";
-import { LiveGroup as LiveGroupType } from "@/types";
+import { LiveGroup as LiveGroupType, LiveCacheData } from "@/types/live";
+import { PublicAudience, PublicAudienceCorrelation } from "@/types/audience";
+import { 
+  fetchPublicAudiences, 
+  createPublicAudience, 
+  deletePublicAudience, 
+  generateAudienceCorrelation 
+} from "@/utils/audienceService";
 import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -37,6 +44,12 @@ const SalesByGroup = () => {
     canFetchMetaAgain
   } = useLiveLocalStorageCache({ liveId: liveId || '' });
 
+  // Estado para integração Meta
+  const [metaIntegration, setMetaIntegration] = useState<{
+    account_id: string;
+    access_token: string;
+  } | null>(null);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [publicoFilter, setPublicoFilter] = useState("all");
   const [sortField, setSortField] = useState<string | null>(null);
@@ -52,26 +65,15 @@ const SalesByGroup = () => {
   const [uploadStatus, setUploadStatus] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Audiences configuration state
-  const [audiences, setAudiences] = useState([
-    {
-      id: 1,
-      name: "Público Quente",
-      campaignTerm: "quente",
-      groupEmoji: "⭐"
-    },
-    {
-      id: 2,
-      name: "Público Frio", 
-      campaignTerm: "frio",
-      groupEmoji: "❤️"
-    }
-  ]);
+  // Public Audiences state
+  const [publicAudiences, setPublicAudiences] = useState<PublicAudience[]>([]);
+  const [audienceCorrelations, setAudienceCorrelations] = useState<PublicAudienceCorrelation[]>([]);
   const [newAudience, setNewAudience] = useState({
-    name: "",
-    campaignTerm: "",
-    groupEmoji: ""
+    title: "",
+    campaign_term: "",
+    emoji: ""
   });
+  const [isCreatingAudience, setIsCreatingAudience] = useState(false);
 
   // Fetch Live-specific data from Supabase (agora usa cache principalmente)
   const fetchData = async () => {
@@ -111,6 +113,12 @@ const SalesByGroup = () => {
         }
       }
 
+      // Buscar integração Meta
+      await fetchMetaIntegration();
+
+      // Buscar públicos da Live
+      await fetchPublicAudiencesData();
+
     } catch (error) {
       console.error('Error fetching data:', error);
       navigate('/lives');
@@ -119,9 +127,91 @@ const SalesByGroup = () => {
     }
   };
 
+  // Buscar integração Meta
+  const fetchMetaIntegration = async () => {
+    if (!userId) return;
+
+    try {
+      const { data: metaIntegrationData, error } = await supabase
+        .from('meta_integrations')
+        .select('access_token')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .single();
+
+      if (error || !metaIntegrationData?.access_token) {
+        console.warn('Meta integration não encontrada');
+        return;
+      }
+
+      // Buscar account_id das campanhas da Live
+      const { data: liveCampaigns } = await supabase
+        .from('live_campaigns')
+        .select('account_id')
+        .eq('live_id', liveId)
+        .limit(1);
+
+      if (liveCampaigns && liveCampaigns.length > 0) {
+        setMetaIntegration({
+          account_id: liveCampaigns[0].account_id || '',
+          access_token: metaIntegrationData.access_token
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao buscar integração Meta:', error);
+    }
+  };
+
+  // Buscar públicos da Live
+  const fetchPublicAudiencesData = async () => {
+    if (!liveId) return;
+
+    try {
+      const audiences = await fetchPublicAudiences(liveId);
+      setPublicAudiences(audiences);
+      
+      // Gerar correlações para cada público
+      if (audiences.length > 0 && metaIntegration) {
+        await generateAllCorrelations(audiences);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar públicos:', error);
+    }
+  };
+
+  // Gerar correlações para todos os públicos
+  const generateAllCorrelations = async (audiences: PublicAudience[]) => {
+    if (!metaIntegration?.account_id || !metaIntegration?.access_token) {
+      console.warn('Meta integration não disponível para gerar correlações');
+      return;
+    }
+
+    try {
+      const correlations = await Promise.all(
+        audiences.map(audience => 
+          generateAudienceCorrelation(
+            audience,
+            metaIntegration!.account_id,
+            metaIntegration!.access_token,
+            {
+              since: live?.insights_date_since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              until: live?.insights_date_until || new Date().toISOString().split('T')[0]
+            }
+          )
+        )
+      );
+      
+      setAudienceCorrelations(correlations);
+    } catch (error) {
+      console.error('Erro ao gerar correlações:', error);
+    }
+  };
+
   useEffect(() => {
-    fetchData();
-  }, [liveId]);
+    if (liveId) {
+      fetchData();
+    }
+  }, [liveId, userId]);
 
   // Atualizar grupos quando cache mudar
   useEffect(() => {
@@ -179,49 +269,65 @@ const SalesByGroup = () => {
   });
 
   // Functions for audience management
-  const addAudience = () => {
-    if (newAudience.name && newAudience.campaignTerm && newAudience.groupEmoji) {
-      setAudiences([
-        ...audiences,
-        {
-          id: Date.now(),
-          name: newAudience.name,
-          campaignTerm: newAudience.campaignTerm.replace(/\s+/g, ''),
-          groupEmoji: newAudience.groupEmoji
-        }
-      ]);
-      setNewAudience({ name: "", campaignTerm: "", groupEmoji: "" });
+  const addAudience = async () => {
+    if (!newAudience.title || !newAudience.campaign_term || !newAudience.emoji || !liveId) {
+      return;
+    }
+
+    setIsCreatingAudience(true);
+    try {
+      const createdAudience = await createPublicAudience(liveId, {
+        title: newAudience.title,
+        campaign_term: newAudience.campaign_term.replace(/\s+/g, ''),
+        emoji: newAudience.emoji
+      });
+
+      setPublicAudiences(prev => [createdAudience, ...prev]);
+      setNewAudience({ title: "", campaign_term: "", emoji: "" });
+
+      // Gerar correlação para o novo público
+      if (metaIntegration) {
+        const correlation = await generateAudienceCorrelation(
+          createdAudience,
+          metaIntegration.account_id,
+          metaIntegration.access_token,
+          {
+            since: live?.insights_date_since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            until: live?.insights_date_until || new Date().toISOString().split('T')[0]
+          }
+        );
+        setAudienceCorrelations(prev => [correlation, ...prev]);
+      }
+    } catch (error) {
+      console.error('Erro ao criar público:', error);
+    } finally {
+      setIsCreatingAudience(false);
     }
   };
 
-  const removeAudience = (id: number) => {
-    setAudiences(audiences.filter(a => a.id !== id));
+  const removeAudience = async (audienceId: string) => {
+    try {
+      await deletePublicAudience(audienceId);
+      setPublicAudiences(prev => prev.filter(a => a.id !== audienceId));
+      setAudienceCorrelations(prev => prev.filter(c => c.id !== audienceId));
+    } catch (error) {
+      console.error('Erro ao deletar público:', error);
+    }
   };
 
-  // Generate correlation data from audiences and live groups
-  const correlationData = audiences.map(audience => {
-    // Find groups that match this audience's term in their name (case insensitive)
-    const matchingGroups = liveGroups.filter(group => 
-      group.group_name.toLowerCase().includes(audience.campaignTerm.toLowerCase())
-    );
-    
-    const groupEntradas = matchingGroups.reduce((sum, group) => sum + group.group_size, 0);
-    const groupSaidas = 0; // TODO: Implement exit tracking
-    const groupAtivos = groupEntradas - groupSaidas;
-
-    return {
-      id: audience.id,
-      audienceName: audience.name,
-      campaignTerm: audience.campaignTerm,
-      groupEmoji: audience.groupEmoji,
-      trafficLeads: 0, // TODO: Get from Meta insights
-      trafficInvestment: 0, // TODO: Get from Meta insights
-      trafficCPL: 0, // TODO: Calculate from Meta insights
-      groupEntradas,
-      groupSaidas,
-      groupAtivos
-    };
-  });
+  // Generate correlation data from audience correlations
+  const correlationData = audienceCorrelations.map(correlation => ({
+    id: correlation.id,
+    audienceName: correlation.title,
+    campaignTerm: correlation.campaign_term,
+    groupEmoji: correlation.emoji,
+    trafficLeads: correlation.metrics.totalLeads,
+    trafficInvestment: correlation.metrics.totalSpend,
+    trafficCPL: correlation.metrics.cplMeta,
+    groupEntradas: correlation.metrics.groupEntradas,
+    groupSaidas: correlation.metrics.groupSaidas,
+    groupAtivos: correlation.metrics.groupAtivos
+  }));
 
   // Sales upload functionality
   const handleSalesUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -481,28 +587,31 @@ const SalesByGroup = () => {
                     <td className="p-3">
                       <Input
                         placeholder="Nome do público"
-                        value={newAudience.name}
-                        onChange={(e) => setNewAudience({ ...newAudience, name: e.target.value })}
+                        value={newAudience.title}
+                        onChange={(e) => setNewAudience({ ...newAudience, title: e.target.value })}
                         className="h-8"
+                        disabled={isCreatingAudience}
                       />
                     </td>
                     <td className="p-3">
                       <Input
                         placeholder="termo"
-                        value={newAudience.campaignTerm}
+                        value={newAudience.campaign_term}
                         onChange={(e) => {
                           const value = e.target.value.replace(/\s+/g, '');
-                          setNewAudience({ ...newAudience, campaignTerm: value });
+                          setNewAudience({ ...newAudience, campaign_term: value });
                         }}
                         className="h-8"
+                        disabled={isCreatingAudience}
                       />
                     </td>
                     <td className="p-3">
                       <Input
                         placeholder="emoji"
-                        value={newAudience.groupEmoji}
-                        onChange={(e) => setNewAudience({ ...newAudience, groupEmoji: e.target.value })}
+                        value={newAudience.emoji}
+                        onChange={(e) => setNewAudience({ ...newAudience, emoji: e.target.value })}
                         className="h-8 text-center"
+                        disabled={isCreatingAudience}
                       />
                     </td>
                     <td className="p-3 text-center text-muted-foreground">-</td>
@@ -512,7 +621,12 @@ const SalesByGroup = () => {
                     <td className="p-3 text-center text-muted-foreground">-</td>
                     <td className="p-3 text-center text-muted-foreground">-</td>
                     <td className="p-3 text-center">
-                      <Button onClick={addAudience} size="sm" className="h-8">
+                      <Button 
+                        onClick={addAudience} 
+                        size="sm" 
+                        className="h-8"
+                        disabled={isCreatingAudience || !newAudience.title || !newAudience.campaign_term || !newAudience.emoji}
+                      >
                         <Plus className="h-4 w-4" />
                       </Button>
                     </td>
