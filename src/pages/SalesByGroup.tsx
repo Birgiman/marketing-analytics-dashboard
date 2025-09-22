@@ -209,7 +209,8 @@ const SalesByGroup = () => {
       } else {
         console.log('⚠️ [SalesByGroup] Não foi possível gerar correlações:', {
           audiencesLength: audiences.length,
-          hasMetaIntegration: !!metaIntegration
+          hasMetaIntegration: !!metaIntegration,
+          metaIntegration: metaIntegration
         });
       }
     } catch (error) {
@@ -225,6 +226,7 @@ const SalesByGroup = () => {
     }
 
     try {
+      console.log('🔄 [SalesByGroup] Iniciando geração de correlações para', audiences.length, 'públicos');
       const correlations = await Promise.all(
         audiences.map(audience => 
           generateAudienceCorrelation(
@@ -239,9 +241,10 @@ const SalesByGroup = () => {
         )
       );
       
+      console.log('✅ [SalesByGroup] Correlações geradas:', correlations.length, correlations);
       setAudienceCorrelations(correlations);
     } catch (error) {
-      console.error('Erro ao gerar correlações:', error);
+      console.error('❌ [SalesByGroup] Erro ao gerar correlações:', error);
     }
   };
 
@@ -626,7 +629,7 @@ const SalesByGroup = () => {
         </div>
 
         {/* Tabela Unificada de Públicos */}
-        <Card>
+        <Card style={{ zIndex: 1 }}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5" />
@@ -769,7 +772,7 @@ const SalesByGroup = () => {
                           )}
                         </Button>
                         {showEmojiPicker && (
-                          <div className="absolute top-10 left-0 z-[9999] emoji-picker-container">
+                          <div className="absolute top-10 left-0 z-[2] emoji-picker-container">
                             <EmojiPicker
                               onEmojiClick={(emojiData) => {
                                 setNewAudience({ ...newAudience, emoji: emojiData.emoji });
