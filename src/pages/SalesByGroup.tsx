@@ -16,7 +16,8 @@ import {
   fetchPublicAudiences,
   generateAudienceCorrelation
 } from "@/utils/audienceService";
-import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
+import { fetchMetaCampaignsForLive, MetaCampaign } from "@/utils/metaCampaignsService";
+import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -76,6 +77,14 @@ const SalesByGroup = () => {
   });
   const [isCreatingAudience, setIsCreatingAudience] = useState(false);
 
+  // Meta campaigns for dropdown
+  const [metaCampaigns, setMetaCampaigns] = useState<MetaCampaign[]>([]);
+  const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(false);
+
+  // WhatsApp groups for dropdown
+  const [whatsappGroups, setWhatsappGroups] = useState<LiveGroupType[]>([]);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+
   // Fetch Live-specific data from Supabase (agora usa cache principalmente)
   const fetchData = async () => {
     try {
@@ -119,6 +128,12 @@ const SalesByGroup = () => {
 
       // Buscar públicos da Live
       await fetchPublicAudiencesData();
+
+      // Buscar campanhas do Meta para dropdown
+      await fetchMetaCampaignsData();
+
+      // Buscar grupos do WhatsApp para dropdown
+      await fetchWhatsappGroupsData();
 
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -205,6 +220,57 @@ const SalesByGroup = () => {
       setAudienceCorrelations(correlations);
     } catch (error) {
       console.error('Erro ao gerar correlações:', error);
+    }
+  };
+
+  // Buscar campanhas do Meta para dropdown
+  const fetchMetaCampaignsData = async () => {
+    if (!liveId || !userId) return;
+
+    setIsLoadingCampaigns(true);
+    try {
+      const campaigns = await fetchMetaCampaignsForLive(liveId, userId);
+      setMetaCampaigns(campaigns);
+      console.log('✅ [SalesByGroup] Campanhas carregadas para dropdown:', campaigns.length);
+    } catch (error) {
+      console.error('❌ [SalesByGroup] Erro ao buscar campanhas:', error);
+      setMetaCampaigns([]);
+    } finally {
+      setIsLoadingCampaigns(false);
+    }
+  };
+
+  // Buscar grupos do WhatsApp para dropdown
+  const fetchWhatsappGroupsData = async () => {
+    if (!liveId) return;
+
+    setIsLoadingGroups(true);
+    try {
+      // Usar os grupos já carregados do cache
+      if (liveGroups && liveGroups.length > 0) {
+        setWhatsappGroups(liveGroups);
+        console.log('✅ [SalesByGroup] Grupos carregados para dropdown:', liveGroups.length);
+      } else {
+        // Fallback: buscar diretamente do Supabase
+        const { data: groupsResult, error: groupsError } = await supabase
+          .from('live_groups')
+          .select('*')
+          .eq('live_id', liveId)
+          .order('created_at', { ascending: false });
+
+        if (groupsError) {
+          console.error('❌ [SalesByGroup] Erro ao buscar grupos:', groupsError);
+          setWhatsappGroups([]);
+        } else {
+          setWhatsappGroups(groupsResult || []);
+          console.log('✅ [SalesByGroup] Grupos carregados para dropdown (fallback):', groupsResult?.length || 0);
+        }
+      }
+    } catch (error) {
+      console.error('❌ [SalesByGroup] Erro ao buscar grupos:', error);
+      setWhatsappGroups([]);
+    } finally {
+      setIsLoadingGroups(false);
     }
   };
 
@@ -326,6 +392,7 @@ const SalesByGroup = () => {
     trafficLeads: correlation.metrics.totalLeads,
     trafficInvestment: correlation.metrics.totalSpend,
     trafficCPL: correlation.metrics.cplMeta,
+    trafficCPLLiquido: correlation.metrics.cplLiquido,
     groupEntradas: correlation.metrics.groupEntradas,
     groupSaidas: correlation.metrics.groupSaidas,
     groupAtivos: correlation.metrics.groupAtivos
@@ -536,6 +603,7 @@ const SalesByGroup = () => {
                     <th className="text-center p-3 font-medium">Leads Tráfego</th>
                     <th className="text-center p-3 font-medium">Investimento</th>
                     <th className="text-center p-3 font-medium">CPL Meta</th>
+                    <th className="text-center p-3 font-medium">CPL Líquido</th>
                     <th className="text-center p-3 font-medium">Entrou Grupo</th>
                     <th className="text-center p-3 font-medium">Saiu Grupo</th>
                     <th className="text-center p-3 font-medium">Ativos Grupo</th>
@@ -562,6 +630,9 @@ const SalesByGroup = () => {
                       </td>
                       <td className="p-3 text-center font-medium">
                         R$ {row.trafficCPL.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="p-3 text-center font-medium">
+                        R$ {row.trafficCPLLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="p-3 text-center font-medium text-green-600">
                         {row.groupEntradas.toLocaleString()}
@@ -596,26 +667,45 @@ const SalesByGroup = () => {
                       />
                     </td>
                     <td className="p-3">
-                      <Input
-                        placeholder="termo"
+                      <Select
                         value={newAudience.campaign_term}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\s+/g, '');
-                          setNewAudience({ ...newAudience, campaign_term: value });
-                        }}
-                        className="h-8"
-                        disabled={isCreatingAudience}
-                      />
+                        onValueChange={(value) => setNewAudience({ ...newAudience, campaign_term: value })}
+                        disabled={isCreatingAudience || isLoadingCampaigns}
+                      >
+                        <SelectTrigger className="h-8">
+                          <SelectValue placeholder={isLoadingCampaigns ? "Carregando..." : "Selecionar campanha"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {metaCampaigns.map((campaign) => (
+                            <SelectItem key={campaign.id} value={campaign.name}>
+                              {campaign.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </td>
                     <td className="p-3">
-                      <Input
-                        placeholder="emoji"
+                      <Select
                         value={newAudience.emoji}
-                        onChange={(e) => setNewAudience({ ...newAudience, emoji: e.target.value })}
-                        className="h-8 text-center"
-                        disabled={isCreatingAudience}
-                      />
+                        onValueChange={(value) => setNewAudience({ ...newAudience, emoji: value })}
+                        disabled={isCreatingAudience || isLoadingGroups}
+                      >
+                        <SelectTrigger className="h-8">
+                          <SelectValue placeholder={isLoadingGroups ? "Carregando..." : "Selecionar grupo"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {whatsappGroups.map((group) => (
+                            <SelectItem key={group.id} value={group.group_name}>
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">{group.group_name}</span>
+                                <span className="text-xs text-muted-foreground">({group.group_size} membros)</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </td>
+                    <td className="p-3 text-center text-muted-foreground">-</td>
                     <td className="p-3 text-center text-muted-foreground">-</td>
                     <td className="p-3 text-center text-muted-foreground">-</td>
                     <td className="p-3 text-center text-muted-foreground">-</td>
