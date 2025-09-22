@@ -171,61 +171,64 @@ export async function fetchCampaigns(
  * @param options - Opções de busca
  * @returns Array de conjuntos de anúncios com dados da campanha
  */
-export async function fetchAdSets(
+export async function fetchAdSetInsights(
   adAccountId: string,
   accessToken: string,
   options: {
-    limit?: number;
-    status?: string[];
-    campaignIds?: string[];
+    dateRange?: {
+      since: string;
+      until: string;
+    };
+    searchTerm?: string;
   } = {}
-): Promise<MetaAdSet[]> {
+): Promise<MetaInsight[]> {
   const {
-    limit = 1000,
-    status = ['ACTIVE', 'PAUSED'],
-    campaignIds = []
+    dateRange,
+    searchTerm
   } = options;
 
-  // Construir parâmetros da URL
   const params = new URLSearchParams({
-    fields: 'id,name,status,campaign{id,name}',
-    limit: limit.toString(),
+    fields: 'adset_id,adset_name,campaign_id,campaign_name,spend,actions,impressions,clicks,reach',
+    level: 'adset',
     access_token: accessToken
   });
 
-  // Adicionar filtro de status se especificado
-  if (status.length > 0) {
+  // Usar dateRange se fornecido, senão usar last_30d como padrão
+  if (dateRange) {
+    params.append('time_range', JSON.stringify({
+      since: dateRange.since,
+      until: dateRange.until
+    }));
+  } else {
+    params.append('date_preset', 'last_30d');
+  }
+
+  // Adicionar filtro por termo de busca se fornecido
+  if (searchTerm) {
     params.append('filtering', JSON.stringify([{
-      field: 'effective_status',
-      operator: 'IN',
-      value: status
+      field: 'campaign.name',
+      operator: 'CONTAIN',
+      value: searchTerm
     }]));
   }
 
-  // Adicionar filtro de campanhas se especificado
-  if (campaignIds.length > 0) {
-    params.append('filtering', JSON.stringify([{
-      field: 'campaign.id',
-      operator: 'IN',
-      value: campaignIds
-    }]));
-  }
-
-  const url = `${BASE_URL}/${adAccountId}/adsets?${params.toString()}`;
+  const url = `${BASE_URL}/${adAccountId}/insights?${params.toString()}`;
+  console.log('🔍 [MetaAPI] Buscando insights de conjuntos de anúncios:', url);
+  console.log('🔍 [MetaAPI] Parâmetros:', {
+    dateRange,
+    searchTerm,
+    fields: 'adset_id,adset_name,campaign_id,campaign_name,spend,actions,impressions,clicks,reach'
+  });
   
-  console.log('🔍 [MetaAPI] Buscando conjuntos de anúncios:', url);
-
   const response = await fetch(url);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(`Erro ao buscar conjuntos de anúncios: ${response.status} - ${errorData.error?.message || response.statusText}`);
+    throw new Error(`Erro ao buscar insights de conjuntos de anúncios: ${response.status} - ${errorData.error?.message || response.statusText}`);
   }
 
   const data = await response.json();
-  
-  console.log('📊 [MetaAPI] Resposta da API de conjuntos de anúncios:', JSON.stringify(data, null, 2));
-
+  console.log('📊 [MetaAPI] Resposta da API de insights de conjuntos de anúncios:', JSON.stringify(data, null, 2));
   return data.data || [];
 }
 

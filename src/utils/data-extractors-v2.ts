@@ -429,76 +429,47 @@ export function extractCampaignData(
  * @param campaignInsights - Array de insights das campanhas (para cálculos)
  * @returns Array com dados individuais de cada conjunto de anúncios
  */
-export function extractAdSetData(
-  adSets: Array<{
-    id: string;
-    name: string;
-    status: string;
-    campaign: {
-      id: string;
-      name: string;
-    };
-  }>,
-  campaignInsights: Array<{
-    campaign_id: string;
-    campaign_name?: string;
-    insights: MetaInsight[];
-  }> = []
+export function extractAdSetDataFromInsights(
+  adSetInsights: MetaInsight[]
 ): AdSetData[] {
-  // Criar mapa de insights por ad_set_id para cálculos
-  const insightsMap = new Map<string, MetaInsight[]>();
-  
-  campaignInsights.forEach(({ insights }) => {
-    insights.forEach(insight => {
-      const adSetId = insight.ad_set_id;
-      if (adSetId) {
-        if (!insightsMap.has(adSetId)) {
-          insightsMap.set(adSetId, []);
-        }
-        insightsMap.get(adSetId)!.push(insight);
-      }
-    });
+  const adSetMap = new Map<string, AdSetData>();
+
+  adSetInsights.forEach(insight => {
+    const adSetId = insight.ad_set_id;
+    if (!adSetId) return;
+
+    if (!adSetMap.has(adSetId)) {
+      adSetMap.set(adSetId, {
+        ad_set_id: adSetId,
+        ad_set_name: insight.ad_set_name || 'Nome não disponível',
+        ad_set_status: 'ACTIVE', // Status não vem nos insights, assumir ativo
+        campaign_id: insight.campaign_id || '',
+        campaign_name: insight.campaign_name || 'Campanha não disponível',
+        totalSpend: 0,
+        totalResults: 0,
+        totalImpressions: 0,
+        totalClicks: 0,
+        totalReach: 0,
+        cpl: 0,
+        insightsCount: 0
+      });
+    }
+
+    const adSet = adSetMap.get(adSetId)!;
+    adSet.totalSpend += parseFloat(insight.spend || '0');
+    adSet.totalImpressions += parseInt(insight.impressions || '0');
+    adSet.totalClicks += parseInt(insight.clicks || '0');
+    adSet.totalReach += parseInt(insight.reach || '0');
+    adSet.totalResults += extractLeadsFromActions(insight.actions || []);
+    adSet.insightsCount++;
   });
 
-  // Processar cada conjunto de anúncios
-  return adSets.map(adSet => {
-    const insights = insightsMap.get(adSet.id) || [];
-    
-    // Calcular métricas a partir dos insights
-    let totalSpend = 0;
-    let totalResults = 0;
-    let totalImpressions = 0;
-    let totalClicks = 0;
-    let totalReach = 0;
-    let insightsCount = 0;
-
-    insights.forEach(insight => {
-      totalSpend += parseFloat(insight.spend || '0');
-      totalImpressions += parseInt(insight.impressions || '0');
-      totalClicks += parseInt(insight.clicks || '0');
-      totalReach += parseInt(insight.reach || '0');
-      totalResults += extractLeadsFromActions(insight.actions || []);
-      insightsCount++;
-    });
-
-    // Calcular CPL
-    const cpl = totalResults > 0 ? totalSpend / totalResults : 0;
-
-    return {
-      ad_set_id: adSet.id,
-      ad_set_name: adSet.name,
-      ad_set_status: adSet.status,
-      campaign_id: adSet.campaign.id,
-      campaign_name: adSet.campaign.name,
-      totalSpend,
-      totalResults,
-      totalImpressions,
-      totalClicks,
-      totalReach,
-      cpl,
-      insightsCount
-    };
+  // Calcular CPL para cada ad set
+  adSetMap.forEach(adSet => {
+    adSet.cpl = adSet.totalResults > 0 ? adSet.totalSpend / adSet.totalResults : 0;
   });
+
+  return Array.from(adSetMap.values());
 }
 
 /**

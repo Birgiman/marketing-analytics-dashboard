@@ -5,10 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AdSetData, calculateCorrectAverageCPL, CampaignData, extractAdSetData, extractCampaignData } from "@/utils/data-extractors-v2";
+import { AdSetData, calculateCorrectAverageCPL, CampaignData, extractAdSetDataFromInsights, extractCampaignData } from "@/utils/data-extractors-v2";
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
-import { fetchAdSets } from "@/utils/metaApi";
+import { fetchAdSetInsights } from "@/utils/metaApi";
 import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
@@ -215,31 +215,35 @@ const TrafficAnalysis = () => {
         
         if (accountId && completeData.metaIntegration?.access_token) {
           try {
-            console.log('🚀 [TrafficAnalysis] Chamando fetchAdSets...');
+            console.log('🚀 [TrafficAnalysis] Chamando fetchAdSetInsights...');
             console.log('🔍 [TrafficAnalysis] Account ID usado:', accountId, '(Meta:', completeData.metaIntegration?.account_id || 'undefined', 'Fallback:', fallbackAccountId || 'undefined', ')');
-            const adSets = await fetchAdSets(
+            const adSetInsights = await fetchAdSetInsights(
               accountId,
               completeData.metaIntegration.access_token,
               {
-                campaignIds: completeData.liveCampaigns?.map(c => c.id) || []
+                dateRange: {
+                  since: completeData.live?.insights_date_since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                  until: completeData.live?.insights_date_until || new Date().toISOString().split('T')[0]
+                },
+                searchTerm: completeData.live?.campaign_search_term
               }
             );
             
             // Extrair dados individuais por conjunto de anúncios
-            const individualAdSetData = extractAdSetData(adSets, campaignInsights);
+            const individualAdSetData = extractAdSetDataFromInsights(adSetInsights);
             setAdSetData(individualAdSetData);
             
-            console.log('🎯 [TrafficAnalysis] Conjuntos de anúncios da API:', adSets);
+            console.log('🎯 [TrafficAnalysis] Insights de conjuntos de anúncios da API:', adSetInsights);
             console.log('🎯 [TrafficAnalysis] Dados processados por conjunto de anúncios:', individualAdSetData);
           } catch (error) {
             console.error('❌ [TrafficAnalysis] Erro ao buscar conjuntos de anúncios:', error);
             // Fallback para método antigo se a API falhar
-            const individualAdSetData = extractAdSetData([], campaignInsights);
+            const individualAdSetData = extractAdSetDataFromInsights([]);
             setAdSetData(individualAdSetData);
           }
         } else {
           // Fallback para método antigo se não tiver dados da API
-          const individualAdSetData = extractAdSetData([], campaignInsights);
+          const individualAdSetData = extractAdSetDataFromInsights([]);
           setAdSetData(individualAdSetData);
         }
         
@@ -513,31 +517,35 @@ const TrafficAnalysis = () => {
         
         if (accountId && completeData.metaIntegration?.access_token) {
           try {
-            console.log('🚀 [TrafficAnalysis] Chamando fetchAdSets (filtros)...');
+            console.log('🚀 [TrafficAnalysis] Chamando fetchAdSetInsights (filtros)...');
             console.log('🔍 [TrafficAnalysis] Account ID usado (filtros):', accountId, '(Meta:', completeData.metaIntegration?.account_id || 'undefined', 'Fallback:', fallbackAccountId || 'undefined', ')');
-            const adSets = await fetchAdSets(
+            const adSetInsights = await fetchAdSetInsights(
               accountId,
               completeData.metaIntegration.access_token,
               {
-                campaignIds: completeData.liveCampaigns?.map(c => c.id) || []
+                dateRange: {
+                  since: tempStartDate || completeData.live?.insights_date_since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                  until: tempEndDate || completeData.live?.insights_date_until || new Date().toISOString().split('T')[0]
+                },
+                searchTerm: completeData.live?.campaign_search_term
               }
             );
             
             // Extrair dados individuais por conjunto de anúncios
-            const individualAdSetData = extractAdSetData(adSets, campaignInsights);
+            const individualAdSetData = extractAdSetDataFromInsights(adSetInsights);
             setAdSetData(individualAdSetData);
             
-            console.log('🎯 [TrafficAnalysis] Conjuntos de anúncios filtrados da API:', adSets);
+            console.log('🎯 [TrafficAnalysis] Insights de conjuntos de anúncios filtrados da API:', adSetInsights);
             console.log('🎯 [TrafficAnalysis] Dados processados por conjunto de anúncios:', individualAdSetData);
           } catch (error) {
             console.error('❌ [TrafficAnalysis] Erro ao buscar conjuntos de anúncios filtrados:', error);
             // Fallback para método antigo se a API falhar
-            const individualAdSetData = extractAdSetData([], campaignInsights);
+            const individualAdSetData = extractAdSetDataFromInsights([]);
             setAdSetData(individualAdSetData);
           }
         } else {
           // Fallback para método antigo se não tiver dados da API
-          const individualAdSetData = extractAdSetData([], campaignInsights);
+          const individualAdSetData = extractAdSetDataFromInsights([]);
           setAdSetData(individualAdSetData);
         }
         
