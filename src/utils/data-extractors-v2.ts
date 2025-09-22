@@ -331,6 +331,20 @@ export interface CampaignData {
   cpl: number;
 }
 
+export interface AdSetData {
+  ad_set_id: string;
+  ad_set_name: string;
+  campaign_id: string;
+  campaign_name: string;
+  totalSpend: number;
+  totalResults: number;
+  totalImpressions: number;
+  totalClicks: number;
+  totalReach: number;
+  cpl: number;
+  insightsCount: number;
+}
+
 /**
  * Extrai dados individuais de cada campanha
  * @param campaignInsights - Array de insights das campanhas
@@ -405,6 +419,81 @@ export function extractCampaignData(
       cpl
     };
   });
+}
+
+/**
+ * Extrai dados individuais de cada conjunto de anúncios (Ad Set)
+ * @param campaignInsights - Array de insights das campanhas
+ * @param allUserCampaigns - Array com todas as campanhas do usuário (opcional)
+ * @returns Array com dados individuais de cada conjunto de anúncios
+ */
+export function extractAdSetData(
+  campaignInsights: Array<{
+    campaign_id: string;
+    campaign_name?: string;
+    insights: MetaInsight[];
+  }>,
+  allUserCampaigns?: Array<{
+    id: string;
+    name: string;
+    status: string;
+  }>
+): AdSetData[] {
+  const adSetMap = new Map<string, AdSetData>();
+
+  campaignInsights.forEach(({ campaign_id, campaign_name, insights }) => {
+    // Obter nome da campanha
+    let actualCampaignName = campaign_name;
+    if (!actualCampaignName && allUserCampaigns) {
+      const campaignFromUser = allUserCampaigns.find(c => c.id === campaign_id);
+      if (campaignFromUser) {
+        actualCampaignName = campaignFromUser.name;
+      }
+    }
+    if (!actualCampaignName) {
+      actualCampaignName = `Campanha ${campaign_id}`;
+    }
+
+    insights.forEach(insight => {
+      // Usar ad_set_name se disponível, senão usar campaign_name como fallback
+      const adSetName = insight.ad_set_name || insight.campaign_name || `Conjunto ${campaign_id}`;
+      const adSetId = insight.ad_set_id || `${campaign_id}_${adSetName}`;
+
+      // Se já existe este conjunto de anúncios, somar os valores
+      if (adSetMap.has(adSetId)) {
+        const existing = adSetMap.get(adSetId)!;
+        existing.totalSpend += parseFloat(insight.spend || '0');
+        existing.totalImpressions += parseInt(insight.impressions || '0');
+        existing.totalClicks += parseInt(insight.clicks || '0');
+        existing.totalReach += parseInt(insight.reach || '0');
+        existing.totalResults += extractLeadsFromActions(insight.actions || []);
+        existing.insightsCount++;
+      } else {
+        // Criar novo conjunto de anúncios
+        adSetMap.set(adSetId, {
+          ad_set_id: adSetId,
+          ad_set_name: adSetName,
+          campaign_id,
+          campaign_name: actualCampaignName,
+          totalSpend: parseFloat(insight.spend || '0'),
+          totalImpressions: parseInt(insight.impressions || '0'),
+          totalClicks: parseInt(insight.clicks || '0'),
+          totalReach: parseInt(insight.reach || '0'),
+          totalResults: extractLeadsFromActions(insight.actions || []),
+          insightsCount: 1,
+          cpl: 0 // Será calculado depois
+        });
+      }
+    });
+  });
+
+  // Calcular CPL para cada conjunto de anúncios
+  const adSetData = Array.from(adSetMap.values()).map(adSet => ({
+    ...adSet,
+    cpl: adSet.totalResults > 0 ? adSet.totalSpend / adSet.totalResults : 0
+  }));
+
+  return adSetData;
 }
 
 /**

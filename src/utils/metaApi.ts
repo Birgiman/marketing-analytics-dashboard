@@ -61,6 +61,7 @@ export interface MetaInsight {
   campaign_name?: string;
   campaign_id?: string;
   ad_set_name?: string;
+  ad_set_id?: string;
   ad_name?: string;
 }
 

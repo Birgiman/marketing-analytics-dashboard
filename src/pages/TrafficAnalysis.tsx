@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { calculateCorrectAverageCPL, CampaignData, extractCampaignData } from "@/utils/data-extractors-v2";
+import { calculateCorrectAverageCPL, CampaignData, AdSetData, extractCampaignData, extractAdSetData } from "@/utils/data-extractors-v2";
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
@@ -88,6 +88,9 @@ const TrafficAnalysis = () => {
   
   // Estados para dados por campanha
   const [campaignData, setCampaignData] = useState<CampaignData[]>([]);
+  
+  // Estados para dados por conjunto de anúncios
+  const [adSetData, setAdSetData] = useState<AdSetData[]>([]);
   
   // Estados para filtros (baseado no exemplo)
   const [sortField, setSortField] = useState<string | null>(null);
@@ -195,7 +198,12 @@ const TrafficAnalysis = () => {
         const individualCampaignData = extractCampaignData(campaignInsights, completeData.allUserCampaigns);
         setCampaignData(individualCampaignData);
         
+        // Extrair dados individuais por conjunto de anúncios
+        const individualAdSetData = extractAdSetData(campaignInsights, completeData.allUserCampaigns);
+        setAdSetData(individualAdSetData);
+        
         console.log('🎯 [TrafficAnalysis] Dados por campanha:', individualCampaignData);
+        console.log('🎯 [TrafficAnalysis] Dados por conjunto de anúncios:', individualAdSetData);
         
       } catch (err) {
         console.error('❌ [TrafficAnalysis] Erro ao carregar dados:', err);
@@ -313,8 +321,8 @@ const TrafficAnalysis = () => {
   const tableData = calculateDailyData();
   const totals = calculateTotals();
   
-  // Calcular CPL médio correto para a tabela de campanhas
-  const correctAverageCPL = calculateCorrectAverageCPL(campaignData);
+  // Calcular CPL médio correto para a tabela de conjuntos de anúncios
+  const correctAverageCPL = calculateCorrectAverageCPL(adSetData);
 
   // Filtrar dados por data
   const filterDataByDate = (data: Array<{
@@ -442,7 +450,12 @@ const TrafficAnalysis = () => {
         const individualCampaignData = extractCampaignData(campaignInsights, completeData.allUserCampaigns);
         setCampaignData(individualCampaignData);
         
+        // Recalcular dados por conjunto de anúncios
+        const individualAdSetData = extractAdSetData(campaignInsights, completeData.allUserCampaigns);
+        setAdSetData(individualAdSetData);
+        
         console.log('🎯 [TrafficAnalysis] Dados filtrados por campanha:', individualCampaignData);
+        console.log('🎯 [TrafficAnalysis] Dados filtrados por conjunto de anúncios:', individualAdSetData);
       }
       
     } catch (err) {
@@ -806,12 +819,12 @@ const TrafficAnalysis = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-                {campaignData.sort((a, b) => {
+                {adSetData.sort((a, b) => {
                   if (!sortField) return 0;
                   
                   if (sortField === 'ad_set_name') {
-                    const aValue = a.campaign_name || '';
-                    const bValue = b.campaign_name || '';
+                    const aValue = a.ad_set_name || '';
+                    const bValue = b.ad_set_name || '';
                     return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
                   }
                   
@@ -828,25 +841,25 @@ const TrafficAnalysis = () => {
                   }
                   
                   return 0;
-                }).map((campaign, index) => (
-                  <TableRow key={campaign.campaign_id}>
+                }).map((adSet, index) => (
+                  <TableRow key={adSet.ad_set_id}>
                   <TableCell>
                     <div>
-                        <div className="font-semibold">{campaign.ad_set_name || campaign.campaign_name}</div>
-                        <div className="text-xs text-muted-foreground">{campaign.campaign_name}</div>
+                        <div className="font-semibold">{adSet.ad_set_name}</div>
+                        <div className="text-xs text-muted-foreground">{adSet.campaign_name}</div>
                     </div>
                   </TableCell>
-                    <TableCell className="text-center font-medium">{campaign.totalResults.toLocaleString('pt-BR')}</TableCell>
-                    <TableCell className="text-center font-medium">R$ {campaign.totalSpend.toFixed(2).replace('.', ',')}</TableCell>
+                    <TableCell className="text-center font-medium">{adSet.totalResults.toLocaleString('pt-BR')}</TableCell>
+                    <TableCell className="text-center font-medium">R$ {adSet.totalSpend.toFixed(2).replace('.', ',')}</TableCell>
                   <TableCell className="text-center font-medium">
-                      R$ {campaign.cpl.toFixed(2).replace('.', ',')}
+                      R$ {adSet.cpl.toFixed(2).replace('.', ',')}
                   </TableCell>
                   <TableCell className="text-center">
                       <span className="text-xs text-muted-foreground">Sem link</span>
                   </TableCell>
                 </TableRow>
               ))}
-                {campaignData.length === 0 && (
+                {adSetData.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground">
                       {isLoading ? 'Carregando dados...' : 'Nenhum conjunto de anúncios encontrado'}
