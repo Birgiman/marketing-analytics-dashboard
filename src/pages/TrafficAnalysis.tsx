@@ -115,7 +115,7 @@ const TrafficAnalysis = () => {
     // { value: 'NA', label: 'Nacional' },
     // { value: 'NAB', label: 'Nacional Teste' }
   ];
-  
+
   // Fechar dropdown ao clicar fora
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -247,6 +247,7 @@ const TrafficAnalysis = () => {
     
     fetchData();
   }, [liveId]);
+  
   
   // Usar métricas V2 calculadas
   const cplLiquido = metricsV2?.cplLiquido || 0;

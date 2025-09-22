@@ -74,10 +74,26 @@ body {
   }
 }
 
+/* Animação customizada para o emoji picker */
+@keyframes slideInFromTop {
+  0% {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 .animate-slide-in {
   animation: slideInFromLeft 1s ease-out;
 }
 
 .animate-slide-in-bottom {
   animation: slideInFromBottom 1s ease-out;
+}
+
+.animate-slide-in-top {
+  animation: slideInFromTop 0.7s ease-out;
 }

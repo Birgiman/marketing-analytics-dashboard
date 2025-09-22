@@ -746,7 +746,7 @@ const SalesByGroup = () => {
                   ))}
                   {/* Add new audience row */}
                   <tr className="border-b bg-muted/30">
-                    <td className="p-3">
+                    <td className={`p-3 ${showEmojiPicker ? 'align-top' : 'align-middle'}`}>
                       <Input
                         placeholder="Nome do público"
                         value={newAudience.title}
@@ -755,7 +755,7 @@ const SalesByGroup = () => {
                         disabled={isCreatingAudience}
                       />
                     </td>
-                    <td className="p-3">
+                    <td className={`p-3 ${showEmojiPicker ? 'align-top' : 'align-middle'}`}>
                       <Select
                         value={newAudience.campaign_term}
                         onValueChange={(value) => setNewAudience({ ...newAudience, campaign_term: value })}
@@ -773,13 +773,13 @@ const SalesByGroup = () => {
                         </SelectContent>
                       </Select>
                     </td>
-                    <td className="p-3">
+                    <td className={`p-3 ${showEmojiPicker ? 'align-top' : 'align-middle'}`}>
                       <div className="space-y-2">
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-8 w-full justify-start"
+                          className={`h-8 w-full ${newAudience.emoji ? 'justify-center' : 'justify-start'}`}
                           onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                           disabled={isCreatingAudience}
                         >
@@ -790,7 +790,7 @@ const SalesByGroup = () => {
                           )}
                         </Button>
                         {showEmojiPicker && (
-                          <div className="emoji-picker-container">
+                          <div className="emoji-picker-container animate-slide-in-top">
                             <EmojiPicker
                               onEmojiClick={(emojiData) => {
                                 setNewAudience({ ...newAudience, emoji: emojiData.emoji });
@@ -800,19 +800,23 @@ const SalesByGroup = () => {
                               skinTonesDisabled={false}
                               width={300}
                               height={400}
+                              searchPlaceholder="Pesquisar emojis..."
+                              previewConfig={{
+                                showPreview: false
+                              }}
                             />
                           </div>
                         )}
                       </div>
                     </td>
-                    <td className="p-3 text-center text-muted-foreground">-</td>
-                    <td className="p-3 text-center text-muted-foreground">-</td>
-                    <td className="p-3 text-center text-muted-foreground">-</td>
-                    <td className="p-3 text-center text-muted-foreground">-</td>
-                    <td className="p-3 text-center text-muted-foreground">-</td>
-                    <td className="p-3 text-center text-muted-foreground">-</td>
-                    <td className="p-3 text-center text-muted-foreground">-</td>
-                    <td className="p-3 text-center">
+                    <td className={`p-3 text-center text-muted-foreground ${showEmojiPicker ? 'align-top' : 'align-middle'}`}>-</td>
+                    <td className={`p-3 text-center text-muted-foreground ${showEmojiPicker ? 'align-top' : 'align-middle'}`}>-</td>
+                    <td className={`p-3 text-center text-muted-foreground ${showEmojiPicker ? 'align-top' : 'align-middle'}`}>-</td>
+                    <td className={`p-3 text-center text-muted-foreground ${showEmojiPicker ? 'align-top' : 'align-middle'}`}>-</td>
+                    <td className={`p-3 text-center text-muted-foreground ${showEmojiPicker ? 'align-top' : 'align-middle'}`}>-</td>
+                    <td className={`p-3 text-center text-muted-foreground ${showEmojiPicker ? 'align-top' : 'align-middle'}`}>-</td>
+                    <td className={`p-3 text-center text-muted-foreground ${showEmojiPicker ? 'align-top' : 'align-middle'}`}>-</td>
+                    <td className={`p-3 text-center ${showEmojiPicker ? 'align-top' : 'align-middle'}`}>
                       <Button 
                         onClick={addAudience} 
                         size="sm" 

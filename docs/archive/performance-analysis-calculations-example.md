@@ -167,6 +167,33 @@ Para replicar em outros projetos:
 
 4. **Adapte os indicadores visuais** (cores, barras de progresso) conforme necessário
 
+## 🚧 Funcionalidades Pendentes
+
+### Filtro de Públicos por Estado
+
+**Status**: ⏳ **PENDENTE** - Implementação futura
+
+**Descrição**: Filtro dinâmico para análise de tráfego por estados/regiões específicas.
+
+**Funcionalidade Planejada**:
+- Extrair estados únicos dos nomes das campanhas
+- Criar dropdown com opções de estados (ex: Espírito Santo, Maceió, Brasília, Nacional)
+- Filtrar dados de conjuntos de anúncios por estado selecionado
+- Concatenar termo de busca base com termo do estado para requisições à API Meta
+
+**Implementação Técnica**:
+- Utilizar `extractAndFormatCampaignTerm` para extrair estados das campanhas
+- Modificar `getSearchTermForRequest` para concatenar termos
+- Atualizar requisições à API Meta com filtro dinâmico
+- Manter compatibilidade com filtro "Todos os Públicos"
+
+**Arquivos Envolvidos**:
+- `src/pages/TrafficAnalysis.tsx` - Interface do filtro
+- `src/utils/campaignTermExtractor.ts` - Extração de termos
+- `src/utils/metaApi.ts` - Requisições filtradas
+
+**Nota**: Implementação foi revertida devido a problemas de loop infinito. Será reimplementada com melhor controle de dependências.
+
 ---
 
 *Este documento serve como referência técnica para implementação dos mesmos cálculos em diferentes sistemas e fontes de dados.*
