@@ -1,4 +1,3 @@
-import { AudienceTestComponent } from "@/components/AudienceTestComponent";
 import Header from "@/components/Header";
 import { MetricCard } from "@/components/MetricCard";
 import { Badge } from "@/components/ui/badge";
@@ -729,13 +728,6 @@ const SalesByGroup = () => {
           </CardContent>
         </Card>
 
-        {/* Componente de Teste - Remover em produção */}
-        {process.env.NODE_ENV === 'development' && (
-          <AudienceTestComponent 
-            liveId={liveId || ''} 
-            metaIntegration={metaIntegration || undefined}
-          />
-        )}
 
         {/* Tabela Principal de Grupos */}
         <Card>
