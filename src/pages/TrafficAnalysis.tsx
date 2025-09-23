@@ -213,6 +213,7 @@ const TrafficAnalysis = () => {
   const fetchTrafficDataWithCache = useCallback(async () => {
     if (!liveId) return;
 
+    console.log('🔍 [TrafficAnalysis Debug] fetchTrafficDataWithCache iniciado para liveId:', liveId);
     setCacheStatus(prev => ({ ...prev, isLoading: true }));
     setIsLoading(true);
     
@@ -273,6 +274,15 @@ const TrafficAnalysis = () => {
         
         // Usar dados do cache
         if (live.cached_traffic_data) {
+          console.log('🔍 [TrafficAnalysis Debug] Cache encontrado:', {
+            hasGroups: !!(live.cached_traffic_data.groups),
+            groupsCount: live.cached_traffic_data.groups?.length || 0,
+            hasCampaigns: !!(live.cached_traffic_data.campaigns),
+            campaignsCount: live.cached_traffic_data.campaigns?.length || 0,
+            hasCampaignsWithInsights: !!(live.cached_traffic_data.campaignsWithInsights),
+            campaignsWithInsightsCount: live.cached_traffic_data.campaignsWithInsights?.length || 0
+          });
+          
           setGroups(live.cached_traffic_data.groups || []);
           setCampaigns(live.cached_traffic_data.campaigns || []);
           setCampaignsWithInsights(live.cached_traffic_data.campaignsWithInsights || []);
@@ -301,12 +311,18 @@ const TrafficAnalysis = () => {
       
       const completeData = await fetchCompleteLiveData(liveId);
       
-      console.log('🔍 [TrafficAnalysis Cache] Dados completos retornados:', {
+      console.log('🔍 [TrafficAnalysis Debug] Dados completos retornados:', {
         hasLive: !!completeData.live,
         hasMetaIntegration: !!completeData.metaIntegration,
         metaIntegration: completeData.metaIntegration,
         hasLiveCampaigns: !!completeData.liveCampaigns,
-        liveCampaignsLength: completeData.liveCampaigns?.length || 0
+        liveCampaignsLength: completeData.liveCampaigns?.length || 0,
+        hasCampaignInsights: !!completeData.campaignInsights,
+        campaignInsightsLength: completeData.campaignInsights?.length || 0,
+        campaignInsightsDetails: completeData.campaignInsights?.map(ci => ({
+          campaign_id: ci.campaign_id,
+          insightsCount: ci.insights?.length || 0
+        })) || []
       });
       
       // Atualizar estados com dados frescos
