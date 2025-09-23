@@ -15,9 +15,11 @@ import Groups from "./pages/Groups";
 import Integrations from "./pages/Integrations";
 import Leads from "./pages/Leads";
 import NotFound from "./pages/NotFound";
+import PrivacyPage from "./pages/PrivacyPage";
 import Profile from "./pages/Profile";
 import ResearchInsights from "./pages/ResearchInsights";
 import SalesByGroup from "./pages/SalesByGroup";
+import TermsPage from "./pages/TermsPage";
 import TrafficAnalysis from "./pages/TrafficAnalysis";
 import AccountDisabled from "./pages/auth/AccountDisabled";
 import PendingApproval from "./pages/auth/PendingApproval";
@@ -31,6 +33,7 @@ const queryClient = new QueryClient();
 function AppContent() {
   const location = useLocation();
   const isAuthPage = location.pathname.startsWith('/auth') || location.pathname === '/';
+  const isPublicPage = location.pathname === '/privacy' || location.pathname === '/terms';
   
   if (isAuthPage) {
     return (
@@ -42,6 +45,16 @@ function AppContent() {
         <Route path="/auth/pending-approval" element={<PendingApproval />} />
         <Route path="/auth/account-disabled" element={<AccountDisabled />} />
         <Route path="/auth/seed-test-user" element={<SeedTestUser />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    );
+  }
+
+  if (isPublicPage) {
+    return (
+      <Routes>
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     );

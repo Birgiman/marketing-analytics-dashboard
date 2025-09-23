@@ -8,7 +8,9 @@ import {
   Zap, 
   Settings, 
   LogOut,
-  User
+  User,
+  Shield,
+  FileText
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useWhatsAppConnection } from "@/hooks/useWhatsAppConnection";
@@ -185,6 +187,22 @@ export function AppSidebar() {
 
       <SidebarFooter className="p-4 border-t border-sidebar-border">
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <NavLink to="/privacy" className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+                <Shield className="w-4 h-4" />
+                <span>Política de Privacidade</span>
+              </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <NavLink to="/terms" className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+                <FileText className="w-4 h-4" />
+                <span>Termos de Uso</span>
+              </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
              <SidebarMenuButton onClick={handleSignOut} className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
                <LogOut className="w-4 h-4" />
