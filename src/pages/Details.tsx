@@ -285,6 +285,15 @@ const Details = () => {
         lastSynced: new Date().toISOString()
       }));
 
+      // Log dos valores DEPOIS da atualização
+      console.log('📊 [Details Cache] Valores DEPOIS da atualização:', {
+        cplLiquido: result.metrics.cplLiquido,
+        cplMeta: result.metrics.cplMeta,
+        retentionRate: result.metrics.retentionRate,
+        totalSpend: result.extractedData.metaData.totalSpend,
+        totalResults: result.extractedData.metaData.totalResults
+      });
+
       console.log('✅ [Details Cache] Métricas calculadas e cache atualizado');
 
     } catch (error) {
@@ -330,6 +339,14 @@ const Details = () => {
         isLoading: false,
         fromCache: false,
         needsRefresh: false,
+        lastSynced: new Date().toISOString()
+      });
+      
+      // Log dos valores DEPOIS do refresh forçado
+      console.log('📊 [Details Cache] Valores DEPOIS do refresh forçado:', {
+        cplLiquido: metricsV2?.cplLiquido,
+        cplMeta: metricsV2?.cplMeta,
+        retentionRate: metricsV2?.retentionRate,
         lastSynced: new Date().toISOString()
       });
       
