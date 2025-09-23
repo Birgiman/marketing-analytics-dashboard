@@ -218,10 +218,20 @@ export async function fetchAdSetInsights(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    console.error('❌ [fetchAdSetInsights] Erro na resposta:', {
+      status: response.status,
+      statusText: response.statusText,
+      errorData
+    });
     throw new Error(`Erro ao buscar insights de conjuntos de anúncios: ${response.status} - ${errorData.error?.message || response.statusText}`);
   }
 
   const data = await response.json();
+  console.log('🔍 [fetchAdSetInsights] Resposta da API:', {
+    dataLength: data.data?.length || 0,
+    firstItem: data.data?.[0]
+  });
+  
   return data.data || [];
 }
 

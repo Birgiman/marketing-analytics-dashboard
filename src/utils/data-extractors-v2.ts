@@ -520,7 +520,6 @@ export function extractCampaignData(
 export function extractAdSetDataFromInsights(
   adSetInsights: MetaInsight[]
 ): AdSetData[] {
-
   const adSetMap = new Map<string, AdSetData>();
 
   adSetInsights.forEach((insight, index) => {

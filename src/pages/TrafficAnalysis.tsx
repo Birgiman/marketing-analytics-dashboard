@@ -12,7 +12,7 @@ import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 import { fetchAdSetInsights } from "@/utils/metaApi";
 import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
@@ -150,7 +150,7 @@ const TrafficAnalysis = () => {
   }, [showPublicoDropdown]);
 
   // CACHE SYSTEM - Funções de cache
-  const fetchTrafficDataWithCache = async () => {
+  const fetchTrafficDataWithCache = useCallback(async () => {
     if (!liveId) return;
 
     setCacheStatus(prev => ({ ...prev, isLoading: true }));
@@ -178,6 +178,17 @@ const TrafficAnalysis = () => {
       const lastSynced = live.traffic_last_synced_at ? new Date(live.traffic_last_synced_at) : null;
       const CACHE_DURATION_MINUTES = 30;
       const isCacheValid = lastSynced && (now.getTime() - lastSynced.getTime()) < CACHE_DURATION_MINUTES * 60 * 1000;
+      
+      console.log('🔍 [TrafficAnalysis Cache] Verificação de cache:', {
+        hasTrafficLastSynced: !!live.traffic_last_synced_at,
+        trafficLastSynced: live.traffic_last_synced_at,
+        lastSynced,
+        now: now.toISOString(),
+        isCacheValid,
+        cacheAge: lastSynced ? now.getTime() - lastSynced.getTime() : 'N/A',
+        cacheAgeMinutes: lastSynced ? Math.round((now.getTime() - lastSynced.getTime()) / (60 * 1000)) : 'N/A',
+        thirtyMinutes: CACHE_DURATION_MINUTES * 60 * 1000
+      });
 
       setCacheStatus({
         isLoading: false,
@@ -189,6 +200,13 @@ const TrafficAnalysis = () => {
       // Se tem cache válido, usar dados do cache
       if (isCacheValid && live.cached_traffic_data) {
         console.log('✅ [TrafficAnalysis Cache] Usando dados do cache');
+        console.log('🔍 [TrafficAnalysis Cache] Cache válido:', {
+          isCacheValid,
+          hasCachedData: !!live.cached_traffic_data,
+          cachedDataKeys: live.cached_traffic_data ? Object.keys(live.cached_traffic_data) : [],
+          hasAdSetData: !!(live.cached_traffic_data?.adSetData),
+          adSetDataLength: live.cached_traffic_data?.adSetData?.length || 0
+        });
         
         // Carregar dados básicos da live
         setLive(live);
@@ -198,6 +216,12 @@ const TrafficAnalysis = () => {
           setGroups(live.cached_traffic_data.groups || []);
           setCampaigns(live.cached_traffic_data.campaigns || []);
           setCampaignsWithInsights(live.cached_traffic_data.campaignsWithInsights || []);
+          
+          // CORRIGIDO: Carregar adSetData do cache se disponível
+          if (live.cached_traffic_data.adSetData) {
+            setAdSetData(live.cached_traffic_data.adSetData);
+            console.log('✅ [TrafficAnalysis Cache] AdSetData carregado do cache:', live.cached_traffic_data.adSetData.length, 'itens');
+          }
         }
         
         // Preencher campos de data com valores padrão da Live
@@ -217,6 +241,14 @@ const TrafficAnalysis = () => {
       
       const completeData = await fetchCompleteLiveData(liveId);
       
+      console.log('🔍 [TrafficAnalysis Cache] Dados completos retornados:', {
+        hasLive: !!completeData.live,
+        hasMetaIntegration: !!completeData.metaIntegration,
+        metaIntegration: completeData.metaIntegration,
+        hasLiveCampaigns: !!completeData.liveCampaigns,
+        liveCampaignsLength: completeData.liveCampaigns?.length || 0
+      });
+      
       // Atualizar estados com dados frescos
       setLive(completeData.live);
       setGroups((completeData.groups || []).map(group => ({
@@ -234,10 +266,73 @@ const TrafficAnalysis = () => {
         setEndDate(completeData.live.insights_date_until);
       }
       
-      console.log('✅ [TrafficAnalysis Cache] Dados frescos carregados, salvando no cache...');
+      console.log('✅ [TrafficAnalysis Cache] Dados frescos carregados, buscando adSetData...');
       
-      // Salvar dados no cache
-      await updateTrafficCache(liveId, completeData);
+      // Buscar dados de conjuntos de anúncios
+      let adSetDataToCache: AdSetData[] = [];
+      try {
+        const fallbackAccountId = completeData.liveCampaigns?.[0]?.account_id;
+        const accountId = completeData.metaIntegration?.account_id || fallbackAccountId;
+        
+        console.log('🔍 [TrafficAnalysis Cache] Verificando condições para buscar adSetInsights:', {
+          hasAccountId: !!accountId,
+          hasAccessToken: !!completeData.metaIntegration?.access_token,
+          accountId,
+          metaIntegration: completeData.metaIntegration,
+          liveCampaigns: completeData.liveCampaigns
+        });
+        
+        if (accountId && completeData.metaIntegration?.access_token) {
+          console.log('🔍 [TrafficAnalysis Cache] Buscando adSetInsights com:', {
+            accountId,
+            dateRange: {
+              since: completeData.live?.insights_date_since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              until: completeData.live?.insights_date_until || new Date().toISOString().split('T')[0]
+            },
+            searchTerm: completeData.live?.campaign_search_term
+          });
+          
+          const adSetInsights = await fetchAdSetInsights(
+            accountId,
+            completeData.metaIntegration.access_token,
+            {
+              dateRange: {
+                since: completeData.live?.insights_date_since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                until: completeData.live?.insights_date_until || new Date().toISOString().split('T')[0]
+              },
+              searchTerm: completeData.live?.campaign_search_term
+            }
+          );
+          
+          console.log('🔍 [TrafficAnalysis Cache] adSetInsights retornado:', {
+            length: adSetInsights.length,
+            firstItem: adSetInsights[0],
+            allData: adSetInsights
+          });
+          
+          adSetDataToCache = extractAdSetDataFromInsights(adSetInsights);
+          console.log('🔍 [TrafficAnalysis Cache] extractAdSetDataFromInsights retornou:', {
+            length: adSetDataToCache.length,
+            firstItem: adSetDataToCache[0],
+            allData: adSetDataToCache
+          });
+          
+          setAdSetData(adSetDataToCache);
+          console.log('✅ [TrafficAnalysis Cache] AdSetData carregado:', adSetDataToCache.length, 'itens');
+        } else {
+          console.warn('⚠️ [TrafficAnalysis Cache] Não foi possível buscar adSetData:', {
+            hasAccountId: !!accountId,
+            hasAccessToken: !!completeData.metaIntegration?.access_token,
+            accountId,
+            metaIntegration: completeData.metaIntegration
+          });
+        }
+      } catch (error) {
+        console.warn('⚠️ [TrafficAnalysis Cache] Erro ao buscar adSetData:', error);
+      }
+      
+      // Salvar dados no cache (incluindo adSetData)
+      await updateTrafficCache(liveId, completeData, adSetDataToCache);
       
       // Atualizar status do cache após salvar
       setCacheStatus({
@@ -253,15 +348,16 @@ const TrafficAnalysis = () => {
       setCacheStatus(prev => ({ ...prev, isLoading: false }));
       setIsLoading(false);
     }
-  };
+  }, [liveId]); // Dependência apenas do liveId
 
   // Função para atualizar cache de tráfego
-  const updateTrafficCache = async (liveId: string, completeData: any) => {
+  const updateTrafficCache = async (liveId: string, completeData: any, adSetDataToCache?: AdSetData[]) => {
     try {
       const trafficData = {
         groups: completeData.groups || [],
         campaigns: completeData.liveCampaigns || [],
-        campaignsWithInsights: completeData.campaignInsights || []
+        campaignsWithInsights: completeData.campaignInsights || [],
+        adSetData: adSetDataToCache || [] // CORRIGIDO: Incluir adSetData no cache
       };
 
       const { error } = await supabase
@@ -323,7 +419,7 @@ const TrafficAnalysis = () => {
     if (liveId) {
       fetchTrafficDataWithCache();
     }
-  }, [liveId]);
+  }, [liveId, fetchTrafficDataWithCache]); // Agora pode incluir fetchTrafficDataWithCache pois está estabilizada com useCallback
   
   
   // Usar métricas do cache ou calcular se necessário
@@ -348,6 +444,9 @@ const TrafficAnalysis = () => {
     cachedMetrics: live?.cached_metrics,
     cachedGroupData: live?.cached_group_data
   });
+
+  // Debug: Log do timezone do servidor
+  console.log('🌍 [TrafficAnalysis] Timezone do servidor:', Intl.DateTimeFormat().resolvedOptions().timeZone);
   
   // Calcular dados diários (baseado no exemplo)
   const calculateDailyData = () => {
@@ -419,6 +518,12 @@ const TrafficAnalysis = () => {
   const calculateTotals = () => {
     const dailyData = calculateDailyData();
     
+    // CORRIGIDO: Calcular totais baseados nos dados da tabela (não dados externos)
+    const totalInvestment = dailyData.reduce((sum, day) => sum + day.investment, 0);
+    const totalLeads = dailyData.reduce((sum, day) => sum + day.cadastros, 0);
+    const totalGroup = dailyData.reduce((sum, day) => sum + day.group, 0);
+    const totalGroupExit = dailyData.reduce((sum, day) => sum + day.groupExit, 0);
+    
     // Calcular médias dos valores que são médias (não somas)
     const cplMetaValues = dailyData.map(day => day.cplMeta).filter(val => val > 0);
     const cplLiquidoValues = dailyData.map(day => day.cplLiquido).filter(val => val > 0);
@@ -429,10 +534,10 @@ const TrafficAnalysis = () => {
     const averageRetention = retentionValues.length > 0 ? retentionValues.reduce((sum, val) => sum + val, 0) / retentionValues.length : 0;
     
     return {
-      totalInvestment: extractedDataV2?.metaData?.totalSpend || 0,
-      totalLeads: extractedDataV2?.metaData?.totalResults || 0,
-      totalGroup: groupData.entrou,
-      totalGroupExit: groupData.saiu,
+      totalInvestment,
+      totalLeads,
+      totalGroup,
+      totalGroupExit,
       averageCplMeta,
       averageCplLiquido,
       averageRetention
@@ -441,6 +546,30 @@ const TrafficAnalysis = () => {
   
   const tableData = calculateDailyData();
   const totals = calculateTotals();
+  
+  // Debug: Testar conversão de data
+  if (tableData.length > 0) {
+    const firstDate = tableData[0].date;
+    console.log('📅 [TrafficAnalysis] Teste de conversão de data:', {
+      original: firstDate,
+      newDate: new Date(firstDate),
+      toLocaleDateString: new Date(firstDate).toLocaleDateString('pt-BR'),
+      formatacaoDireta: firstDate.split('-').reverse().join('/').substring(0, 5)
+    });
+  }
+  
+  // Debug: Verificar cálculos dos totais
+  console.log('🧮 [TrafficAnalysis] Debug dos totais:', {
+    tableDataLength: tableData.length,
+    totalsCalculados: totals,
+    primeirosDados: tableData.slice(0, 3).map(day => ({
+      date: day.date,
+      investment: day.investment,
+      cadastros: day.cadastros,
+      group: day.group,
+      groupExit: day.groupExit
+    }))
+  });
   
   // Calcular CPL médio correto para a tabela de conjuntos de anúncios
   const correctAverageCPL = calculateCorrectAverageCPL(adSetData);
@@ -572,41 +701,9 @@ const TrafficAnalysis = () => {
         const individualCampaignData = extractCampaignData(campaignInsights, completeData.allUserCampaigns);
         setCampaignData(individualCampaignData);
         
-        // Buscar conjuntos de anúncios diretamente da API
-        
-        // Usar fallback para account_id se metaIntegration não tiver
-        const fallbackAccountId = completeData.liveCampaigns?.[0]?.account_id;
-        const accountId = completeData.metaIntegration?.account_id || fallbackAccountId;
-        
-        if (accountId && completeData.metaIntegration?.access_token) {
-          try {
-            const adSetInsights = await fetchAdSetInsights(
-              accountId,
-              completeData.metaIntegration.access_token,
-              {
-                dateRange: {
-                  since: tempStartDate || completeData.live?.insights_date_since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                  until: tempEndDate || completeData.live?.insights_date_until || new Date().toISOString().split('T')[0]
-                },
-                searchTerm: completeData.live?.campaign_search_term
-              }
-            );
-            
-            // Extrair dados individuais por conjunto de anúncios
-            const individualAdSetData = extractAdSetDataFromInsights(adSetInsights);
-            setAdSetData(individualAdSetData);
-            
-          } catch (error) {
-            console.error('❌ [TrafficAnalysis] Erro ao buscar conjuntos de anúncios filtrados:', error);
-            // Fallback para método antigo se a API falhar
-            const individualAdSetData = extractAdSetDataFromInsights([]);
-            setAdSetData(individualAdSetData);
-          }
-        } else {
-          // Fallback para método antigo se não tiver dados da API
-          const individualAdSetData = extractAdSetDataFromInsights([]);
-          setAdSetData(individualAdSetData);
-        }
+        // CORRIGIDO: Não buscar dados do Meta novamente, apenas filtrar os dados já carregados
+        // Os dados de adSetData já estão disponíveis do cache ou carregamento inicial
+        console.log('✅ [TrafficAnalysis] Aplicando filtros sem nova requisição ao Meta');
         
         console.log('🎯 [TrafficAnalysis] Dados filtrados por campanha:', individualCampaignData);
       }
@@ -819,11 +916,8 @@ const TrafficAnalysis = () => {
                 {sortedData.map((day, index) => (
                   <TableRow key={index}>
                       <TableCell className="font-medium">
-                        {new Date(day.date).toLocaleDateString('pt-BR', { 
-                          day: '2-digit', 
-                          month: '2-digit' 
-                      })}
-                    </TableCell>
+                        {day.date.split('-').reverse().join('/').substring(0, 5)}
+                      </TableCell>
                       <TableCell className="text-center font-medium">R$ {day.investment.toLocaleString('pt-BR', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2
@@ -874,10 +968,7 @@ const TrafficAnalysis = () => {
             }} className="h-96 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={[...sortedData].reverse().map(day => ({
-                  dia: new Date(day.date).toLocaleDateString('pt-BR', { 
-                    day: '2-digit', 
-                    month: '2-digit' 
-                  }),
+                  dia: day.date.split('-').reverse().join('/').substring(0, 5),
                   cplMeta: day.cplMeta,
                   cplLiquido: day.cplLiquido
                 }))} margin={{
