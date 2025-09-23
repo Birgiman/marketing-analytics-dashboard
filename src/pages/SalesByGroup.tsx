@@ -30,7 +30,7 @@ import { fetchMetaCampaignsForLive, MetaCampaign } from "@/utils/metaCampaignsSe
 // Public cache removed - functionality integrated into other services
 import { getWhatsAppGroupsLogData } from "@/utils/whatsappGroupsLog";
 import EmojiPicker from 'emoji-picker-react';
-import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, RefreshCw, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -153,6 +153,7 @@ const SalesByGroup = () => {
 
   // Emoji picker state
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [emojiSearchTerm, setEmojiSearchTerm] = useState("");
 
   // Buscar dados com sistema de cache
   const fetchDataWithCache = async () => {
@@ -527,6 +528,38 @@ const SalesByGroup = () => {
     }
   }, [audienceCorrelations, liveGroups.length, updateGroupsWithRealData]);
 
+  // Função para detectar e processar emoji colado
+  const handleEmojiPaste = useCallback((event: ClipboardEvent) => {
+    const pastedText = event.clipboardData?.getData('text');
+    if (pastedText && isEmoji(pastedText)) {
+      event.preventDefault();
+      console.log('🍤 [EmojiPaste] Emoji detectado:', pastedText);
+      setNewAudience(prev => ({ ...prev, emoji: pastedText }));
+      setShowEmojiPicker(false);
+    }
+  }, []);
+
+  // Função para verificar se o texto é um emoji
+  const isEmoji = (text: string): boolean => {
+    // Verificação simples: se o texto tem apenas 1-2 caracteres e não é alfanumérico
+    if (text.length <= 2 && text.length > 0) {
+      // Verificar se contém caracteres Unicode de emoji
+      const codePoint = text.codePointAt(0);
+      if (codePoint) {
+        // Ranges comuns de emojis
+        return (
+          (codePoint >= 0x1F600 && codePoint <= 0x1F64F) || // Emoticons
+          (codePoint >= 0x1F300 && codePoint <= 0x1F5FF) || // Misc Symbols
+          (codePoint >= 0x1F680 && codePoint <= 0x1F6FF) || // Transport
+          (codePoint >= 0x1F1E0 && codePoint <= 0x1F1FF) || // Regional indicators
+          (codePoint >= 0x2600 && codePoint <= 0x26FF) ||   // Misc symbols
+          (codePoint >= 0x2700 && codePoint <= 0x27BF)      // Dingbats
+        );
+      }
+    }
+    return false;
+  };
+
   // Fechar emoji picker ao clicar fora
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -541,6 +574,14 @@ const SalesByGroup = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showEmojiPicker]);
+
+  // Adicionar listener para paste quando emoji picker estiver aberto
+  useEffect(() => {
+    if (showEmojiPicker) {
+      document.addEventListener('paste', handleEmojiPaste);
+      return () => document.removeEventListener('paste', handleEmojiPaste);
+    }
+  }, [showEmojiPicker, handleEmojiPaste]);
 
   // Gerar correlações quando metaIntegration estiver disponível
   useEffect(() => {
@@ -974,20 +1015,38 @@ const SalesByGroup = () => {
                     </td>
                     <td className={`p-3 ${showEmojiPicker ? 'align-top' : 'align-middle'}`}>
                       <div className="space-y-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className={`h-8 w-full ${newAudience.emoji ? 'justify-center' : 'justify-start'}`}
-                          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                          disabled={isCreatingAudience}
-                        >
-                          {newAudience.emoji ? (
-                            <span className="text-lg">{newAudience.emoji}</span>
-                          ) : (
-                            <span className="text-muted-foreground">Selecionar emoji</span>
-                          )}
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className={`h-8 flex-1 ${newAudience.emoji ? 'justify-center' : 'justify-start'}`}
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            disabled={isCreatingAudience}
+                          >
+                            {newAudience.emoji ? (
+                              <span className="text-lg">{newAudience.emoji}</span>
+                            ) : (
+                              <span className="text-muted-foreground">Selecionar emoji</span>
+                            )}
+                          </Button>
+                          <Input
+                            placeholder="🍤"
+                            value={emojiSearchTerm}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setEmojiSearchTerm(value);
+                              // Se o valor for um emoji, usar diretamente
+                              if (isEmoji(value)) {
+                                setNewAudience({ ...newAudience, emoji: value });
+                                setEmojiSearchTerm("");
+                              }
+                            }}
+                            className="h-8 w-12 text-center text-lg"
+                            disabled={isCreatingAudience}
+                            title="Cole um emoji do WhatsApp Web aqui"
+                          />
+                        </div>
                         {showEmojiPicker && (
                           <div className="emoji-picker-container animate-slide-in-top">
                             <EmojiPicker
