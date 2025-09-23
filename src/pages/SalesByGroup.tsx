@@ -30,7 +30,7 @@ import { fetchMetaCampaignsForLive, MetaCampaign } from "@/utils/metaCampaignsSe
 // Public cache removed - functionality integrated into other services
 import { getWhatsAppGroupsLogData } from "@/utils/whatsappGroupsLog";
 import EmojiPicker from 'emoji-picker-react';
-import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -1030,22 +1030,37 @@ const SalesByGroup = () => {
                               <span className="text-muted-foreground">Selecionar emoji</span>
                             )}
                           </Button>
-                          <Input
-                            placeholder="🍤"
-                            value={emojiSearchTerm}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              setEmojiSearchTerm(value);
-                              // Se o valor for um emoji, usar diretamente
-                              if (isEmoji(value)) {
-                                setNewAudience({ ...newAudience, emoji: value });
-                                setEmojiSearchTerm("");
-                              }
-                            }}
-                            className="h-8 w-12 text-center text-lg"
-                            disabled={isCreatingAudience}
-                            title="Cole um emoji do WhatsApp Web aqui"
-                          />
+                          {newAudience.emoji && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => setNewAudience({ ...newAudience, emoji: "" })}
+                              disabled={isCreatingAudience}
+                              title="Limpar emoji"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {!newAudience.emoji && (
+                            <Input
+                              placeholder="Colar"
+                              value={emojiSearchTerm}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setEmojiSearchTerm(value);
+                                // Se o valor for um emoji, usar diretamente
+                                if (isEmoji(value)) {
+                                  setNewAudience({ ...newAudience, emoji: value });
+                                  setEmojiSearchTerm("");
+                                }
+                              }}
+                              className="h-8 w-16 text-center text-sm text-muted-foreground"
+                              disabled={isCreatingAudience}
+                              title="Cole um emoji do WhatsApp Web aqui"
+                            />
+                          )}
                         </div>
                         {showEmojiPicker && (
                           <div className="emoji-picker-container animate-slide-in-top">
