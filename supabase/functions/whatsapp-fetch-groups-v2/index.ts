@@ -253,7 +253,7 @@ serve(async (req: any) => {
     }
 
     // V2 OPTIMIZATION: Enrich data for frontend
-    const processedGroups = (upsertedGroups || []).map(group => ({
+    const processedGroups = (upsertedGroups || []).map((group: any) => ({
       ...group,
       group_participants: group.group_size,
       group_created_formatted: group.group_created_at ? new Date(group.group_created_at).toLocaleDateString('pt-BR') : null,

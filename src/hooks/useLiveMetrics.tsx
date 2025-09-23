@@ -105,7 +105,7 @@ export function useLiveMetrics({
                 totalSpend += parseFloat(insight.spend || '0');
                 
                 if (insight.actions) {
-                  insight.actions.forEach(action => {
+                  insight.actions.forEach((action: any) => {
                     if (action.action_type === 'lead') {
                       totalLeads += parseInt(action.value || '0');
                     }

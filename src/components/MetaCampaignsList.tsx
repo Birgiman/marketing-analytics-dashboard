@@ -94,9 +94,9 @@ export const MetaCampaignsList = ({ creatives, isLoading }: MetaCampaignsListPro
       <CardContent className="space-y-4">
         {Object.entries(groupedCampaigns).map(([campaignName, campaignCreatives]) => {
           // Calcular totais da campanha
-          const totalSpent = campaignCreatives.reduce((sum, c) => sum + (c.amount_spent || 0), 0);
-          const totalLeads = campaignCreatives.reduce((sum, c) => sum + (c.leads || 0), 0);
-          const totalImpressions = campaignCreatives.reduce((sum, c) => sum + (c.impressions || 0), 0);
+          const totalSpent = campaignCreatives.reduce((sum: number, c: any) => sum + (c.amount_spent || 0), 0);
+          const totalLeads = campaignCreatives.reduce((sum: number, c: any) => sum + (c.leads || 0), 0);
+          const totalImpressions = campaignCreatives.reduce((sum: number, c: any) => sum + (c.impressions || 0), 0);
           const avgCPL = totalLeads > 0 ? totalSpent / totalLeads : 0;
 
           return (
@@ -145,7 +145,7 @@ export const MetaCampaignsList = ({ creatives, isLoading }: MetaCampaignsListPro
                   Anúncios ({campaignCreatives.length})
                 </h5>
                 <div className="space-y-1">
-                  {campaignCreatives.slice(0, 3).map((creative, index) => (
+                  {campaignCreatives.slice(0, 3).map((creative: any, index: number) => (
                     <div key={creative.id || index} className="flex items-center justify-between p-2 bg-white border rounded">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">
