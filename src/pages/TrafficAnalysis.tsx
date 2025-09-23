@@ -532,7 +532,13 @@ const TrafficAnalysis = () => {
   
   // Calcular dados diários (baseado no exemplo)
   const calculateDailyData = () => {
+    console.log('🔍 [TrafficAnalysis Debug] calculateDailyData chamada:', {
+      campaignsWithInsights: campaignsWithInsights?.length || 0,
+      hasData: campaignsWithInsights && campaignsWithInsights.length > 0
+    });
+    
     if (!campaignsWithInsights || campaignsWithInsights.length === 0) {
+      console.log('❌ [TrafficAnalysis Debug] calculateDailyData retornando array vazio - sem campaignsWithInsights');
       return [];
     }
 
@@ -548,11 +554,25 @@ const TrafficAnalysis = () => {
     }> = {};
     
     // Processar dados das campanhas (Meta API)
-    campaignsWithInsights.forEach(campaign => {
-      if (!campaign.insights || !Array.isArray(campaign.insights)) return;
+    console.log('🔍 [TrafficAnalysis Debug] Processando campaignsWithInsights:', campaignsWithInsights.length, 'campanhas');
+    
+    campaignsWithInsights.forEach((campaign, index) => {
+      console.log(`🔍 [TrafficAnalysis Debug] Campanha ${index + 1}:`, {
+        campaign_id: campaign.campaign_id,
+        insightsCount: campaign.insights?.length || 0,
+        hasInsights: !!(campaign.insights && Array.isArray(campaign.insights))
+      });
       
-      campaign.insights.forEach((insight) => {
-        if (!insight.date_start) return;
+      if (!campaign.insights || !Array.isArray(campaign.insights)) {
+        console.log(`❌ [TrafficAnalysis Debug] Campanha ${index + 1} sem insights válidos`);
+        return;
+      }
+      
+      campaign.insights.forEach((insight, insightIndex) => {
+        if (!insight.date_start) {
+          console.log(`❌ [TrafficAnalysis Debug] Insight ${insightIndex + 1} sem date_start`);
+          return;
+        }
         
         const dateKey = insight.date_start;
       if (!dailyData[dateKey]) {
@@ -593,7 +613,15 @@ const TrafficAnalysis = () => {
       day.retention = day.cadastros > 0 ? Math.round(day.group / day.cadastros * 100) : 0;
     });
     
-    return Object.values(dailyData).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const result = Object.values(dailyData).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    console.log('✅ [TrafficAnalysis Debug] calculateDailyData finalizado:', {
+      totalDays: result.length,
+      dates: result.map(day => day.date),
+      totalInvestment: result.reduce((sum, day) => sum + day.investment, 0),
+      totalCadastros: result.reduce((sum, day) => sum + day.cadastros, 0)
+    });
+    
+    return result;
   };
   
   // Calcular totais e médias para os cabeçalhos das colunas
