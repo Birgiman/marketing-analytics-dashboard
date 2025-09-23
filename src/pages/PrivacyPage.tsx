@@ -1,9 +1,16 @@
 import { Container } from "@/components/ui/container";
+import Header from "@/components/Header";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/AppSidebar";
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-background">
-      <Container className="py-8 max-w-4xl">
+    <SidebarProvider defaultOpen={true}>
+      <div className="flex min-h-screen w-full">
+        <AppSidebar />
+        <main className="flex-1 bg-background">
+          <Header />
+          <Container className="py-8 max-w-4xl">
         <div className="prose prose-gray max-w-none">
           <h1 className="text-3xl font-bold text-foreground mb-8">
             Política de Privacidade
@@ -74,6 +81,8 @@ export default function PrivacyPage() {
           </div>
         </div>
       </Container>
-    </div>
+        </main>
+      </div>
+    </SidebarProvider>
   );
 }
