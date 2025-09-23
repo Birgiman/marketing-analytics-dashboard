@@ -2,15 +2,41 @@ import { Container } from "@/components/ui/container";
 import Header from "@/components/Header";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function TermsPage() {
-  return (
-    <SidebarProvider defaultOpen={true}>
-      <div className="flex min-h-screen w-full">
-        <AppSidebar />
-        <main className="flex-1 bg-background">
-          <Header />
-          <Container className="py-8 max-w-4xl">
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setIsAuthenticated(!!session);
+      } catch (error) {
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const content = (
+    <Container className="py-8 max-w-4xl">
         <div className="prose prose-gray max-w-none">
           <h1 className="text-3xl font-bold text-foreground mb-8">
             Termos de Uso – LiveShop Data Manager
@@ -142,8 +168,25 @@ export default function TermsPage() {
           </div>
         </div>
       </Container>
-        </main>
-      </div>
-    </SidebarProvider>
+  );
+
+  if (isAuthenticated) {
+    return (
+      <SidebarProvider defaultOpen={true}>
+        <div className="flex min-h-screen w-full">
+          <AppSidebar />
+          <main className="flex-1 bg-background">
+            <Header />
+            {content}
+          </main>
+        </div>
+      </SidebarProvider>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      {content}
+    </div>
   );
 }
