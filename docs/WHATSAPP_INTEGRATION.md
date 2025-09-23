@@ -256,22 +256,178 @@ if (DEMO_MODE) {
 }
 ```
 
-## 🚀 Edge Functions Supabase
+## 🚀 Sistema de Cache Otimizado
 
-### whatsapp-fetch-groups
+### Fluxo de Sincronização Automática
+
+```mermaid
+graph TD
+    A[Usuário faz login] --> B[Trigger automático fetch-groups-chunked]
+    B --> C[Paginação server-side Evolution API]
+    C --> D[Salva todos grupos no Supabase]
+    D --> E[Frontend consulta apenas Supabase]
+    
+    F[Evento WhatsApp] --> G[Webhook recebe evento]
+    G --> H[Atualização incremental no Supabase]
+    H --> E
+```
+
+### Vantagens do Sistema de Cache
+
+1. **Performance**: Frontend consulta apenas tabela local (Supabase)
+2. **Confiabilidade**: Sem timeout da Evolution API
+3. **Atualização Incremental**: Webhook mantém dados atualizados
+4. **Experiência do Usuário**: Busca instantânea de grupos
+
+### Implementação Frontend
 
 ```typescript
-// Function para sincronização de grupos
+// Hook para buscar grupos do cache
+const { fetchWhatsAppGroups, hasWhatsAppGroups } = useWhatsAppGroups();
+
+// Busca instantânea no Supabase
+const groups = await fetchWhatsAppGroups(userId, searchTerm);
+
+// Verificação de sincronização
+const isSynced = await hasWhatsAppGroups(userId);
+```
+
+### Estados de Sincronização
+
+- **🔄 Sincronizando**: Grupos sendo buscados em background
+- **⚠️ Não sincronizado**: Aguardando primeira sincronização
+- **✅ Sincronizado**: Dados disponíveis para busca
+
+## 📊 Sistema de Cache para Dados Meta
+
+### Cache de Métricas Calculadas
+
+O sistema agora implementa cache inteligente para dados Meta nas páginas de análise:
+
+```mermaid
+graph TD
+    A[Usuário acessa página] --> B{Cache válido?}
+    B -->|Sim| C[Retorna dados do cache]
+    B -->|Não| D[Busca dados Meta]
+    D --> E[Calcula métricas]
+    E --> F[Salva no cache]
+    F --> G[Retorna dados frescos]
+    
+    H[Cache expira em 30min] --> B
+```
+
+### Implementação na Tela Details
+
+```typescript
+// Verificação de cache válido
+const cacheResult = await fetchLiveWithCache(liveId);
+
+if (cacheResult.fromCache && cacheResult.data.cached_metrics) {
+  // Usar dados do cache (instantâneo)
+  setMetricsV2(cacheResult.data.cached_metrics);
+  setExtractedDataV2(cacheResult.data.cached_group_data);
+} else {
+  // Buscar dados frescos e calcular métricas
+  const completeData = await fetchCompleteLiveData(liveId);
+  await calculateAndCacheMetrics(completeData);
+}
+```
+
+### Colunas de Cache na Tabela `lives`
+
+```sql
+-- Cache de métricas calculadas
+cached_metrics JSONB,           -- CPL Líquido, CPL Meta, Taxa de Retenção
+cached_group_data JSONB,        -- Dados de grupos WhatsApp
+cached_meta_data JSONB,         -- Dados Meta (campanhas, gastos, leads)
+last_synced_at TIMESTAMP,       -- Timestamp da última sincronização
+```
+
+### Benefícios do Cache Meta
+
+1. **Performance**: Evita recálculos desnecessários
+2. **Experiência**: Carregamento instantâneo de dados válidos
+3. **Eficiência**: Reduz chamadas à Meta API
+4. **Confiabilidade**: Fallback para dados em cache se API falhar
+
+## 🚀 Edge Functions Supabase
+
+### fetch-groups-chunked (Nova Implementação)
+
+```typescript
+// Edge Function otimizada com paginação server-side
 export default async function handler(req: Request) {
-  const { instanceName, userId } = await req.json();
+  const { instanceName, userId, searchTerm } = await req.json();
   
-  // Buscar grupos da Evolution API
-  const groups = await fetchGroupsFromEvolution(instanceName);
+  // Paginação automática para evitar timeout
+  const CHUNK_SIZE = 50;
+  const MAX_PAGES = 20;
   
-  // Salvar no Supabase
-  await saveGroupsToSupabase(groups, userId);
+  let allGroups = [];
+  let currentPage = 1;
+  let hasMorePages = true;
   
-  return new Response(JSON.stringify({ success: true }));
+  while (hasMorePages && currentPage <= MAX_PAGES) {
+    const response = await fetch(
+      `${evolutionUrl}/group/fetchAllGroups/${instanceName}?page=${currentPage}&limit=${CHUNK_SIZE}`
+    );
+    
+    const pageGroups = await response.json();
+    allGroups = [...allGroups, ...pageGroups];
+    
+    hasMorePages = pageGroups.length === CHUNK_SIZE;
+    currentPage++;
+  }
+  
+  // Salvar todos os grupos no Supabase
+  await supabase.from('whatsapp_groups').upsert(
+    allGroups.map(group => ({
+      group_id: group.id,
+      group_name: group.subject,
+      user_id: userId,
+      group_size: group.size,
+      group_owner: group.owner,
+      group_created_at: group.creation,
+      participant_count: group.size,
+      updated_at: new Date().toISOString()
+    })),
+    { onConflict: 'group_id,user_id' }
+  );
+  
+  return new Response(JSON.stringify(allGroups));
+}
+```
+
+### whatsapp-webhook (Atualização Incremental)
+
+```typescript
+// Webhook para atualização incremental de grupos
+export default async function handler(req: Request) {
+  const { event, data } = await req.json();
+  
+  if (event === 'group-participants.update') {
+    const { id: group_id, participants, action } = data;
+    
+    // Buscar informações atualizadas do grupo
+    const groupInfo = await fetchGroupInfoFromEvolutionAPI(group_id);
+    
+    // Atualizar cache no Supabase
+    await supabase.from('whatsapp_groups').upsert({
+      group_id,
+      group_name: groupInfo.subject,
+      participant_count: groupInfo.size,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'group_id,user_id' });
+    
+    // Log do evento de participante
+    await supabase.from('whatsapp_groups_log').insert({
+      id_grupo: group_id,
+      group_name: groupInfo.subject,
+      whatsapp_phone_id: participants[0],
+      event: action === 'add' ? 'join' : 'leave',
+      user_id: userId
+    });
+  }
 }
 ```
 
@@ -293,11 +449,18 @@ CREATE TABLE whatsapp_instances (
 ```sql
 CREATE TABLE whatsapp_groups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  instance_id UUID REFERENCES whatsapp_instances(id),
   group_id TEXT NOT NULL,
-  group_name TEXT,
-  participants_count INTEGER,
-  created_at TIMESTAMP DEFAULT NOW()
+  group_name TEXT NOT NULL,
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  monitoring BOOLEAN DEFAULT true,
+  group_size INTEGER DEFAULT 0,
+  group_owner TEXT,
+  group_created_at TIMESTAMP WITH TIME ZONE,
+  participant_count INTEGER,
+  last_synced_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(group_id, user_id)
 );
 ```
 

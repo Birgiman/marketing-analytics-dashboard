@@ -13,6 +13,9 @@ import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 import { supabase } from "@/integrations/supabase/client";
 import { getCPLFromMeta } from "@/utils/meta-requests/getCPLFromMeta";
 import { getLiveMetaDataWithFallback } from "@/utils/meta-requests/getLiveMetaData";
+// CACHE SYSTEM - Sistema de cache para otimização
+import { Live } from "@/types/live";
+import { clearLiveCache, fetchLiveWithCache, updateLiveCache } from "@/utils/live-cache";
 import { Activity, AlertCircle, RefreshCw, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -32,6 +35,18 @@ const Details = () => {
     campaignCount: number;
     logs: string[];
   } | null>(null);
+
+  // CACHE SYSTEM - Estados para sistema de cache
+  const [cacheStatus, setCacheStatus] = useState<{
+    isLoading: boolean;
+    fromCache: boolean;
+    needsRefresh: boolean;
+    lastSynced?: string;
+  }>({
+    isLoading: true,
+    fromCache: false,
+    needsRefresh: false
+  });
 
   // ============================================================================
   // VERSÃO V2 - Novos cálculos (SEM CACHE)
@@ -129,18 +144,68 @@ const Details = () => {
     }
   }, [liveId, navigate]);
 
-  // Buscar dados frescos quando a página carregar
+  // Buscar dados com sistema de cache
   useEffect(() => {
     if (!liveId) return;
 
-    const fetchFreshData = async () => {
-      setIsLoading(true);
+    const fetchDataWithCache = async () => {
+      setCacheStatus(prev => ({ ...prev, isLoading: true }));
       setError(null);
       
       try {
-        console.log('🔄 [Details] Buscando dados frescos para Live:', liveId);
+        console.log('🔄 [Details Cache] Verificando cache para Live:', liveId);
         
-        // Buscar dados completos frescos
+        // Verificar cache primeiro
+        const cacheResult = await fetchLiveWithCache(liveId);
+        
+        if (!cacheResult.data) {
+          throw new Error('Live não encontrada');
+        }
+
+        setCacheStatus({
+          isLoading: false,
+          fromCache: cacheResult.fromCache,
+          needsRefresh: cacheResult.needsRefresh,
+          lastSynced: cacheResult.data.last_synced_at
+        });
+
+        // Se tem cache válido, usar dados em cache
+        if (cacheResult.fromCache && cacheResult.data.cached_metrics) {
+          console.log('✅ [Details Cache] Usando dados do cache');
+          
+          // Carregar dados básicos da live
+          setLive(cacheResult.data);
+          
+          // Usar métricas do cache
+          setMetricsV2(cacheResult.data.cached_metrics);
+          setExtractedDataV2({
+            groupData: cacheResult.data.cached_group_data || {
+              totalGroups: 0,
+              totalMembers: 0,
+              entries: 0,
+              exits: 0,
+              activeMembers: 0
+            },
+            metaData: cacheResult.data.cached_meta_data || {
+              campaignCount: 0,
+              totalSpend: 0,
+              totalResults: 0
+            }
+          });
+          
+          // Buscar dados complementares (grupos, campanhas) sem fazer cálculos pesados
+          const completeData = await fetchCompleteLiveData(liveId);
+          setGroups(completeData.groups);
+          setCampaigns(completeData.liveCampaigns);
+          setCampaignsWithInsights(completeData.campaignInsights);
+          
+          setIsLoading(false); // ✅ Corrigir estado principal quando usa cache
+          return;
+        }
+
+        // Cache vencido ou inexistente - buscar dados frescos
+        console.log('🔄 [Details Cache] Cache vencido, buscando dados frescos');
+        
         const completeData = await fetchCompleteLiveData(liveId);
         
         // Atualizar estados com dados frescos
@@ -149,24 +214,109 @@ const Details = () => {
         setCampaigns(completeData.liveCampaigns);
         setCampaignsWithInsights(completeData.campaignInsights);
         
-        console.log('✅ [Details] Dados frescos carregados com sucesso');
-        console.log('🔍 [Details] Live data:', {
-          name: completeData.live.name,
-          ad_budget: completeData.live.ad_budget,
-          sales_goal: completeData.live.sales_goal,
-          leads_goal: completeData.live.leads_goal
-        });
+        console.log('✅ [Details Cache] Dados frescos carregados, calculando métricas...');
+        
+        // Calcular métricas e atualizar cache
+        await calculateAndCacheMetrics(completeData);
         
       } catch (error) {
-        console.error('❌ [Details] Erro ao buscar dados frescos:', error);
+        console.error('❌ [Details Cache] Erro ao buscar dados:', error);
         setError(`Erro ao carregar dados: ${error}`);
       } finally {
-        setIsLoading(false);
+        setCacheStatus(prev => ({ ...prev, isLoading: false }));
+        setIsLoading(false); // ✅ Corrigir estado principal de loading
       }
     };
 
-    fetchFreshData();
+    fetchDataWithCache();
   }, [liveId]);
+
+  // Função para calcular métricas e atualizar cache
+  const calculateAndCacheMetrics = async (completeData: {
+    live: Live;
+    groups: unknown[];
+    campaignInsights: { campaign_id: string; insights: unknown[] }[];
+  }) => {
+    try {
+      const liveData = {
+        live: completeData.live,
+        groups: completeData.groups,
+        campaignInsights: completeData.campaignInsights.map((campaign) => ({
+          campaign_id: campaign.campaign_id,
+          insights: campaign.insights || []
+        }))
+      };
+
+      // Calcular métricas usando a nova função
+      const result = await calculateCompleteLiveMetrics(liveData, {
+        enableLogging: true,
+        enableValidation: true,
+        orcamentoGasto: completeData.live?.ad_budget
+      });
+
+      // Atualizar estados com métricas calculadas
+      setMetricsV2(result.metrics);
+      setExtractedDataV2(result.extractedData);
+      setValidationV2(result.validation);
+      setSummaryV2(result.summary);
+
+      // Atualizar cache no banco
+      await updateLiveCache(
+        completeData.live.id,
+        result.metrics,
+        result.extractedData.groupData,
+        result.extractedData.metaData
+      );
+
+      console.log('✅ [Details Cache] Métricas calculadas e cache atualizado');
+
+    } catch (error) {
+      console.error('❌ [Details Cache] Erro ao calcular métricas:', error);
+      throw error;
+    }
+  };
+
+  // Função para forçar refresh do cache
+  const handleForceRefresh = async () => {
+    if (!liveId) return;
+    
+    setCacheStatus(prev => ({ ...prev, isLoading: true }));
+    
+    try {
+      console.log('🔄 [Details Cache] Forçando refresh do cache');
+      
+      // Limpar cache atual
+      await clearLiveCache(liveId);
+      
+      // Buscar dados frescos
+      const completeData = await fetchCompleteLiveData(liveId);
+      
+      // Atualizar estados
+      setLive(completeData.live);
+      setGroups(completeData.groups);
+      setCampaigns(completeData.liveCampaigns);
+      setCampaignsWithInsights(completeData.campaignInsights);
+      
+      // Calcular e cachear métricas
+      await calculateAndCacheMetrics(completeData);
+      
+      // Atualizar status do cache
+      setCacheStatus({
+        isLoading: false,
+        fromCache: false,
+        needsRefresh: false,
+        lastSynced: new Date().toISOString()
+      });
+      
+      console.log('✅ [Details Cache] Refresh forçado concluído');
+      
+    } catch (error) {
+      console.error('❌ [Details Cache] Erro no refresh forçado:', error);
+      setError(`Erro ao atualizar dados: ${error}`);
+    } finally {
+      setCacheStatus(prev => ({ ...prev, isLoading: false }));
+    }
+  };
 
   // Calcular métricas V2 quando os dados estiverem disponíveis
   useEffect(() => {
@@ -484,7 +634,7 @@ const Details = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Detalhes da Live</h1>
-            <p className="text-muted-foreground mt-1">{live.name}</p>
+            <p className="text-muted-foreground mt-1">{live?.name || 'Carregando...'}</p>
           </div>
           
           <div className="flex items-center gap-3">
@@ -501,8 +651,50 @@ const Details = () => {
               )}
             </div>
             
+            {/* Botão de Refresh */}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleForceRefresh}
+              disabled={cacheStatus.isLoading}
+              className="gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${cacheStatus.isLoading ? 'animate-spin' : ''}`} />
+              {cacheStatus.isLoading ? 'Atualizando...' : 'Atualizar'}
+            </Button>
           </div>
         </div>
+
+        {/* Status do Cache */}
+        {cacheStatus.lastSynced && (
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {cacheStatus.fromCache ? (
+                  <>
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-sm text-green-700">
+                      Dados em cache (última atualização: {new Date(cacheStatus.lastSynced).toLocaleString('pt-BR')})
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span className="text-sm text-blue-700">
+                      Dados atualizados agora ({new Date(cacheStatus.lastSynced).toLocaleString('pt-BR')})
+                    </span>
+                  </>
+                )}
+              </div>
+              
+              {cacheStatus.needsRefresh && (
+                <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+                  Cache vencido
+                </Badge>
+              )}
+            </div>
+          </Card>
+        )}
 
         {/* Error Alert */}
         {error && (

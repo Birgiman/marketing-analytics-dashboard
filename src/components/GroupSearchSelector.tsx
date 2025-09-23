@@ -113,7 +113,10 @@ export function GroupSearchSelector({
       setSelectedGroups(new Set());
 
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
+      if (!session?.user) {
+        setIsSearching(false);
+        return;
+      }
 
       // Buscar grupos na tabela whatsapp_groups
       const groups = await fetchWhatsAppGroups(session.user.id, searchTerm.trim());
