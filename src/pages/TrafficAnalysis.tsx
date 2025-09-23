@@ -11,9 +11,9 @@ import { AdSetData, calculateCorrectAverageCPL, CampaignData, extractAdSetDataFr
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 import { fetchAdSetInsights } from "@/utils/metaApi";
-import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Filter, RefreshCw } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
 const TrafficAnalysis = () => {
@@ -659,14 +659,6 @@ const TrafficAnalysis = () => {
       />
       
       <div className="container mx-auto p-6 space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Análise de Tráfego</h1>
-            <p className="text-muted-foreground mt-1">{live?.name || 'Carregando...'}</p>
-          </div>
-        </div>
-
         {/* Error Alert */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">

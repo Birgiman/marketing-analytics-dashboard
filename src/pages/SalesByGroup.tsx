@@ -32,7 +32,7 @@ import { getWhatsAppGroupsLogData } from "@/utils/whatsappGroupsLog";
 import EmojiPicker from 'emoji-picker-react';
 import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, RefreshCw, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 // These interfaces are no longer used as we now use LiveGroup from types
 
@@ -791,27 +791,6 @@ const SalesByGroup = () => {
       />
       
       <div className="container mx-auto p-6 space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Públicos</h1>
-            <p className="text-muted-foreground mt-1">{live ? `Live: ${live.name}` : 'Carregando...'}</p>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            {/* Botão de Refresh */}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleForceRefresh}
-              disabled={cacheStatus.isLoading}
-              className="gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${cacheStatus.isLoading ? 'animate-spin' : ''}`} />
-              {cacheStatus.isLoading ? 'Atualizando...' : 'Atualizar'}
-            </Button>
-          </div>
-        </div>
 
         {/* Overview Geral */}
         <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
