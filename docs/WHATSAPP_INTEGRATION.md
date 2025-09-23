@@ -316,8 +316,9 @@ graph TD
     H[Cache expira em 30min] --> B
 ```
 
-### Implementação na Tela Details
+### Implementação nas Telas de Análise
 
+#### Tela Details
 ```typescript
 // Verificação de cache válido
 const cacheResult = await fetchLiveWithCache(liveId);
@@ -333,14 +334,60 @@ if (cacheResult.fromCache && cacheResult.data.cached_metrics) {
 }
 ```
 
+#### Tela SalesByGroup
+```typescript
+// Cache de públicos e correlações
+const cacheResult = await fetchPublicDataWithCache(liveId);
+
+if (cacheResult.fromCache && cacheResult.data.cached_public_metrics) {
+  // Usar dados do cache
+  setMetrics(cacheResult.data.cached_public_metrics);
+  setPublicAudiences(cacheResult.data.cached_public_audiences);
+} else {
+  // Buscar dados frescos e calcular correlações
+  const completeData = await fetchCompleteLiveData(liveId);
+  await calculateAndCachePublicMetrics(completeData);
+}
+```
+
+#### Tela TrafficAnalysis
+```typescript
+// Cache de dados de tráfego
+const { data: live } = await supabase
+  .from('lives')
+  .select('*, cached_traffic_data, cached_traffic_metrics, traffic_last_synced_at')
+  .eq('id', liveId)
+  .single();
+
+if (isCacheValid && live.cached_traffic_data) {
+  // Usar dados do cache
+  setGroups(live.cached_traffic_data.groups);
+  setCampaigns(live.cached_traffic_data.campaigns);
+} else {
+  // Buscar dados frescos e salvar no cache
+  const completeData = await fetchCompleteLiveData(liveId);
+  await updateTrafficCache(liveId, completeData);
+}
+```
+
 ### Colunas de Cache na Tabela `lives`
 
 ```sql
--- Cache de métricas calculadas
+-- Cache de métricas calculadas (Details)
 cached_metrics JSONB,           -- CPL Líquido, CPL Meta, Taxa de Retenção
 cached_group_data JSONB,        -- Dados de grupos WhatsApp
 cached_meta_data JSONB,         -- Dados Meta (campanhas, gastos, leads)
 last_synced_at TIMESTAMP,       -- Timestamp da última sincronização
+
+-- Cache de públicos e correlações (SalesByGroup)
+cached_public_metrics JSONB,    -- Métricas de públicos calculadas
+cached_public_audiences JSONB,  -- Dados de públicos e correlações
+cached_insights_metadata JSONB, -- Metadados de insights
+
+-- Cache de dados de tráfego (TrafficAnalysis)
+cached_traffic_data JSONB,      -- Dados de tráfego (impressões, cliques, alcance)
+cached_traffic_metrics JSONB,   -- Métricas de tráfego calculadas (CTR, CPM, etc.)
+traffic_last_synced_at TIMESTAMP, -- Timestamp da última sincronização de tráfego
 ```
 
 ### Benefícios do Cache Meta

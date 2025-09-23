@@ -5,11 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { supabase } from "@/integrations/supabase/client";
 import { AdSetData, calculateCorrectAverageCPL, CampaignData, extractAdSetDataFromInsights, extractCampaignData } from "@/utils/data-extractors-v2";
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 import { fetchAdSetInsights } from "@/utils/metaApi";
-import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Filter, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
@@ -18,6 +19,18 @@ const TrafficAnalysis = () => {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const liveId = searchParams.get('live');
+  
+  // CACHE SYSTEM - Estados para sistema de cache
+  const [cacheStatus, setCacheStatus] = useState<{
+    isLoading: boolean;
+    fromCache: boolean;
+    needsRefresh: boolean;
+    lastSynced?: string;
+  }>({
+    isLoading: true,
+    fromCache: false,
+    needsRefresh: false
+  });
   
   // Estados para dados V2 (mesmo padrão da Details.tsx)
   const [live, setLive] = useState<{
@@ -130,136 +143,205 @@ const TrafficAnalysis = () => {
     };
   }, [showPublicoDropdown]);
 
-  // Buscar dados completos (mesmo padrão da Details.tsx)
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!liveId) return;
+  // CACHE SYSTEM - Funções de cache
+  const fetchTrafficDataWithCache = async () => {
+    if (!liveId) return;
+
+    setCacheStatus(prev => ({ ...prev, isLoading: true }));
+    setIsLoading(true);
+    
+    try {
+      console.log('🔄 [TrafficAnalysis Cache] Verificando cache para Live:', liveId);
       
-      try {
-        setIsLoading(true);
-        console.log('🔄 [TrafficAnalysis] Buscando dados completos...');
+      // Verificar cache primeiro
+      const { data: live, error } = await supabase
+        .from('lives')
+        .select('*, cached_traffic_data, cached_traffic_metrics, traffic_last_synced_at')
+        .eq('id', liveId)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      if (!live) {
+        throw new Error('Live não encontrada');
+      }
+
+      const now = new Date();
+      const lastSynced = live.traffic_last_synced_at ? new Date(live.traffic_last_synced_at) : null;
+      const CACHE_DURATION_MINUTES = 30;
+      const isCacheValid = lastSynced && (now.getTime() - lastSynced.getTime()) < CACHE_DURATION_MINUTES * 60 * 1000;
+
+      setCacheStatus({
+        isLoading: false,
+        fromCache: isCacheValid && !!live.cached_traffic_data,
+        needsRefresh: !isCacheValid || !live.cached_traffic_data,
+        lastSynced: live.traffic_last_synced_at
+      });
+
+      // Se tem cache válido, usar dados do cache
+      if (isCacheValid && live.cached_traffic_data) {
+        console.log('✅ [TrafficAnalysis Cache] Usando dados do cache');
         
-        const completeData = await fetchCompleteLiveData(liveId);
+        // Carregar dados básicos da live
+        setLive(live);
         
-        console.log('✅ [TrafficAnalysis] Dados obtidos:', {
-          live: completeData.live?.name,
-          groups: completeData.groups?.length,
-          campaigns: completeData.liveCampaigns?.length,
-          insights: completeData.campaignInsights?.length
-        });
-        
-        setLive(completeData.live);
-        setGroups((completeData.groups || []).map(group => ({
-          ...group,
-          updated_at: (group as { updated_at?: string }).updated_at || group.created_at
-        })));
-        setCampaigns(completeData.liveCampaigns || []);
-        setCampaignsWithInsights(completeData.campaignInsights || []);
+        // Usar dados do cache
+        if (live.cached_traffic_data) {
+          setGroups(live.cached_traffic_data.groups || []);
+          setCampaigns(live.cached_traffic_data.campaigns || []);
+          setCampaignsWithInsights(live.cached_traffic_data.campaignsWithInsights || []);
+        }
         
         // Preencher campos de data com valores padrão da Live
-        if (completeData.live?.insights_date_since && completeData.live?.insights_date_until) {
-          setTempStartDate(completeData.live.insights_date_since);
-          setTempEndDate(completeData.live.insights_date_until);
-          setStartDate(completeData.live.insights_date_since);
-          setEndDate(completeData.live.insights_date_until);
+        if (live.insights_date_since && live.insights_date_until) {
+          setTempStartDate(live.insights_date_since);
+          setTempEndDate(live.insights_date_until);
+          setStartDate(live.insights_date_since);
+          setEndDate(live.insights_date_until);
         }
         
-        // Calcular métricas V2 usando o mesmo padrão da Details.tsx
-        // Validar se campaignInsights existe antes de mapear
-        const campaignInsights = (completeData.campaignInsights || []).map((campaign) => ({
-          ...campaign,
-          insights: campaign.insights || []
-        }));
-        
-        // Preparar dados no formato correto para calculateCompleteLiveMetrics
-        const liveDataForCalculations = {
-          live: completeData.live,
-          groups: completeData.groups || [],
-          campaignInsights: campaignInsights
-        };
-        
-        console.log('🔍 [TrafficAnalysis] Dados para cálculo:', {
-          live: liveDataForCalculations.live?.name,
-          groups: liveDataForCalculations.groups?.length,
-          campaignInsights: liveDataForCalculations.campaignInsights?.length
-        });
-        
-        const result = await calculateCompleteLiveMetrics(liveDataForCalculations);
-        
-        console.log('🧮 [TrafficAnalysis] Métricas V2 calculadas:', {
-          cplLiquido: result.metrics.cplLiquido,
-          cplMeta: result.metrics.cplMeta,
-          retentionRate: result.metrics.retentionRate
-        });
-        
-        setMetricsV2(result.metrics);
-        setExtractedDataV2(result.extractedData);
-        
-        // Extrair dados individuais por campanha
-        const individualCampaignData = extractCampaignData(campaignInsights, completeData.allUserCampaigns);
-        setCampaignData(individualCampaignData);
-        
-        // Buscar conjuntos de anúncios diretamente da API
-        
-        // Usar fallback para account_id se metaIntegration não tiver
-        const fallbackAccountId = completeData.liveCampaigns?.[0]?.account_id;
-        const accountId = completeData.metaIntegration?.account_id || fallbackAccountId;
-        
-        if (accountId && completeData.metaIntegration?.access_token) {
-          try {
-            const adSetInsights = await fetchAdSetInsights(
-              accountId,
-              completeData.metaIntegration.access_token,
-              {
-                dateRange: {
-                  since: completeData.live?.insights_date_since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                  until: completeData.live?.insights_date_until || new Date().toISOString().split('T')[0]
-                },
-                searchTerm: completeData.live?.campaign_search_term
-              }
-            );
-            
-            // Extrair dados individuais por conjunto de anúncios
-            const individualAdSetData = extractAdSetDataFromInsights(adSetInsights);
-            setAdSetData(individualAdSetData);
-            
-          } catch (error) {
-            console.error('❌ [TrafficAnalysis] Erro ao buscar conjuntos de anúncios:', error);
-            // Fallback para método antigo se a API falhar
-            const individualAdSetData = extractAdSetDataFromInsights([]);
-            setAdSetData(individualAdSetData);
-          }
-        } else {
-          // Fallback para método antigo se não tiver dados da API
-          const individualAdSetData = extractAdSetDataFromInsights([]);
-          setAdSetData(individualAdSetData);
-        }
-        
-        console.log('🎯 [TrafficAnalysis] Dados por campanha:', individualCampaignData);
-        
-      } catch (err) {
-        console.error('❌ [TrafficAnalysis] Erro ao carregar dados:', err);
-        setError(err instanceof Error ? err.message : 'Erro ao carregar dados');
-      } finally {
         setIsLoading(false);
+        return;
       }
-    };
+
+      // Cache vencido ou inexistente - buscar dados frescos
+      console.log('🔄 [TrafficAnalysis Cache] Cache vencido, buscando dados frescos');
+      
+      const completeData = await fetchCompleteLiveData(liveId);
+      
+      // Atualizar estados com dados frescos
+      setLive(completeData.live);
+      setGroups((completeData.groups || []).map(group => ({
+        ...group,
+        updated_at: (group as { updated_at?: string }).updated_at || group.created_at
+      })));
+      setCampaigns(completeData.liveCampaigns || []);
+      setCampaignsWithInsights(completeData.campaignInsights || []);
+      
+      // Preencher campos de data com valores padrão da Live
+      if (completeData.live?.insights_date_since && completeData.live?.insights_date_until) {
+        setTempStartDate(completeData.live.insights_date_since);
+        setTempEndDate(completeData.live.insights_date_until);
+        setStartDate(completeData.live.insights_date_since);
+        setEndDate(completeData.live.insights_date_until);
+      }
+      
+      console.log('✅ [TrafficAnalysis Cache] Dados frescos carregados, salvando no cache...');
+      
+      // Salvar dados no cache
+      await updateTrafficCache(liveId, completeData);
+      
+      // Atualizar status do cache após salvar
+      setCacheStatus({
+        isLoading: false,
+        fromCache: false,
+        needsRefresh: false,
+        lastSynced: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('❌ [TrafficAnalysis Cache] Erro ao buscar dados:', error);
+    } finally {
+      setCacheStatus(prev => ({ ...prev, isLoading: false }));
+      setIsLoading(false);
+    }
+  };
+
+  // Função para atualizar cache de tráfego
+  const updateTrafficCache = async (liveId: string, completeData: any) => {
+    try {
+      const trafficData = {
+        groups: completeData.groups || [],
+        campaigns: completeData.liveCampaigns || [],
+        campaignsWithInsights: completeData.campaignInsights || []
+      };
+
+      const { error } = await supabase
+        .from('lives')
+        .update({
+          traffic_last_synced_at: new Date().toISOString(),
+          cached_traffic_data: trafficData
+        })
+        .eq('id', liveId);
+
+      if (error) {
+        throw error;
+      }
+
+      console.log('✅ [TrafficAnalysis Cache] Cache atualizado com sucesso');
+    } catch (error) {
+      console.error('❌ [TrafficAnalysis Cache] Erro ao atualizar cache:', error);
+      throw error;
+    }
+  };
+
+  // Função para forçar refresh do cache
+  const handleForceRefresh = async () => {
+    if (!liveId) return;
     
-    fetchData();
+    setCacheStatus(prev => ({ ...prev, isLoading: true }));
+    
+    try {
+      console.log('🔄 [TrafficAnalysis Cache] Forçando refresh do cache');
+      
+      // Limpar cache atual
+      const { error } = await supabase
+        .from('lives')
+        .update({
+          traffic_last_synced_at: null,
+          cached_traffic_data: null,
+          cached_traffic_metrics: null
+        })
+        .eq('id', liveId);
+
+      if (error) {
+        throw error;
+      }
+      
+      // Buscar dados frescos
+      await fetchTrafficDataWithCache();
+      
+      console.log('✅ [TrafficAnalysis Cache] Refresh forçado concluído');
+      
+    } catch (error) {
+      console.error('❌ [TrafficAnalysis Cache] Erro no refresh forçado:', error);
+    } finally {
+      setCacheStatus(prev => ({ ...prev, isLoading: false }));
+    }
+  };
+
+  // Buscar dados com sistema de cache
+  useEffect(() => {
+    if (liveId) {
+      fetchTrafficDataWithCache();
+    }
   }, [liveId]);
   
   
-  // Usar métricas V2 calculadas
-  const cplLiquido = metricsV2?.cplLiquido || 0;
-  const cplMeta = metricsV2?.cplMeta || 0;
-  const retentionRate = metricsV2?.retentionRate || 0;
+  // Usar métricas do cache ou calcular se necessário
+  const cplLiquido = live?.cached_metrics?.cplLiquido || metricsV2?.cplLiquido || 0;
+  const cplMeta = live?.cached_metrics?.cplMeta || metricsV2?.cplMeta || 0;
+  const retentionRate = live?.cached_metrics?.retentionRate || metricsV2?.retentionRate || 0;
 
-  // Calcular dados dos grupos
+  // Calcular dados dos grupos (usar cache se disponível)
   const groupData = {
-    entrou: groups?.reduce((sum, group) => sum + (group.group_size || 0), 0) || 0,
-      saiu: 0, // TODO: Implementar tracking de saídas
-    ativos: groups?.reduce((sum, group) => sum + (group.group_size || 0), 0) || 0
+    entrou: live?.cached_group_data?.entries || groups?.reduce((sum, group) => sum + (group.group_size || 0), 0) || 0,
+    saiu: live?.cached_group_data?.exits || 0,
+    ativos: live?.cached_group_data?.activeMembers || groups?.reduce((sum, group) => sum + (group.group_size || 0), 0) || 0
   };
+
+  // Debug: Log dos dados que serão exibidos nos cards
+  console.log('🎯 [TrafficAnalysis] Dados para os cards:', {
+    cplLiquido,
+    cplMeta,
+    retentionRate,
+    groupData,
+    fromCache: !!live?.cached_metrics,
+    cachedMetrics: live?.cached_metrics,
+    cachedGroupData: live?.cached_group_data
+  });
   
   // Calcular dados diários (baseado no exemplo)
   const calculateDailyData = () => {
@@ -583,6 +665,41 @@ const TrafficAnalysis = () => {
       </header>
       
       <div className="container mx-auto p-6 space-y-8">
+        {/* Header com botão de refresh */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Análise de Tráfego</h1>
+            <p className="text-muted-foreground mt-1">{live?.name || 'Carregando...'}</p>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {/* Botão de Refresh */}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleForceRefresh}
+              disabled={cacheStatus.isLoading}
+              className="gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${cacheStatus.isLoading ? 'animate-spin' : ''}`} />
+              {cacheStatus.isLoading ? 'Atualizando...' : 'Atualizar'}
+            </Button>
+          </div>
+        </div>
+
+        {/* Error Alert */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-red-600" />
+              <div>
+                <p className="text-sm font-medium text-red-800">Erro ao carregar dados</p>
+                <p className="text-xs text-red-600 mt-1">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
       {/* Métricas Principais */}
       <LiveMetricsCards
         cplLiquido={cplLiquido}
