@@ -1,5 +1,6 @@
 import Header from "@/components/Header";
 import { LiveMetricsCards } from "@/components/LiveMetricsCards";
+import { ScreenNavigatorLives } from "@/components/ScreenNavigatorLives";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
@@ -37,6 +38,11 @@ const TrafficAnalysis = () => {
     id: string;
     name: string;
     ad_budget?: number;
+    cached_metrics?: any;
+    cached_group_data?: any;
+    cached_traffic_data?: any;
+    cached_traffic_metrics?: any;
+    traffic_last_synced_at?: string;
   } | null>(null);
   const [groups, setGroups] = useState<Array<{
     id: string;
@@ -175,7 +181,7 @@ const TrafficAnalysis = () => {
 
       setCacheStatus({
         isLoading: false,
-        fromCache: isCacheValid && !!live.cached_traffic_data,
+        fromCache: !!(isCacheValid && live.cached_traffic_data),
         needsRefresh: !isCacheValid || !live.cached_traffic_data,
         lastSynced: live.traffic_last_synced_at
       });
@@ -645,45 +651,19 @@ const TrafficAnalysis = () => {
       <Header />
       
       {/* Navegação interna */}
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center">
-          <div className="flex flex-1 items-center justify-center space-x-2">
-            <Button variant={location.pathname === "/details" ? "default" : "outline"} size="sm" asChild>
-              <Link to={`/details?live=${liveId}`}>Dashboard</Link>
-            </Button>
-            <Button variant={location.pathname === "/traffic-analysis" ? "default" : "outline"} size="sm" asChild>
-              <Link to={`/traffic-analysis?live=${liveId}`}>Análise de Tráfego</Link>
-            </Button>
-            <Button variant={location.pathname === "/research-insights" ? "default" : "outline"} size="sm" asChild>
-              <Link to={`/research-insights?live=${liveId}`}>Insights de Pesquisa</Link>
-            </Button>
-            <Button variant={location.pathname === "/sales-by-group" ? "default" : "outline"} size="sm" asChild>
-              <Link to={`/sales-by-group?live=${liveId}`}>Públicos</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <ScreenNavigatorLives 
+        liveId={liveId} 
+        onRefresh={handleForceRefresh}
+        isRefreshing={cacheStatus.isLoading}
+        showRefreshButton={true}
+      />
       
       <div className="container mx-auto p-6 space-y-8">
-        {/* Header com botão de refresh */}
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Análise de Tráfego</h1>
             <p className="text-muted-foreground mt-1">{live?.name || 'Carregando...'}</p>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            {/* Botão de Refresh */}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleForceRefresh}
-              disabled={cacheStatus.isLoading}
-              className="gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${cacheStatus.isLoading ? 'animate-spin' : ''}`} />
-              {cacheStatus.isLoading ? 'Atualizando...' : 'Atualizar'}
-            </Button>
           </div>
         </div>
 

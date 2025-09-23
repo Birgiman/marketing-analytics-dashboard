@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import { LiveMetricsCards } from "@/components/LiveMetricsCards";
 import PerformanceAnalysis from "@/components/PerformanceAnalysis";
+import { ScreenNavigatorLives } from "@/components/ScreenNavigatorLives";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
@@ -498,24 +499,12 @@ const Details = () => {
       <Header />
       
       {/* Navegação interna */}
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center">
-          <div className="flex flex-1 items-center justify-center space-x-2">
-            <Button variant={location.pathname === "/details" ? "default" : "outline"} size="sm" asChild>
-              <Link to={`/details?live=${liveId}`}>Dashboard</Link>
-            </Button>
-            <Button variant={location.pathname === "/traffic-analysis" ? "default" : "outline"} size="sm" asChild>
-              <Link to={`/traffic-analysis?live=${liveId}`}>Análise de Tráfego</Link>
-            </Button>
-            <Button variant={location.pathname === "/research-insights" ? "default" : "outline"} size="sm" asChild>
-              <Link to={`/research-insights?live=${liveId}`}>Insights de Pesquisa</Link>
-            </Button>
-            <Button variant={location.pathname === "/sales-by-group" ? "default" : "outline"} size="sm" asChild>
-              <Link to={`/sales-by-group?live=${liveId}`}>Públicos</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <ScreenNavigatorLives 
+        liveId={liveId} 
+        onRefresh={handleForceRefresh}
+        isRefreshing={cacheStatus.isLoading}
+        showRefreshButton={true}
+      />
       
       <div className="container mx-auto p-6 space-y-8">
         {/* Header */}
@@ -538,18 +527,6 @@ const Details = () => {
                 </Badge>
               )}
             </div>
-            
-            {/* Botão de Refresh */}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleForceRefresh}
-              disabled={cacheStatus.isLoading}
-              className="gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${cacheStatus.isLoading ? 'animate-spin' : ''}`} />
-              {cacheStatus.isLoading ? 'Atualizando...' : 'Atualizar'}
-            </Button>
           </div>
         </div>
 
