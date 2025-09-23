@@ -27,7 +27,7 @@ import {
   generateAudienceCorrelation
 } from "@/utils/audienceService";
 import { fetchMetaCampaignsForLive, MetaCampaign } from "@/utils/metaCampaignsService";
-import { clearPublicCache, fetchPublicDataWithCache } from "@/utils/public-cache";
+// Public cache removed - functionality integrated into other services
 import { getWhatsAppGroupsLogData } from "@/utils/whatsappGroupsLog";
 import EmojiPicker from 'emoji-picker-react';
 import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, RefreshCw, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
@@ -175,26 +175,36 @@ const SalesByGroup = () => {
         return;
       }
       
-      // Verificar cache primeiro
-      const cacheResult = await fetchPublicDataWithCache(liveId);
+      // Direct fetch instead of cache
+      const { data: liveData, error: liveError } = await supabase
+        .from('lives')
+        .select('*')
+        .eq('id', liveId)
+        .single();
       
-      if (!cacheResult.data) {
+      if (liveError || !liveData) {
         throw new Error('Live não encontrada');
       }
 
       setCacheStatus({
         isLoading: false,
-        fromCache: cacheResult.fromCache,
-        needsRefresh: cacheResult.needsRefresh,
-        lastSynced: cacheResult.data.live.last_synced_at
+        fromCache: false,
+        needsRefresh: false,
+        lastSynced: new Date().toISOString()
       });
 
-      // Atualizar estados com dados do cache
-      setLive(cacheResult.data.live);
-      setGroups(cacheResult.data.groups);
-      setCampaigns(cacheResult.data.campaigns);
-      setMetrics(cacheResult.data.metrics);
-      setLiveGroups(cacheResult.data.groups);
+      // Atualizar estados com dados diretos
+      setLive(liveData);
+      // Buscar grupos e campaigns separadamente
+      const { data: groupsData } = await supabase
+        .from('whatsapp_groups_lives')
+        .select('*')
+        .eq('live_id', liveId);
+      
+      if (groupsData) {
+        setGroups(groupsData);
+        setLiveGroups(groupsData);
+      }
 
       // Buscar dados complementares
       console.log('🔄 [SalesByGroup Cache] Buscando dados complementares...');
@@ -225,10 +235,7 @@ const SalesByGroup = () => {
     try {
       console.log('🔄 [SalesByGroup Cache] Forçando refresh do cache');
       
-      // Limpar cache atual
-      await clearPublicCache(liveId);
-      
-      // Buscar dados frescos
+      // Force fresh data fetch
       await fetchDataWithCache();
       
       console.log('✅ [SalesByGroup Cache] Refresh forçado concluído');

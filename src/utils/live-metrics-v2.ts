@@ -142,20 +142,21 @@ export async function calculateCompleteLiveMetrics(
  * @param liveData - Dados completos da Live
  * @returns Métricas calculadas
  */
-export function calculateSimpleMetrics(liveData: {
+export async function calculateSimpleMetrics(liveData: {
   live: any;
   groups: any[];
   campaignInsights: Array<{
     campaign_id: string;
     insights: any[];
   }>;
-}): LiveMetricsV2 {
+}): Promise<LiveMetricsV2> {
   const result = calculateCompleteLiveMetrics(liveData, {
     enableLogging: false,
     enableValidation: false
   });
   
-  return result.metrics;
+  const resolved = await result;
+  return resolved.metrics;
 }
 
 /**
@@ -163,22 +164,23 @@ export function calculateSimpleMetrics(liveData: {
  * @param liveData - Dados completos da Live
  * @returns Resultado com métricas e validação
  */
-export function calculateMetricsWithValidation(liveData: {
+export async function calculateMetricsWithValidation(liveData: {
   live: any;
   groups: any[];
   campaignInsights: Array<{
     campaign_id: string;
     insights: any[];
   }>;
-}): Omit<LiveMetricsResult, 'extractedData' | 'summary'> {
+}): Promise<Omit<LiveMetricsResult, 'extractedData' | 'summary'>> {
   const result = calculateCompleteLiveMetrics(liveData, {
     enableLogging: false,
     enableValidation: true
   });
   
+  const resolved = await result;
   return {
-    metrics: result.metrics,
-    validation: result.validation
+    metrics: resolved.metrics,
+    validation: resolved.validation
   };
 }
 

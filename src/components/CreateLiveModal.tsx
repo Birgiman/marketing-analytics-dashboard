@@ -663,19 +663,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                 </div>
               </div>
 
-              {/* Test Button for Complete Data Fetching */}
-              {editingLive && (
-                <div className="pt-2 border-t">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowTestModal(true)}
-                    className="w-full text-xs"
-                  >
-                    🧪 Testar coleta completa de dados
-                  </Button>
-                </div>
-              )}
+              {/* Test functionality removed for now */}
 
               {/* Actions Step 3 */}
               <div className="flex gap-3 pt-4 mt-auto justify-center">

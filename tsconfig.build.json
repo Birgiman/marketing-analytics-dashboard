@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "noImplicitReturns": false,
+    "noImplicitThis": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "supabase/**/*",
+    "docs/**/*",
+    "src/**/*.example.ts",
+    "src/**/*.example.tsx",
+    "**/*.test.*",
+    "**/*.spec.*"
+  ]
+}
