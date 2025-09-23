@@ -69,7 +69,8 @@ export default function SeedTestUser() {
       setSuccess(true);
 
     } catch (error: unknown) {
-      setError(error.message || 'Erro ao criar usuário de teste');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao criar usuário de teste';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

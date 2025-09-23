@@ -92,7 +92,7 @@ export const MetaCampaignsList = ({ creatives, isLoading }: MetaCampaignsListPro
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {Object.entries(groupedCampaigns).map(([campaignName, campaignCreatives]) => {
+        {Object.entries(groupedCampaigns).map(([campaignName, campaignCreatives]: [string, any[]]) => {
           // Calcular totais da campanha
           const totalSpent = campaignCreatives.reduce((sum: number, c: any) => sum + (c.amount_spent || 0), 0);
           const totalLeads = campaignCreatives.reduce((sum: number, c: any) => sum + (c.leads || 0), 0);

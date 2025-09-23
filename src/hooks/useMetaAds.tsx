@@ -159,7 +159,8 @@ export function useMetaAds(): UseMetaAdsReturn {
       
     } catch (err: unknown) {
       console.error('Error connecting Meta account:', err);
-      setError(err.message || 'Erro ao conectar conta Meta');
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao conectar conta Meta';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -207,7 +208,8 @@ export function useMetaAds(): UseMetaAdsReturn {
       
     } catch (err: unknown) {
       console.error('Error syncing Meta data:', err);
-      setError('Erro na sincronização: ' + err.message);
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      setError('Erro na sincronização: ' + errorMessage);
     } finally {
       setIsSyncing(false);
     }

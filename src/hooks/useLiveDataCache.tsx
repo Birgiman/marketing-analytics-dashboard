@@ -76,7 +76,8 @@ export function useLiveDataCache({
 
     } catch (err: unknown) {
       console.error('❌ [useLiveDataCache] Erro:', err);
-      setError(err.message || 'Erro ao carregar dados da Live');
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar dados da Live';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

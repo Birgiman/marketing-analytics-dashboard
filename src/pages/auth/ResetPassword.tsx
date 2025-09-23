@@ -85,7 +85,8 @@ export default function ResetPassword() {
       }, 3000);
 
     } catch (error: unknown) {
-      setError(error.message || 'Erro ao atualizar senha');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao atualizar senha';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

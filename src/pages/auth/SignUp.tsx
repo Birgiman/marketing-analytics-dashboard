@@ -85,7 +85,8 @@ export default function SignUp() {
         navigate('/auth/pending-approval');
       }
     } catch (error: unknown) {
-      setError(error.message || 'Erro ao criar conta');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao criar conta';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

@@ -155,7 +155,8 @@ export function useLiveMetrics({
 
     } catch (err: unknown) {
       console.error('❌ [useLiveMetrics] Erro:', err);
-      setError(err.message || 'Erro ao carregar métricas');
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar métricas';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

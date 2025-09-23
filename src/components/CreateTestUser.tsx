@@ -105,9 +105,10 @@ export const CreateTestUser = () => {
 
     } catch (error: unknown) {
       console.error('Erro ao criar usuário:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({
         title: "Erro ao criar usuário",
-        description: error.message || 'Erro desconhecido',
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {

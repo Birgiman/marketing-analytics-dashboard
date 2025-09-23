@@ -124,7 +124,8 @@ export function useMetaIntegration(): UseMetaIntegrationReturn {
 
     } catch (err: unknown) {
       console.error('Error connecting with token:', err);
-      setError(err.message || 'Erro ao conectar com token');
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao conectar com token';
+      setError(errorMessage);
     } finally {
       setIsValidating(false);
     }

@@ -90,7 +90,8 @@ export default function SignIn() {
         }
       }
     } catch (error: unknown) {
-      setError(error.message || 'Erro ao fazer login');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao fazer login';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -116,7 +117,8 @@ export default function SignIn() {
       setShowResetForm(false);
       setResetEmail('');
     } catch (error: unknown) {
-      setError(error.message || 'Erro ao enviar email de recuperação');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao enviar email de recuperação';
+      setError(errorMessage);
     } finally {
       setResetLoading(false);
     }

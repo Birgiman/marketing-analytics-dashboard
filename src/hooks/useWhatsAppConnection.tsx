@@ -63,9 +63,10 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
       });
     } catch (err: unknown) {
       console.error('Erro ao sincronizar:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Falha ao sincronizar com Evolution API';
       toast.error({
         title: "Erro na sincronização",
-        description: err.message || 'Falha ao sincronizar com Evolution API',
+        description: errorMessage,
         duration: 7000
       });
     } finally {
@@ -170,10 +171,11 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
       }
     } catch (err: unknown) {
       setConnectionState('error');
-      setError(err.message || 'Erro ao conectar WhatsApp');
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao conectar WhatsApp';
+      setError(errorMessage);
       toast({
         title: "Erro ao conectar",
-        description: err.message || 'Falha na conexão com WhatsApp',
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -209,10 +211,11 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
         description: "Instância foi desconectada com sucesso",
       });
     } catch (err: unknown) {
-      setError(err.message || 'Erro ao desconectar WhatsApp');
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao desconectar WhatsApp';
+      setError(errorMessage);
       toast({
         title: "Erro ao desconectar",
-        description: err.message || 'Falha ao desconectar WhatsApp',
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -284,10 +287,11 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
         description: "QR Code atualizado, escaneie novamente",
       });
     } catch (err: unknown) {
-      setError(err.message || 'Erro ao gerar QR code');
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao gerar QR code';
+      setError(errorMessage);
       toast({
         title: "Erro ao gerar QR",
-        description: err.message || 'Falha ao gerar novo QR code',
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

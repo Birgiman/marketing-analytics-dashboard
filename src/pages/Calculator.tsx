@@ -328,9 +328,10 @@ export default function Calculator() {
 
     } catch (error: unknown) {
       console.error('Error saving calculation:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({
         title: "Erro",
-        description: `Não foi possível salvar o cálculo: ${error.message || error}`,
+        description: `Não foi possível salvar o cálculo: ${errorMessage}`,
         variant: "destructive",
       });
     } finally {
@@ -385,9 +386,10 @@ export default function Calculator() {
 
     } catch (error: unknown) {
       console.error('Error saving calculation:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({
         title: "Erro",
-        description: `Não foi possível salvar o cálculo: ${error.message || error}`,
+        description: `Não foi possível salvar o cálculo: ${errorMessage}`,
         variant: "destructive",
       });
     } finally {
@@ -437,9 +439,10 @@ export default function Calculator() {
 
     } catch (error: unknown) {
       console.error('Error editing calculation:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({
         title: "Erro",
-        description: `Não foi possível editar o cálculo: ${error.message || error}`,
+        description: `Não foi possível editar o cálculo: ${errorMessage}`,
         variant: "destructive",
       });
     }

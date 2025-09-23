@@ -171,10 +171,11 @@ export const useWhatsAppQR = (): UseWhatsAppQRResult => {
       }
     } catch (err: unknown) {
       setStatus('error');
-      setError(err.message || 'Erro ao gerar QR Code');
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao gerar QR Code';
+      setError(errorMessage);
       toast({
         title: "Erro ao conectar",
-        description: err.message || 'Falha na conexão com WhatsApp',
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -210,10 +211,11 @@ export const useWhatsAppQR = (): UseWhatsAppQRResult => {
       });
     } catch (err: unknown) {
       setStatus('error');
-      setError(err.message || 'Erro ao atualizar QR Code');
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar QR Code';
+      setError(errorMessage);
       toast({
         title: "Erro ao atualizar QR",
-        description: err.message || 'Falha ao gerar novo QR Code',
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -243,10 +245,11 @@ export const useWhatsAppQR = (): UseWhatsAppQRResult => {
         description: "Instância desconectada com sucesso",
       });
     } catch (err: unknown) {
-      setError(err.message || 'Erro ao desconectar');
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao desconectar';
+      setError(errorMessage);
       toast({
         title: "Erro ao desconectar",
-        description: err.message || 'Falha ao desconectar WhatsApp',
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

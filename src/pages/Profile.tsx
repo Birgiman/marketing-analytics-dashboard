@@ -192,9 +192,10 @@ export default function Profile() {
 
       setEmailData({ currentPassword: '', newEmail: '' });
     } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao atualizar email";
       toast({
         title: "Erro",
-        description: error.message || "Erro ao atualizar email",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -262,9 +263,10 @@ export default function Profile() {
 
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao atualizar senha";
       toast({
         title: "Erro",
-        description: error.message || "Erro ao atualizar senha",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {

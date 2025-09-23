@@ -212,7 +212,8 @@ export function useLiveCampaignData(liveId: string): UseLiveCampaignDataReturn {
 
     } catch (err: unknown) {
       console.error('Erro ao carregar dados das campanhas:', err);
-      setError(err.message || 'Erro ao carregar dados das campanhas');
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar dados das campanhas';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

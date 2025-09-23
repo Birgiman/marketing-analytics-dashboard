@@ -64,17 +64,18 @@ export const useAnalytics = (userId?: string) => {
       });
     } catch (error: unknown) {
       console.error('Error loading analytics data:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao carregar dados de analytics';
       setData(prev => ({
         ...prev,
         creatives: prev.creatives || [],
         groups: prev.groups || [],
         lives: prev.lives || [],
         loading: false,
-        error: error.message || 'Erro ao carregar dados de analytics'
+        error: errorMessage
       }));
       toast({
         title: "Erro ao carregar dados",
-        description: error.message || 'Falha ao carregar dados de analytics',
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -103,9 +104,10 @@ export const useAnalytics = (userId?: string) => {
       return live;
     } catch (error: unknown) {
       console.error('Error creating live:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({
         title: "Erro ao criar live",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
       throw error;
@@ -131,9 +133,10 @@ export const useAnalytics = (userId?: string) => {
       return live;
     } catch (error: unknown) {
       console.error('Error updating live:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({
         title: "Erro ao atualizar live",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
       throw error;
@@ -160,9 +163,10 @@ export const useAnalytics = (userId?: string) => {
       });
     } catch (error: unknown) {
       console.error('Error deleting live:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({
         title: "Erro ao deletar live",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
       throw error;
