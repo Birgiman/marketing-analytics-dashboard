@@ -63,23 +63,96 @@ export async function getWhatsAppGroupsLogData(
     }
 
     // Consulta SQL para obter dados agregados por grupo e evento
+    // Usar RPC function para fazer agregação, pois count(*) não funciona no select direto
     const { data, error } = await supabase
-      .from('whatsapp_groups_log')
-      .select(`
-        id_grupo,
-        group_name,
-        event,
-        count(*)
-      `)
-      .in('id_grupo', groupIds)
-      .eq('user_id', userId)
-      .gte('created_at', dateFrom)
-      .lte('created_at', dateTo)
-      .in('event', ['join', 'leave']);
+      .rpc('get_whatsapp_groups_log_aggregated', {
+        group_ids: groupIds,
+        user_id: userId,
+        date_from: dateFrom,
+        date_to: dateTo
+      });
 
     if (error) {
-      console.error('❌ [WhatsAppGroupsLog] Erro na consulta:', error);
-      throw error;
+      console.error('❌ [WhatsAppGroupsLog] Erro na consulta RPC, tentando fallback:', error);
+      
+      // Fallback: consulta simples sem agregação
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('whatsapp_groups_log')
+        .select('id_grupo, group_name, event')
+        .in('id_grupo', groupIds)
+        .eq('user_id', userId)
+        .gte('created_at', dateFrom)
+        .lte('created_at', dateTo)
+        .in('event', ['join', 'leave']);
+
+      if (fallbackError) {
+        console.error('❌ [WhatsAppGroupsLog] Erro no fallback também:', fallbackError);
+        throw fallbackError;
+      }
+
+      // Processar dados do fallback manualmente
+      const groupMap = new Map<string, GroupLogData>();
+      
+      // Inicializar todos os grupos com valores zerados
+      groupIds.forEach(groupId => {
+        groupMap.set(groupId, {
+          id_grupo: groupId,
+          group_name: `Grupo ${groupId}`,
+          entries: 0,
+          exits: 0,
+          activeMembers: 0
+        });
+      });
+
+      // Contar eventos manualmente
+      fallbackData?.forEach((row: any) => {
+        const groupId = row.id_grupo;
+        const event = row.event;
+
+        if (!groupMap.has(groupId)) {
+          groupMap.set(groupId, {
+            id_grupo: groupId,
+            group_name: row.group_name || `Grupo ${groupId}`,
+            entries: 0,
+            exits: 0,
+            activeMembers: 0
+          });
+        }
+
+        const groupData = groupMap.get(groupId)!;
+        
+        if (event === 'join') {
+          groupData.entries++;
+        } else if (event === 'leave') {
+          groupData.exits++;
+        }
+
+        // Atualizar nome do grupo se disponível
+        if (row.group_name) {
+          groupData.group_name = row.group_name;
+        }
+      });
+
+      // Calcular membros ativos para cada grupo
+      groupMap.forEach(groupData => {
+        groupData.activeMembers = Math.max(0, groupData.entries - groupData.exits);
+      });
+
+      // Calcular totais
+      const groupsData = Array.from(groupMap.values());
+      const totalEntries = groupsData.reduce((sum, group) => sum + group.entries, 0);
+      const totalExits = groupsData.reduce((sum, group) => sum + group.exits, 0);
+      const totalActiveMembers = groupsData.reduce((sum, group) => sum + group.activeMembers, 0);
+
+      const result = {
+        totalEntries,
+        totalExits,
+        totalActiveMembers,
+        groupsData
+      };
+
+      console.log('✅ [WhatsAppGroupsLog] Dados processados via fallback:', result);
+      return result;
     }
 
     console.log('📊 [WhatsAppGroupsLog] Dados brutos da consulta:', data);
