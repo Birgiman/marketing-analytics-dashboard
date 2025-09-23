@@ -260,6 +260,15 @@ const Details = () => {
       setValidationV2(result.validation);
       setSummaryV2(result.summary);
 
+      // Log dos valores antes de atualizar cache
+      console.log('📊 [Details Cache] Valores ANTES da atualização:', {
+        cplLiquido: result.metrics.cplLiquido,
+        cplMeta: result.metrics.cplMeta,
+        retentionRate: result.metrics.retentionRate,
+        totalSpend: result.extractedData.metaData.totalSpend,
+        totalResults: result.extractedData.metaData.totalResults
+      });
+
       // Atualizar cache no banco
       await updateLiveCache(
         completeData.live.id,
@@ -267,6 +276,14 @@ const Details = () => {
         result.extractedData.groupData,
         result.extractedData.metaData
       );
+
+      // Atualizar status do cache após salvar
+      setCacheStatus(prev => ({
+        ...prev,
+        fromCache: false,
+        needsRefresh: false,
+        lastSynced: new Date().toISOString()
+      }));
 
       console.log('✅ [Details Cache] Métricas calculadas e cache atualizado');
 
@@ -284,6 +301,14 @@ const Details = () => {
     
     try {
       console.log('🔄 [Details Cache] Forçando refresh do cache');
+      
+      // Log dos valores atuais antes do refresh
+      console.log('📊 [Details Cache] Valores ANTES do refresh forçado:', {
+        cplLiquido: metricsV2?.cplLiquido,
+        cplMeta: metricsV2?.cplMeta,
+        retentionRate: metricsV2?.retentionRate,
+        lastSynced: cacheStatus.lastSynced
+      });
       
       // Limpar cache atual
       await clearLiveCache(liveId);
@@ -665,8 +690,8 @@ const Details = () => {
           </div>
         </div>
 
-        {/* Status do Cache */}
-        {cacheStatus.lastSynced && (
+        {/* Status do Cache - REMOVIDO PARA PRODUÇÃO */}
+        {/* {cacheStatus.lastSynced && (
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -694,7 +719,7 @@ const Details = () => {
               )}
             </div>
           </Card>
-        )}
+        )} */}
 
         {/* Error Alert */}
         {error && (
