@@ -62,6 +62,8 @@ export interface MetaInsight {
   frequency: string;
   cpm: string;
   ctr: string;
+  cpp?: string;
+  cost_per_unique_click?: string;
   actions?: Array<{
     action_type: string;
     value: string;
@@ -275,7 +277,7 @@ export async function fetchCampaignInsightsById(
   options: MetaInsightsOptions & {
     timeIncrement?: string;
   } = {}
-): Promise<any> {
+): Promise<MetaInsight[]> {
   const {
     fields = MetaApiFields.CAMPAIGN_INSIGHTS,
     datePreset = MetaDatePreset.LAST_30D,
@@ -480,7 +482,7 @@ export async function fetchAccountLevelInsights(
   adAccountId: string,
   accessToken: string,
   options: MetaInsightsOptions = {}
-): Promise<any[]> {
+): Promise<MetaInsight[]> {
   const {
     level = MetaInsightLevel.ACCOUNT,
     fields = [], // CORRIGIDO: Usar campos vazios por padrão
@@ -545,7 +547,7 @@ export async function fetchMultipleCampaignInsights(
     campaignStatuses?: MetaCampaignStatus[];
     searchTerm?: string;
   } = {}
-): Promise<any[]> {
+): Promise<MetaInsight[]> {
   const {
     level = MetaInsightLevel.CAMPAIGN,
     fields = [], // CORRIGIDO: Usar campos vazios por padrão
@@ -753,7 +755,7 @@ export async function fetchMetaInsights(
   } = {
     level: 'campaign' // Valor padrão obrigatório
   }
-): Promise<any[]> {
+): Promise<MetaInsight[]> {
   const {
     level,
     fields = [], // Campos vazios por padrão

@@ -38,10 +38,70 @@ const TrafficAnalysis = () => {
     id: string;
     name: string;
     ad_budget?: number;
-    cached_metrics?: any;
-    cached_group_data?: any;
-    cached_traffic_data?: any;
-    cached_traffic_metrics?: any;
+    cached_metrics?: {
+      cplLiquido: number;
+      cplMeta: number;
+      retentionRate: number;
+      cplLiquidoPlanejamento: number;
+    };
+    cached_group_data?: {
+      totalGroups: number;
+      totalMembers: number;
+      entries: number;
+      exits: number;
+      activeMembers: number;
+    };
+    cached_traffic_data?: {
+      groups: Array<{
+        id: string;
+        group_id: string;
+        group_name: string;
+        group_size: number;
+        monitoring: boolean;
+        created_at: string;
+        updated_at: string;
+      }>;
+      campaigns: Array<{
+        id: string;
+        campaign_id: string;
+        campaign_name: string;
+        account_id?: string;
+        account_name?: string;
+        objective?: string;
+        status: string;
+        daily_budget?: number;
+        lifetime_budget?: number;
+      }>;
+      campaignsWithInsights: Array<{
+        campaign_id: string;
+        insights: Array<{
+          campaign_name?: string;
+          ad_name?: string;
+          date_start?: string;
+          date_stop?: string;
+          spend?: string;
+          impressions?: string;
+          clicks?: string;
+          reach?: string;
+          frequency?: string;
+          cpm?: string;
+          ctr?: string;
+          cpp?: string;
+          cost_per_unique_click?: string;
+          actions?: Array<{
+            action_type: string;
+            value: string;
+          }>;
+        }>;
+      }>;
+      adSetData?: AdSetData[];
+    };
+    cached_traffic_metrics?: {
+      cplLiquido: number;
+      cplMeta: number;
+      retentionRate: number;
+      cplLiquidoPlanejamento: number;
+    };
     traffic_last_synced_at?: string;
   } | null>(null);
   const [groups, setGroups] = useState<Array<{
@@ -268,29 +328,14 @@ const TrafficAnalysis = () => {
       
       console.log('✅ [TrafficAnalysis Cache] Dados frescos carregados, buscando adSetData...');
       
-      // Buscar dados de conjuntos de anúncios
+      // Buscar dados de conjuntos de anúncios diretamente do Meta
       let adSetDataToCache: AdSetData[] = [];
       try {
         const fallbackAccountId = completeData.liveCampaigns?.[0]?.account_id;
         const accountId = completeData.metaIntegration?.account_id || fallbackAccountId;
         
-        console.log('🔍 [TrafficAnalysis Cache] Verificando condições para buscar adSetInsights:', {
-          hasAccountId: !!accountId,
-          hasAccessToken: !!completeData.metaIntegration?.access_token,
-          accountId,
-          metaIntegration: completeData.metaIntegration,
-          liveCampaigns: completeData.liveCampaigns
-        });
-        
         if (accountId && completeData.metaIntegration?.access_token) {
-          console.log('🔍 [TrafficAnalysis Cache] Buscando adSetInsights com:', {
-            accountId,
-            dateRange: {
-              since: completeData.live?.insights_date_since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-              until: completeData.live?.insights_date_until || new Date().toISOString().split('T')[0]
-            },
-            searchTerm: completeData.live?.campaign_search_term
-          });
+          console.log('🔄 [TrafficAnalysis Cache] Buscando adSetInsights do Meta...');
           
           const adSetInsights = await fetchAdSetInsights(
             accountId,
@@ -304,28 +349,11 @@ const TrafficAnalysis = () => {
             }
           );
           
-          console.log('🔍 [TrafficAnalysis Cache] adSetInsights retornado:', {
-            length: adSetInsights.length,
-            firstItem: adSetInsights[0],
-            allData: adSetInsights
-          });
-          
           adSetDataToCache = extractAdSetDataFromInsights(adSetInsights);
-          console.log('🔍 [TrafficAnalysis Cache] extractAdSetDataFromInsights retornou:', {
-            length: adSetDataToCache.length,
-            firstItem: adSetDataToCache[0],
-            allData: adSetDataToCache
-          });
-          
           setAdSetData(adSetDataToCache);
           console.log('✅ [TrafficAnalysis Cache] AdSetData carregado:', adSetDataToCache.length, 'itens');
         } else {
-          console.warn('⚠️ [TrafficAnalysis Cache] Não foi possível buscar adSetData:', {
-            hasAccountId: !!accountId,
-            hasAccessToken: !!completeData.metaIntegration?.access_token,
-            accountId,
-            metaIntegration: completeData.metaIntegration
-          });
+          console.warn('⚠️ [TrafficAnalysis Cache] Não foi possível buscar adSetData - Meta integration não disponível');
         }
       } catch (error) {
         console.warn('⚠️ [TrafficAnalysis Cache] Erro ao buscar adSetData:', error);
@@ -351,7 +379,61 @@ const TrafficAnalysis = () => {
   }, [liveId]); // Dependência apenas do liveId
 
   // Função para atualizar cache de tráfego
-  const updateTrafficCache = async (liveId: string, completeData: any, adSetDataToCache?: AdSetData[]) => {
+  const updateTrafficCache = async (
+    liveId: string, 
+    completeData: {
+      live: {
+        id: string;
+        name: string;
+        user_id: string;
+        insights_date_since?: string;
+        insights_date_until?: string;
+        campaign_search_term?: string;
+      };
+      groups: Array<{
+        id: string;
+        group_id: string;
+        group_name: string;
+        group_size: number;
+        monitoring: boolean;
+        created_at: string;
+      }>;
+      liveCampaigns: Array<{
+        id: string;
+        campaign_id: string;
+        campaign_name: string;
+        account_id?: string;
+        account_name?: string;
+        objective?: string;
+        status: string;
+        daily_budget?: number;
+        lifetime_budget?: number;
+      }>;
+      campaignInsights: Array<{
+        campaign_id: string;
+        insights: Array<{
+          campaign_name?: string;
+          ad_name?: string;
+          date_start?: string;
+          date_stop?: string;
+          spend?: string;
+          impressions?: string;
+          clicks?: string;
+          reach?: string;
+          frequency?: string;
+          cpm?: string;
+          ctr?: string;
+          cpp?: string;
+          cost_per_unique_click?: string;
+          actions?: Array<{
+            action_type: string;
+            value: string;
+          }>;
+        }>;
+      }>;
+    }, 
+    adSetDataToCache?: AdSetData[]
+  ) => {
     try {
       const trafficData = {
         groups: completeData.groups || [],
@@ -701,9 +783,43 @@ const TrafficAnalysis = () => {
         const individualCampaignData = extractCampaignData(campaignInsights, completeData.allUserCampaigns);
         setCampaignData(individualCampaignData);
         
-        // CORRIGIDO: Não buscar dados do Meta novamente, apenas filtrar os dados já carregados
-        // Os dados de adSetData já estão disponíveis do cache ou carregamento inicial
-        console.log('✅ [TrafficAnalysis] Aplicando filtros sem nova requisição ao Meta');
+        // CORRIGIDO: Buscar dados de conjuntos de anúncios diretamente do Meta
+        console.log('🔄 [TrafficAnalysis] Buscando dados de conjuntos de anúncios do Meta...');
+        
+        const fallbackAccountId = completeData.liveCampaigns?.[0]?.account_id;
+        const accountId = completeData.metaIntegration?.account_id || fallbackAccountId;
+        
+        if (accountId && completeData.metaIntegration?.access_token) {
+          try {
+            const adSetInsights = await fetchAdSetInsights(
+              accountId,
+              completeData.metaIntegration.access_token,
+              {
+                dateRange: {
+                  since: tempStartDate || completeData.live?.insights_date_since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                  until: tempEndDate || completeData.live?.insights_date_until || new Date().toISOString().split('T')[0]
+                },
+                searchTerm: completeData.live?.campaign_search_term
+              }
+            );
+            
+            // Extrair dados individuais por conjunto de anúncios
+            const individualAdSetData = extractAdSetDataFromInsights(adSetInsights);
+            setAdSetData(individualAdSetData);
+            
+            console.log('✅ [TrafficAnalysis] Dados de conjuntos de anúncios carregados:', individualAdSetData.length, 'itens');
+            
+          } catch (error) {
+            console.error('❌ [TrafficAnalysis] Erro ao buscar conjuntos de anúncios:', error);
+            setAdSetData([]);
+          }
+        } else {
+          console.warn('⚠️ [TrafficAnalysis] Não foi possível buscar dados de conjuntos de anúncios:', {
+            hasAccountId: !!accountId,
+            hasAccessToken: !!completeData.metaIntegration?.access_token
+          });
+          setAdSetData([]);
+        }
         
         console.log('🎯 [TrafficAnalysis] Dados filtrados por campanha:', individualCampaignData);
       }
