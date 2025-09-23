@@ -197,7 +197,7 @@ const SalesByGroup = () => {
       setLive(liveData);
       // Buscar grupos e campaigns separadamente
       const { data: groupsData } = await supabase
-        .from('whatsapp_groups_lives')
+        .from('live_groups')
         .select('*')
         .eq('live_id', liveId);
       
