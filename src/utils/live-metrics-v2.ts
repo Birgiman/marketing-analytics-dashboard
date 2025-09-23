@@ -194,10 +194,10 @@ export async function calculateMetricsWithValidation(liveData: {
  * @param live2Data - Dados da segunda Live
  * @returns Comparação das métricas
  */
-export function compareLiveMetrics(
+export async function compareLiveMetrics(
   live1Data: any,
   live2Data: any
-): {
+): Promise<{
   live1: LiveMetricsV2;
   live2: LiveMetricsV2;
   comparison: {
@@ -206,9 +206,9 @@ export function compareLiveMetrics(
     retentionRateDiff: number;
     cplLiquidoPlanejamentoDiff: number;
   };
-} {
-  const metrics1 = calculateSimpleMetrics(live1Data);
-  const metrics2 = calculateSimpleMetrics(live2Data);
+}> {
+  const metrics1 = await calculateSimpleMetrics(live1Data);
+  const metrics2 = await calculateSimpleMetrics(live2Data);
 
   const comparison = {
     cplLiquidoDiff: metrics2.cplLiquido - metrics1.cplLiquido,

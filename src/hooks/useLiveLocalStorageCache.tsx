@@ -244,18 +244,14 @@ export function useLiveLocalStorageCache({
             );
 
             // Buscar insights
-            const options: MetaInsightsOptions = {
-              level: 'campaign',
-              fields: ['campaign_name', 'impressions', 'spend', 'clicks', 'reach', 'frequency', 'cpm', 'ctr', 'cpp', 'cost_per_unique_click', 'actions', 'ad_name', 'date_start', 'date_stop']
-            };
-
-            // Usar dateRange da Live se disponível
-            if (live.insights_date_since && live.insights_date_until) {
-              options.timeRange = {
+            const options = {
+              level: 'campaign' as const,
+              fields: ['campaign_name', 'impressions', 'spend', 'clicks', 'reach', 'frequency', 'cpm', 'ctr', 'cpp', 'cost_per_unique_click', 'actions', 'ad_name', 'date_start', 'date_stop'],
+              timeRange: live.insights_date_since && live.insights_date_until ? {
                 since: live.insights_date_since,
                 until: live.insights_date_until
-              };
-            }
+              } : undefined
+            };
 
             const insightsData = await fetchMetaInsights(
               campaign.campaign_id,

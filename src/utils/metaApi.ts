@@ -740,7 +740,9 @@ export async function fetchMetaInsights(
     filtering?: Array<{ field: string; operator: 'IN' | 'NOT_IN' | 'EQUAL' | 'NOT_EQUAL' | 'GREATER_THAN' | 'LESS_THAN' | 'CONTAIN' | 'NOT_CONTAIN'; value: string | string[] | number }>;
     limit?: number;
     timeIncrement?: number | '1' | '7' | '30';
-  } = {}
+  } = {
+    level: 'campaign' // Valor padrão obrigatório
+  }
 ): Promise<any[]> {
   const {
     level,

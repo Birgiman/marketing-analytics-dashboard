@@ -92,11 +92,12 @@ export const MetaCampaignsList = ({ creatives, isLoading }: MetaCampaignsListPro
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {Object.entries(groupedCampaigns).map(([campaignName, campaignCreatives]: [string, any[]]) => {
+        {Object.entries(groupedCampaigns).map(([campaignName, campaignCreatives]) => {
           // Calcular totais da campanha
-          const totalSpent = campaignCreatives.reduce((sum: number, c: any) => sum + (c.amount_spent || 0), 0);
-          const totalLeads = campaignCreatives.reduce((sum: number, c: any) => sum + (c.leads || 0), 0);
-          const totalImpressions = campaignCreatives.reduce((sum: number, c: any) => sum + (c.impressions || 0), 0);
+          const creatives = campaignCreatives as any[];
+          const totalSpent = creatives.reduce((sum: number, c: any) => sum + (c.amount_spent || 0), 0);
+          const totalLeads = creatives.reduce((sum: number, c: any) => sum + (c.leads || 0), 0);
+          const totalImpressions = creatives.reduce((sum: number, c: any) => sum + (c.impressions || 0), 0);
           const avgCPL = totalLeads > 0 ? totalSpent / totalLeads : 0;
 
           return (
@@ -106,7 +107,7 @@ export const MetaCampaignsList = ({ creatives, isLoading }: MetaCampaignsListPro
                 <div className="flex-1 min-w-0">
                   <h4 className="font-semibold text-lg truncate">{campaignName}</h4>
                   <p className="text-sm text-gray-600 mt-1">
-                    {campaignCreatives.length} anúncio(s) • Período: {campaignCreatives[0]?.day || 'N/A'}
+                    {creatives.length} anúncio(s) • Período: {creatives[0]?.day || 'N/A'}
                   </p>
                 </div>
                 <Button variant="ghost" size="sm">
@@ -142,10 +143,10 @@ export const MetaCampaignsList = ({ creatives, isLoading }: MetaCampaignsListPro
               <div className="space-y-2">
                 <h5 className="text-sm font-medium text-gray-700 flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" />
-                  Anúncios ({campaignCreatives.length})
+                  Anúncios ({creatives.length})
                 </h5>
                 <div className="space-y-1">
-                  {campaignCreatives.slice(0, 3).map((creative: any, index: number) => (
+                  {creatives.slice(0, 3).map((creative: any, index: number) => (
                     <div key={creative.id || index} className="flex items-center justify-between p-2 bg-white border rounded">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">
@@ -166,10 +167,10 @@ export const MetaCampaignsList = ({ creatives, isLoading }: MetaCampaignsListPro
                     </div>
                   ))}
                   
-                  {campaignCreatives.length > 3 && (
+                  {creatives.length > 3 && (
                     <div className="text-center py-2">
                       <Button variant="ghost" size="sm" className="text-xs">
-                        Ver mais {campaignCreatives.length - 3} anúncio(s)
+                        Ver mais {creatives.length - 3} anúncio(s)
                       </Button>
                     </div>
                   )}

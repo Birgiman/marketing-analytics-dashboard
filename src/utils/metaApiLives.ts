@@ -300,7 +300,7 @@ export function formatForCreativesTable(data: LiveCampaignData[]): CreativeTable
     id: `meta_${index}`,
     day: item.day,
     campaign_name: item.campaign_name,
-    ad_set_name: item.ad_set_name,
+    ad_set_name: item.ad_set_name || '', // Garantir que não seja null
     ad_name: item.ad_name,
     amount_spent: item.amount_spent,
     leads: item.leads,

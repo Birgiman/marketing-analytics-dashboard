@@ -24,7 +24,15 @@ interface CreateLiveModalProps {
 }
 
 // GroupResult é equivalente a LiveGroup com selectable
-interface GroupResult extends LiveGroup {
+interface GroupResult {
+  id: string;
+  group_id: string;
+  group_name: string;
+  group_size: number;
+  group_owner?: string;
+  group_created_at?: string;
+  group_created_formatted: string;
+  group_owner_formatted?: string;
   selectable: boolean;
 }
 
@@ -703,7 +711,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         isOpen={showCampaignSelector}
         onClose={() => setShowCampaignSelector(false)}
         onCampaignsSelected={handleCampaignsSelected}
-        userId={userId}
+        userId={userId || undefined}
         alreadySelected={selectedCampaigns}
         linkedCampaigns={linkedCampaigns.map(c => c.campaign_id)}
         dateRange={dateRange}
