@@ -12,10 +12,13 @@ interface FetchGroupsRequest {
   instanceName: string;
   userId: string;
   searchTerm?: string;
+  page?: number;        // Nova: página atual (padrão: 1)
+  limit?: number;       // Nova: grupos por página (padrão: 50)
 }
 
 // V2 OPTIMIZATIONS
-const MAX_GROUPS_TO_PROCESS = 50; // Limite para evitar timeout
+const DEFAULT_PAGE_SIZE = 50; // Tamanho padrão da página
+const MAX_PAGE_SIZE = 100; // Tamanho máximo da página
 const EVOLUTION_API_TIMEOUT = 25000; // 25 segundos timeout
 
 serve(async (req: any) => {
@@ -42,12 +45,18 @@ serve(async (req: any) => {
       )
     }
 
-    const { instanceName, userId, searchTerm }: FetchGroupsRequest = await req.json()
+    const { instanceName, userId, searchTerm, page = 1, limit = DEFAULT_PAGE_SIZE }: FetchGroupsRequest = await req.json()
+    
+    // Validar parâmetros de paginação
+    const currentPage = Math.max(1, page);
+    const pageSize = Math.min(Math.max(1, limit), MAX_PAGE_SIZE);
     
     console.log('📥 [whatsapp-fetch-groups-v2] Request parsed:', {
       instanceName,
       userId,
       searchTerm,
+      page: currentPage,
+      limit: pageSize,
       hasInstanceName: !!instanceName,
       hasUserId: !!userId
     });
@@ -59,7 +68,7 @@ serve(async (req: any) => {
       )
     }
 
-    console.log(`🔍 [V2] Fetching groups for instance: ${instanceName}, userId: ${userId}${searchTerm ? `, searchTerm: "${searchTerm}"` : ''}`)
+    console.log(`🔍 [V2] Fetching groups for instance: ${instanceName}, userId: ${userId}${searchTerm ? `, searchTerm: "${searchTerm}"` : ''}, page: ${currentPage}, limit: ${pageSize}`)
 
     // Get Evolution API credentials
     const { data: instanceData, error: instanceError } = await supabase
@@ -181,9 +190,12 @@ serve(async (req: any) => {
 
     console.log(`✅ [V2] Filtered to ${filteredGroups.length} relevant groups`)
 
-    // V2 OPTIMIZATION: Limit processing to avoid timeout
-    const groupsToProcess = filteredGroups.slice(0, MAX_GROUPS_TO_PROCESS);
-    console.log(`🎯 [V2] Processing first ${groupsToProcess.length} groups (limit: ${MAX_GROUPS_TO_PROCESS})`)
+    // V2 OPTIMIZATION: Pagination logic
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const groupsToProcess = filteredGroups.slice(startIndex, endIndex);
+    
+    console.log(`🎯 [V2] Processing page ${currentPage}: groups ${startIndex + 1}-${Math.min(endIndex, filteredGroups.length)} of ${filteredGroups.length}`)
 
     if (groupsToProcess.length === 0) {
       return new Response(
@@ -194,6 +206,14 @@ serve(async (req: any) => {
           totalFromAPI: groupsData.length,
           totalProcessed: 0,
           totalFilteredOut: filteredGroups.length,
+          pagination: {
+            currentPage,
+            pageSize,
+            totalPages: Math.ceil(filteredGroups.length / pageSize),
+            totalGroups: filteredGroups.length,
+            hasNextPage: currentPage < Math.ceil(filteredGroups.length / pageSize),
+            hasPreviousPage: currentPage > 1
+          },
           debug: {
             searchTerm,
             totalGroups: groupsData.length,
@@ -264,19 +284,30 @@ serve(async (req: any) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Successfully processed ${processedGroups.length} groups (V2 optimized)`,
+        message: `Successfully processed ${processedGroups.length} groups (V2 optimized with pagination)`,
         groups: processedGroups,
         totalFromAPI: groupsData.length,
         totalProcessed: processedGroups.length,
         totalFilteredOut: filteredGroups.length - processedGroups.length,
+        pagination: {
+          currentPage,
+          pageSize,
+          totalPages: Math.ceil(filteredGroups.length / pageSize),
+          totalGroups: filteredGroups.length,
+          hasNextPage: currentPage < Math.ceil(filteredGroups.length / pageSize),
+          hasPreviousPage: currentPage > 1
+        },
         debug: {
           searchTerm,
-          maxGroupsLimit: MAX_GROUPS_TO_PROCESS,
           analysis: {
             totalGroups: groupsData.length,
             filteredGroups: filteredGroups.length,
             processedGroups: processedGroups.length,
-            skippedDueToLimit: Math.max(0, filteredGroups.length - MAX_GROUPS_TO_PROCESS)
+            pageInfo: {
+              startIndex: startIndex + 1,
+              endIndex: Math.min(endIndex, filteredGroups.length),
+              totalPages: Math.ceil(filteredGroups.length / pageSize)
+            }
           }
         }
       }),
