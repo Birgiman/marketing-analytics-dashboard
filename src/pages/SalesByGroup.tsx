@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache";
 import { supabase } from "@/integrations/supabase/client";
 import { PublicAudience, PublicAudienceCorrelation } from "@/types/audience";
 import { LiveGroup as LiveGroupType } from "@/types/live";
@@ -27,9 +26,10 @@ import {
   generateAudienceCorrelation
 } from "@/utils/audienceService";
 import { fetchMetaCampaignsForLive, MetaCampaign } from "@/utils/metaCampaignsService";
+import { clearPublicCache, fetchPublicDataWithCache } from "@/utils/public-cache";
 import { getWhatsAppGroupsLogData } from "@/utils/whatsappGroupsLog";
 import EmojiPicker from 'emoji-picker-react';
-import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Database, Plus, RefreshCw, Search, ShoppingCart, Target, Trash2, Upload, UserMinus, UserPlus, Users } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -49,14 +49,54 @@ const SalesByGroup = () => {
   const location = useLocation();
   const liveId = searchParams.get('live');
 
-  // Usar cache localStorage para dados da Live
-  const {
-    live,
-    groups,
-    isLoading: cacheLoading,
-    isFromCache,
-    canFetchMetaAgain
-  } = useLiveLocalStorageCache({ liveId: liveId || '' });
+  // CACHE SYSTEM - Estados para sistema de cache
+  const [cacheStatus, setCacheStatus] = useState<{
+    isLoading: boolean;
+    fromCache: boolean;
+    needsRefresh: boolean;
+    lastSynced?: string;
+  }>({
+    isLoading: true,
+    fromCache: false,
+    needsRefresh: false
+  });
+
+  // Estados para dados da Live
+  const [live, setLive] = useState<{
+    id: string;
+    name: string;
+    user_id: string;
+    live_date?: string;
+    insights_date_since?: string;
+    insights_date_until?: string;
+    campaign_search_term?: string;
+    ad_budget?: number;
+    sales_goal?: number;
+    leads_goal?: number;
+    created_at: string;
+    updated_at: string;
+    last_synced_at?: string;
+  } | null>(null);
+  const [groups, setGroups] = useState<LiveGroupType[]>([]);
+  const [campaigns, setCampaigns] = useState<{
+    id: string;
+    campaign_id: string;
+    campaign_name: string;
+    account_id?: string;
+    account_name?: string;
+    objective?: string;
+    status: string;
+    daily_budget?: number;
+    lifetime_budget?: number;
+  }[]>([]);
+  const [metrics, setMetrics] = useState<{
+    cplLiquido: number;
+    cplMeta: number;
+    retentionRate: number;
+    totalSpent: number;
+    totalLeads: number;
+    totalGroupMembers: number;
+  } | null>(null);
 
   // Estado para integração Meta
   const [metaIntegration, setMetaIntegration] = useState<{
@@ -113,61 +153,89 @@ const SalesByGroup = () => {
   // Emoji picker state
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
-  // Fetch Live-specific data from Supabase (agora usa cache principalmente)
-  const fetchData = async () => {
-    try {
-      setIsLoading(true);
+  // Buscar dados com sistema de cache
+  const fetchDataWithCache = async () => {
+    if (!liveId) return;
 
-      // Check authentication
+    setCacheStatus(prev => ({ ...prev, isLoading: true }));
+    setIsLoading(true);
+    
+    try {
+      console.log('🔄 [SalesByGroup Cache] Verificando cache para Live:', liveId);
+      
+      // Obter userId da sessão
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
+      if (session?.user) {
+        setUserId(session.user.id);
+        console.log('✅ [SalesByGroup Cache] UserId definido:', session.user.id);
+      } else {
+        console.warn('⚠️ [SalesByGroup Cache] Usuário não autenticado');
         navigate('/auth/signin');
         return;
       }
-      setUserId(session.user.id);
-
-      // Check if Live ID is provided
-      if (!liveId) {
-        navigate('/lives');
-        return;
+      
+      // Verificar cache primeiro
+      const cacheResult = await fetchPublicDataWithCache(liveId);
+      
+      if (!cacheResult.data) {
+        throw new Error('Live não encontrada');
       }
 
-      // Dados da Live e grupos agora vêm do cache localStorage
-      if (groups && groups.length > 0) {
-        setLiveGroups(groups);
-      } else {
-        // Fallback: buscar diretamente se cache estiver vazio
-        const { data: groupsResult, error: groupsError } = await supabase
-          .from('live_groups')
-          .select('*')
-          .eq('live_id', liveId)
-          .order('created_at', { ascending: false });
+      setCacheStatus({
+        isLoading: false,
+        fromCache: cacheResult.fromCache,
+        needsRefresh: cacheResult.needsRefresh,
+        lastSynced: cacheResult.data.live.last_synced_at
+      });
 
-        if (groupsError) {
-          console.error('Error fetching live groups:', groupsError);
-          setLiveGroups([]);
-        } else {
-          setLiveGroups(groupsResult || []);
-        }
-      }
+      // Atualizar estados com dados do cache
+      setLive(cacheResult.data.live);
+      setGroups(cacheResult.data.groups);
+      setCampaigns(cacheResult.data.campaigns);
+      setMetrics(cacheResult.data.metrics);
+      setLiveGroups(cacheResult.data.groups);
 
-      // Buscar integração Meta
+      // Buscar dados complementares
+      console.log('🔄 [SalesByGroup Cache] Buscando dados complementares...');
       await fetchMetaIntegration();
-
-      // Buscar campanhas do Meta para dropdown
+      console.log('🔄 [SalesByGroup Cache] Chamando fetchMetaCampaignsData...');
       await fetchMetaCampaignsData();
-
-      // Buscar grupos do WhatsApp para dropdown
+      console.log('🔄 [SalesByGroup Cache] Chamando fetchWhatsappGroupsData...');
       await fetchWhatsappGroupsData();
-
-      // Buscar públicos da Live (após metaIntegration estar disponível)
+      console.log('🔄 [SalesByGroup Cache] Chamando fetchPublicAudiencesData...');
       await fetchPublicAudiencesData();
-
+      console.log('✅ [SalesByGroup Cache] Dados complementares carregados');
+      
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('❌ [SalesByGroup Cache] Erro ao buscar dados:', error);
       navigate('/lives');
     } finally {
+      setCacheStatus(prev => ({ ...prev, isLoading: false }));
       setIsLoading(false);
+    }
+  };
+
+  // Função para forçar refresh do cache
+  const handleForceRefresh = async () => {
+    if (!liveId) return;
+    
+    setCacheStatus(prev => ({ ...prev, isLoading: true }));
+    
+    try {
+      console.log('🔄 [SalesByGroup Cache] Forçando refresh do cache');
+      
+      // Limpar cache atual
+      await clearPublicCache(liveId);
+      
+      // Buscar dados frescos
+      await fetchDataWithCache();
+      
+      console.log('✅ [SalesByGroup Cache] Refresh forçado concluído');
+      
+    } catch (error) {
+      console.error('❌ [SalesByGroup Cache] Erro no refresh forçado:', error);
+    } finally {
+      setCacheStatus(prev => ({ ...prev, isLoading: false }));
     }
   };
 
@@ -274,13 +342,52 @@ const SalesByGroup = () => {
 
   // Buscar campanhas do Meta para dropdown
   const fetchMetaCampaignsData = async () => {
-    if (!liveId || !userId) return;
+    if (!liveId || !userId) {
+      console.log('⚠️ [SalesByGroup] liveId ou userId não disponível:', { liveId, userId });
+      return;
+    }
 
+    console.log('🔍 [SalesByGroup] Buscando campanhas para Live:', liveId);
     setIsLoadingCampaigns(true);
+    
     try {
-      const campaigns = await fetchMetaCampaignsForLive(liveId, userId);
-      setMetaCampaigns(campaigns);
-      console.log('✅ [SalesByGroup] Campanhas carregadas para dropdown:', campaigns.length);
+      // Primeiro, tentar buscar campanhas já vinculadas à Live
+      console.log('🔍 [SalesByGroup] Fazendo query na tabela live_campaigns...');
+      const { data: liveCampaigns, error: liveCampaignsError } = await supabase
+        .from('live_campaigns')
+        .select('campaign_id, campaign_name')
+        .eq('live_id', liveId);
+
+      console.log('📊 [SalesByGroup] Resultado da query live_campaigns:', {
+        data: liveCampaigns,
+        error: liveCampaignsError,
+        count: liveCampaigns?.length || 0
+      });
+
+      if (liveCampaignsError) {
+        console.error('❌ [SalesByGroup] Erro ao buscar campanhas vinculadas:', liveCampaignsError);
+      }
+
+      if (liveCampaigns && liveCampaigns.length > 0) {
+        // Usar campanhas já vinculadas
+        const campaigns = liveCampaigns.map(campaign => ({
+          id: campaign.campaign_id,
+          name: campaign.campaign_name
+        }));
+        setMetaCampaigns(campaigns);
+        console.log('✅ [SalesByGroup] Campanhas vinculadas carregadas para dropdown:', campaigns.length, campaigns);
+      } else {
+        console.log('⚠️ [SalesByGroup] Nenhuma campanha vinculada encontrada, tentando buscar do Meta...');
+        // Se não há campanhas vinculadas, buscar do Meta usando o termo de busca
+        try {
+          const campaigns = await fetchMetaCampaignsForLive(liveId, userId);
+          setMetaCampaigns(campaigns);
+          console.log('✅ [SalesByGroup] Campanhas do Meta carregadas para dropdown:', campaigns.length);
+        } catch (metaError) {
+          console.warn('⚠️ [SalesByGroup] Erro ao buscar campanhas do Meta:', metaError);
+          setMetaCampaigns([]);
+        }
+      }
     } catch (error) {
       console.error('❌ [SalesByGroup] Erro ao buscar campanhas:', error);
       setMetaCampaigns([]);
@@ -325,7 +432,7 @@ const SalesByGroup = () => {
 
   useEffect(() => {
     if (liveId) {
-      fetchData();
+      fetchDataWithCache();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveId, userId]);
@@ -643,7 +750,7 @@ const SalesByGroup = () => {
 
   const averageTicketTotal = subtotals.sales > 0 ? subtotals.revenue / subtotals.sales : 0;
 
-  if (isLoading || cacheLoading) {
+  if (isLoading || cacheStatus.isLoading) {
     return (
       <div>
         <Header />
@@ -695,7 +802,27 @@ const SalesByGroup = () => {
       </header>
       
       <div className="container mx-auto p-6 space-y-8">
-
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Públicos</h1>
+            <p className="text-muted-foreground mt-1">{live ? `Live: ${live.name}` : 'Carregando...'}</p>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {/* Botão de Refresh */}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleForceRefresh}
+              disabled={cacheStatus.isLoading}
+              className="gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${cacheStatus.isLoading ? 'animate-spin' : ''}`} />
+              {cacheStatus.isLoading ? 'Atualizando...' : 'Atualizar'}
+            </Button>
+          </div>
+        </div>
 
         {/* Overview Geral */}
         <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
@@ -704,7 +831,7 @@ const SalesByGroup = () => {
             value={totalGroupMembers}
             icon={UserPlus}
             type="integer"
-            isLoading={isLoading || cacheLoading}
+            isLoading={isLoading || cacheStatus.isLoading}
           />
 
           <MetricCard
@@ -712,7 +839,7 @@ const SalesByGroup = () => {
             value={0}
             icon={UserMinus}
             type="integer"
-            isLoading={isLoading || cacheLoading}
+            isLoading={isLoading || cacheStatus.isLoading}
           />
 
           <MetricCard
@@ -720,7 +847,7 @@ const SalesByGroup = () => {
             value={totalGroupMembers}
             icon={Users}
             type="integer"
-            isLoading={isLoading || cacheLoading}
+            isLoading={isLoading || cacheStatus.isLoading}
           />
 
           <MetricCard
@@ -728,7 +855,7 @@ const SalesByGroup = () => {
             value={salesData.length || subtotals.sales}
             icon={ShoppingCart}
             type="integer"
-            isLoading={isLoading || cacheLoading}
+            isLoading={isLoading || cacheStatus.isLoading}
           />
 
           <MetricCard
@@ -739,7 +866,7 @@ const SalesByGroup = () => {
             }
             icon={Target}
             type="currency"
-            isLoading={isLoading || cacheLoading}
+            isLoading={isLoading || cacheStatus.isLoading}
           />
         </div>
 
