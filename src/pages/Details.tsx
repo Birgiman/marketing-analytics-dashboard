@@ -3,18 +3,15 @@ import { LiveMetricsCards } from "@/components/LiveMetricsCards";
 import PerformanceAnalysis from "@/components/PerformanceAnalysis";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Link, useLocation } from "react-router-dom";
-// import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache"; // REMOVIDO - sempre buscar dados frescos
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
+import { Link, useLocation } from "react-router-dom";
 // V2 IMPORTS - Novos cálculos
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 // META API DIRECT - Requisições diretas ao Meta Marketing API
-import { supabase } from "@/integrations/supabase/client";
 // CACHE SYSTEM - Sistema de cache para otimização
 import { Live } from "@/types/live";
 import { clearLiveCache, fetchLiveWithCache, updateLiveCache } from "@/utils/live-cache";
-import { Activity, AlertCircle, RefreshCw, Zap } from "lucide-react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
@@ -556,37 +553,6 @@ const Details = () => {
           </div>
         </div>
 
-        {/* Status do Cache - REMOVIDO PARA PRODUÇÃO */}
-        {/* {cacheStatus.lastSynced && (
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {cacheStatus.fromCache ? (
-                  <>
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-sm text-green-700">
-                      Dados em cache (última atualização: {new Date(cacheStatus.lastSynced).toLocaleString('pt-BR')})
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span className="text-sm text-blue-700">
-                      Dados atualizados agora ({new Date(cacheStatus.lastSynced).toLocaleString('pt-BR')})
-                    </span>
-                  </>
-                )}
-              </div>
-              
-              {cacheStatus.needsRefresh && (
-                <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
-                  Cache vencido
-                </Badge>
-              )}
-            </div>
-          </Card>
-        )} */}
-
         {/* Error Alert */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -618,103 +584,6 @@ const Details = () => {
           activeLeads={groupData.ativos}
           isLoading={isLoading || isMetaLoading}
         />
-
-        {/* Status dos Dados V2 */}
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Activity className="h-5 w-5 text-green-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-green-900">🧮 Novos Cálculos V2</h3>
-              <div className="text-sm text-green-700 space-y-1 mt-1">
-                {metricsV2 ? (
-                  <>
-                    <p>
-                      <strong>CPL Líquido:</strong> {summaryV2?.cplLiquidoFormatted || 'R$ 0,00'}
-                    </p>
-                    <p>
-                      <strong>CPL Meta:</strong> {summaryV2?.cplMetaFormatted || 'R$ 0,00'}
-                    </p>
-                    <p>
-                      <strong>Taxa de Retenção:</strong> {summaryV2?.retentionRateFormatted || '0%'}
-                    </p>
-                    <p>
-                      <strong>Dados Extraídos:</strong> {extractedDataV2 ? `${extractedDataV2.groupData.totalGroups} grupos, ${extractedDataV2.metaData.campaignCount} campanhas` : 'Carregando...'}
-                    </p>
-                    {validationV2?.warnings && validationV2.warnings.length > 0 && (
-                      <p className="text-orange-600">
-                        <strong>⚠️ Avisos:</strong> {validationV2.warnings.join(', ')}
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <p>🔄 Calculando métricas V2...</p>
-                )}
-                <p>
-                  <strong>Status:</strong> 🔄 Dados sempre frescos (sem cache)
-                </p>
-              </div>
-            </div>
-            {finalCampaigns.length === 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/dashboard')}
-                className="bg-white hover:bg-green-50"
-              >
-                Vincular Campanhas
-              </Button>
-            )}
-          </div>
-        </div>
-
-        
-        {/* Lista de Campanhas Meta Ads */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-semibold">Campanhas Vinculadas</h3>
-            {finalCampaigns.length > 3 && (
-              <span className="text-sm text-gray-500">
-                {finalCampaigns.length} campanhas
-              </span>
-            )}
-          </div>
-            {getCampaignsForRender().length > 0 ? (
-              <div className="max-h-[400px] overflow-y-auto space-y-4 pr-2">
-                {getCampaignsForRender().map((campaign) => (
-                <Card key={campaign.id} className="p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <h4 className="font-medium">{campaign.campaign_name}</h4>
-                      <div className="flex gap-4 text-sm text-gray-600">
-                        <span>ID: {campaign.campaign_id}</span>
-                        <span>Status: {campaign.status}</span>
-                        <span>Objetivo: {campaign.objective || '—'}</span>
-                      </div>
-                      <div className="flex gap-4 text-sm">
-                        <span>Orçamento Diário: {campaign.daily_budget ? `R$ ${(Number(campaign.daily_budget) / 100).toFixed(2)}` : '—'}</span>
-                        {campaign.lifetime_budget && (
-                          <span>Orçamento Total: R$ {(Number(campaign.lifetime_budget) / 100).toFixed(2)}</span>
-                        )}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Conta: {campaign.account_name || '—'} ({campaign.account_id || '—'})
-                      </div>
-                    </div>
-                    <Badge variant={campaign.status === 'ACTIVE' ? 'default' : 'secondary'}>
-                      {campaign.status}
-                    </Badge>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              Nenhuma campanha vinculada a esta Live
-            </div>
-          )}
-        </div>
 
         {/* Análise de Performance */}
         <PerformanceAnalysis
