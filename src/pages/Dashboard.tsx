@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DEMO_MODE } from "@/lib/demo-mode";
 import { Live, LiveGroup } from "@/types/live";
 import { ChevronRight, DollarSign, Edit, Eye, Plus, Search, Trash2, TrendingUp, Users, Video } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 interface DashboardStats {
@@ -35,6 +35,7 @@ const [lives, setLives] = useState<Live[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const { currentInstance } = useWhatsAppInstances();
   const { fetchUserLives, softDeleteLive } = useLives();
+  
   const [stats, setStats] = useState<DashboardStats>({
     totalLives: 0,
     totalParticipants: 0,
@@ -42,66 +43,31 @@ const [lives, setLives] = useState<Live[]>([]);
     totalRevenue: 0,
   });
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        if (DEMO_MODE) {
-          setStats({
-            totalLives: 0,
-            totalParticipants: 0,
-            totalSales: 0,
-            totalRevenue: 0,
-          });
-          return;
-        }
+  // Função para sincronizar grupos WhatsApp em background
+  const syncWhatsAppGroups = useCallback(async (userId: string, instanceName?: string) => {
+    if (!instanceName) return;
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) {
-          navigate("/auth/signin");
-          return;
-        }
-
-        await loadStats(session.user.id);
-      } catch (error) {
-        console.error("Error checking auth:", error);
-        if (!DEMO_MODE) {
-          navigate("/auth/signin");
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [navigate]);
-
-  const handleEditLive = (live: Live) => {
-    setEditingLive(live);
-    setShowEditModal(true);
-  };
-
-  const handleDeleteLive = (live: Live) => {
-    setLiveToDelete(live);
-    setShowDeleteModal(true);
-  };
-
-  const confirmDeleteLive = async () => {
-    if (liveToDelete) {
-      try {
-        await softDeleteLive(liveToDelete.id);
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          await loadStats(session.user.id);
-        }
-        setShowDeleteModal(false);
-        setLiveToDelete(null);
-      } catch (error) {
-        console.error('Error deleting live:', error);
-      }
+    try {
+      // Chamar função chunked em background (sem await para não bloquear)
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-groups-chunked`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify({
+          instanceName: instanceName,
+          userId: userId
+        })
+      }).catch(() => {
+        // Silencioso - erro de timeout é normal
+      });
+    } catch (error) {
+      // Silencioso - erro de rede é normal
     }
-  };
+  }, []);
 
-  const loadStats = async (userId: string) => {
+  const loadStats = useCallback(async (userId: string) => {
     try {
       // Fetch user lives with groups
       const userLives = await fetchUserLives();
@@ -132,7 +98,70 @@ const [lives, setLives] = useState<Live[]>([]);
     } finally {
       setLoading(false);
     }
+  }, [fetchUserLives]);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        if (DEMO_MODE) {
+          setStats({
+            totalLives: 0,
+            totalParticipants: 0,
+            totalSales: 0,
+            totalRevenue: 0,
+          });
+          return;
+        }
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          navigate("/auth/signin");
+          return;
+        }
+
+        await loadStats(session.user.id);
+        
+        // Sincronizar grupos WhatsApp em background
+        syncWhatsAppGroups(session.user.id, currentInstance?.instance_name);
+      } catch (error) {
+        console.error("Error checking auth:", error);
+        if (!DEMO_MODE) {
+          navigate("/auth/signin");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [navigate, loadStats, syncWhatsAppGroups, currentInstance?.instance_name]);
+
+  const handleEditLive = (live: Live) => {
+    setEditingLive(live);
+    setShowEditModal(true);
   };
+
+  const handleDeleteLive = (live: Live) => {
+    setLiveToDelete(live);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteLive = async () => {
+    if (liveToDelete) {
+      try {
+        await softDeleteLive(liveToDelete.id);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          await loadStats(session.user.id);
+        }
+        setShowDeleteModal(false);
+        setLiveToDelete(null);
+      } catch (error) {
+        console.error('Error deleting live:', error);
+      }
+    }
+  };
+
 
   // Filter lives based on search term
   const filteredLives = lives.filter(live =>

@@ -1,7 +1,6 @@
-import { useState } from 'react'
-import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
-import { LiveGroup } from '@/types/live'
+import { supabase } from '@/integrations/supabase/client'
+import { useCallback, useState } from 'react'
 
 interface LiveData {
   name: string
@@ -152,7 +151,7 @@ export function useLives() {
     }
   }
 
-  const fetchUserLives = async () => {
+  const fetchUserLives = useCallback(async () => {
     try {
       const { data: session } = await supabase.auth.getSession()
       if (!session.session?.user) return []
@@ -193,7 +192,7 @@ export function useLives() {
       console.error('Error in fetchUserLives:', error)
       return []
     }
-  }
+  }, [])
 
   const updateLiveWithGroups = async (liveId: string, liveData: LiveData, groups: LiveGroupInput[], campaigns: LiveCampaign[] = []) => {
     try {

@@ -1,11 +1,12 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Search, Users, Calendar, Crown, Loader } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { DEMO_MODE } from '@/lib/demo-mode';
+import { fetchWhatsAppGroups, hasWhatsAppGroups } from '@/utils/whatsapp-groups';
+import { AlertCircle, Calendar, Crown, Loader, Search, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface GroupResult {
   id: string;
@@ -37,6 +38,33 @@ export function GroupSearchSelector({
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+  const [groupsAvailable, setGroupsAvailable] = useState(false);
+
+  // Verificar se grupos estão disponíveis quando o modal abre
+  useEffect(() => {
+    if (isOpen && !DEMO_MODE) {
+      checkGroupsAvailability();
+    }
+  }, [isOpen]);
+
+  const checkGroupsAvailability = async () => {
+    try {
+      setIsLoadingGroups(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        const hasGroups = await hasWhatsAppGroups(session.user.id);
+        setGroupsAvailable(hasGroups);
+        
+        // Grupos ainda não sincronizados
+      }
+    } catch (error) {
+      console.error('❌ [GroupSearch] Erro ao verificar grupos:', error);
+    } finally {
+      setIsLoadingGroups(false);
+    }
+  };
 
   const handleSearch = async () => {
     if (!searchTerm.trim() || searchTerm.trim().length < 2) {
@@ -74,8 +102,8 @@ export function GroupSearchSelector({
       return;
     }
 
-    if (!currentInstance?.instance_name) {
-      console.error('No instance name available');
+    // Verificar se grupos estão disponíveis
+    if (!groupsAvailable) {
       return;
     }
 
@@ -84,40 +112,27 @@ export function GroupSearchSelector({
       setSearchResults([]);
       setSelectedGroups(new Set());
 
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.user) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
 
-      console.log(`🔍 Searching for groups with term: "${searchTerm}"`);
+      // Buscar grupos na tabela whatsapp_groups
+      const groups = await fetchWhatsAppGroups(session.user.id, searchTerm.trim());
+      
+      // Transformar os dados para o formato esperado
+      const formattedResults: GroupResult[] = groups.map((group) => ({
+        id: group.group_id,
+        group_id: group.group_id,
+        group_name: group.group_name,
+        group_size: group.group_size,
+        group_owner: group.group_owner,
+        group_created_at: group.group_created_at || undefined,
+        group_created_formatted: group.group_created_at ? new Date(group.group_created_at).toLocaleDateString('pt-BR') : 'Data não disponível',
+        group_owner_formatted: group.group_owner ? `@${group.group_owner}` : 'Proprietário não disponível',
+        selectable: true
+      }));
 
-      const response = await fetch(`https://gsdmasbgrglbvlpuhidv.supabase.co/functions/v1/whatsapp-search-groups`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.session.access_token}`,
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzZG1hc2JncmdsYnZscHVoaWR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwMDkwMTMsImV4cCI6MjA3MjU4NTAxM30.hrL3tWvdZKrsDwNf_yG2kawqYcA6nnV89CW9nEkH93s'
-        },
-        body: JSON.stringify({
-          instanceName: currentInstance.instance_name,
-          userId: session.session.user.id,
-          searchTerm: searchTerm.trim()
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Error searching groups:', errorText);
-        return;
-      }
-
-      const result = await response.json();
-
-      if (result.success) {
-        console.log(`✅ Found ${result.totalFound} groups for "${searchTerm}"`);
-        setSearchResults(result.groups || []);
-        setHasSearched(true);
-      } else {
-        console.error('❌ Search failed:', result.error);
-      }
+      setSearchResults(formattedResults);
+      setHasSearched(true);
 
     } catch (error) {
       console.error('Error searching groups:', error);
@@ -205,12 +220,32 @@ export function GroupSearchSelector({
           </div>
 
           {/* Info */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-blue-800">
-              <strong>💡 Dica:</strong> Digite um termo para buscar grupos pelo nome. 
-              Exemplo: "Battlefield" para encontrar todos os grupos que contenham essa palavra.
-            </p>
-          </div>
+          {isLoadingGroups ? (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <Loader className="h-4 w-4 animate-spin text-yellow-600" />
+                <p className="text-sm text-yellow-800">
+                  <strong>🔄 Sincronizando grupos...</strong> Aguarde enquanto sincronizamos seus grupos do WhatsApp.
+                </p>
+              </div>
+            </div>
+          ) : !groupsAvailable ? (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-orange-600" />
+                <p className="text-sm text-orange-800">
+                  <strong>⚠️ Grupos não sincronizados:</strong> Os grupos ainda estão sendo sincronizados. Tente novamente em alguns segundos.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800">
+                <strong>💡 Dica:</strong> Digite um termo para buscar grupos pelo nome. 
+                Exemplo: "Battlefield" para encontrar todos os grupos que contenham essa palavra.
+              </p>
+            </div>
+          )}
 
           {/* Results */}
           <div className="flex-1 min-h-0">

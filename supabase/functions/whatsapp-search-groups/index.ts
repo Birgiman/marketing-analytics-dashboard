@@ -1,7 +1,7 @@
 // @ts-ignore
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 // @ts-ignore  
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -99,9 +99,9 @@ serve(async (req: any) => {
     let response;
     let lastError;
     
-    for (let attempt = 1; attempt <= 3; attempt++) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        console.log(`📡 Attempt ${attempt}/3 to search groups`)
+        console.log(`📡 Attempt ${attempt}/2 to search groups (timeout: 60s)`)
         response = await fetch(evolutionUrl, {
           method: 'GET',
           headers: {
@@ -109,7 +109,7 @@ serve(async (req: any) => {
             'User-Agent': 'Supabase-Edge-Function',
             'Accept': 'application/json'
           },
-          signal: AbortSignal.timeout(15000) // 15 second timeout
+          signal: AbortSignal.timeout(60000) // 60 second timeout para instâncias com muitos grupos
         })
         
         if (response.ok) {
@@ -122,15 +122,15 @@ serve(async (req: any) => {
       } catch (error) {
         console.log(`❌ Search attempt ${attempt} failed:`, error)
         lastError = error
-        if (attempt < 3) {
-          console.log(`⏳ Waiting 2s before retry...`)
-          await new Promise(resolve => setTimeout(resolve, 2000))
+        if (attempt < 2) {
+          console.log(`⏳ Waiting 5s before retry...`)
+          await new Promise(resolve => setTimeout(resolve, 5000))
         }
       }
     }
     
     if (!response || !response.ok) {
-      throw lastError || new Error('Failed to search groups after 3 attempts')
+      throw lastError || new Error('Failed to search groups after 2 attempts')
     }
 
     const groupsData = await response.json()

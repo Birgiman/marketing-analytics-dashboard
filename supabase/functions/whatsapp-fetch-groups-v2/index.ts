@@ -1,7 +1,7 @@
 // @ts-ignore
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 // @ts-ignore  
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,7 +19,7 @@ interface FetchGroupsRequest {
 // V2 OPTIMIZATIONS
 const DEFAULT_PAGE_SIZE = 50; // Tamanho padrão da página
 const MAX_PAGE_SIZE = 100; // Tamanho máximo da página
-const EVOLUTION_API_TIMEOUT = 25000; // 25 segundos timeout
+// SEM TIMEOUT - Deixar livre para testar performance
 
 serve(async (req: any) => {
   // Handle CORS preflight requests
@@ -99,43 +99,25 @@ serve(async (req: any) => {
     const evolutionUrl = `${cleanApiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false`
     console.log(`🌐 [V2] Calling Evolution API: ${evolutionUrl}`)
 
-    // V2 OPTIMIZATION: Retry logic with adaptive timeout
-    let response;
-    let lastError;
+    // V2 OPTIMIZATION: Fetch groups (SEM TIMEOUT para teste de performance)
+    console.log(`🔄 [V2] Fetching groups from Evolution API (sem timeout)`)
     
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        console.log(`📡 [V2] Attempt ${attempt}/3 to fetch groups`)
-        response = await fetch(evolutionUrl, {
-          method: 'GET',
-          headers: {
-            'apikey': apiKey,
-            'User-Agent': 'Supabase-Edge-Function-V2',
-            'Accept': 'application/json'
-          },
-          signal: AbortSignal.timeout(EVOLUTION_API_TIMEOUT)
-        })
-        
-        if (response.ok) {
-          console.log(`✅ [V2] Successfully fetched groups on attempt ${attempt}`)
-          break;
-        } else {
-          console.log(`⚠️ [V2] Attempt ${attempt} failed with status: ${response.status}`)
-          lastError = new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-      } catch (error) {
-        console.log(`❌ [V2] Attempt ${attempt} failed:`, error)
-        lastError = error
-        if (attempt < 3) {
-          console.log(`⏳ [V2] Waiting 3s before retry...`)
-          await new Promise(resolve => setTimeout(resolve, 3000))
-        }
+    const response = await fetch(evolutionUrl, {
+      method: 'GET',
+      headers: {
+        'apikey': apiKey,
+        'User-Agent': 'Supabase-Edge-Function-V2',
+        'Accept': 'application/json'
       }
+      // SEM TIMEOUT - Deixar livre para testar performance
+    })
+    
+    if (!response.ok) {
+      console.error(`❌ [V2] Evolution API error: ${response.status} ${response.statusText}`)
+      throw new Error(`Evolution API error: ${response.status} ${response.statusText}`)
     }
     
-    if (!response || !response.ok) {
-      throw lastError || new Error('Failed to fetch groups after 3 attempts')
-    }
+    console.log(`✅ [V2] Successfully fetched groups from Evolution API`)
 
     const groupsData = await response.json()
     console.log(`📊 [V2] Received ${groupsData?.length || 0} groups from Evolution API`)
