@@ -11,8 +11,6 @@ import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 // META API DIRECT - Requisições diretas ao Meta Marketing API
 import { supabase } from "@/integrations/supabase/client";
-import { getCPLFromMeta } from "@/utils/meta-requests/getCPLFromMeta";
-import { getLiveMetaDataWithFallback } from "@/utils/meta-requests/getLiveMetaData";
 // CACHE SYSTEM - Sistema de cache para otimização
 import { Live } from "@/types/live";
 import { clearLiveCache, fetchLiveWithCache, updateLiveCache } from "@/utils/live-cache";
@@ -26,15 +24,6 @@ const Details = () => {
   const location = useLocation();
   const liveId = searchParams.get('live');
   
-  const [testLoading, setTestLoading] = useState(false);
-  const [metaApiLoading, setMetaApiLoading] = useState(false);
-  const [metaApiData, setMetaApiData] = useState<{
-    cpl: number;
-    totalSpend: number;
-    totalLeads: number;
-    campaignCount: number;
-    logs: string[];
-  } | null>(null);
 
   // CACHE SYSTEM - Estados para sistema de cache
   const [cacheStatus, setCacheStatus] = useState<{
@@ -458,147 +447,7 @@ const Details = () => {
   // VERSÃO V2 - Nova função de teste
   // ============================================================================
   
-  // Função para testar os novos cálculos V2
-  const handleTestLiveDataV2 = async () => {
-    if (!liveId) return;
 
-    setTestLoading(true);
-    try {
-      console.log('🧪 [TESTE V2] Iniciando teste dos novos cálculos para Live:', liveId);
-      
-      // Buscar dados completos
-      const completeData = await fetchCompleteLiveData(liveId);
-      
-      // Calcular métricas usando a nova função
-      const liveData = {
-        live: completeData.live,
-        groups: completeData.groups,
-        campaignInsights: completeData.campaignInsights.map(campaign => ({
-          campaign_id: campaign.campaign_id,
-          insights: campaign.insights || []
-        }))
-      };
-
-      const result = await calculateCompleteLiveMetrics(liveData, {
-        enableLogging: true,
-        enableValidation: true,
-        orcamentoGasto: undefined // TODO: Adicionar ad_budget ao tipo LiveDataResponse
-      });
-
-      console.log('🧪 [TESTE V2] ✅ Novos cálculos concluídos:', result);
-
-      // Formatação de datas para o alert
-      const timeRangeText = completeData.live.insights_date_since && completeData.live.insights_date_until
-        ? `\nPeríodo: ${completeData.live.insights_date_since} até ${completeData.live.insights_date_until}`
-        : '\nPeríodo: Padrão (últimos 30 dias)';
-
-      const searchTermText = completeData.live.campaign_search_term
-        ? `\n🔍 Termo de busca: "${completeData.live.campaign_search_term}"`
-        : '\n🔍 Termo de busca: Não definido';
-
-      alert(`✅ Teste V2 concluído com sucesso!\n\nLive: ${completeData.live.name}${timeRangeText}${searchTermText}\n\n📊 DADOS EXTRAÍDOS:\n• Grupos: ${result.extractedData.groupData.totalGroups} (${result.extractedData.groupData.totalMembers} membros)\n• Campanhas: ${result.extractedData.metaData.campaignCount}\n• Gasto Total: ${result.summary.cplLiquidoFormatted}\n• Leads Meta: ${result.extractedData.metaData.totalResults}\n\n🧮 NOVOS CÁLCULOS:\n• CPL Líquido: ${result.summary.cplLiquidoFormatted}\n• CPL Meta: ${result.summary.cplMetaFormatted}\n• Taxa de Retenção: ${result.summary.retentionRateFormatted}\n• CPL Planejamento: ${result.summary.cplLiquidoPlanejamentoFormatted}\n\n${result.validation.warnings.length > 0 ? `⚠️ Avisos: ${result.validation.warnings.join(', ')}\n` : ''}Veja o console para mais detalhes!`);
-
-    } catch (error) {
-      console.error('🧪 [TESTE V2] ❌ Erro ao testar novos cálculos:', error);
-      alert(`❌ Erro no teste V2: ${error}`);
-    } finally {
-      setTestLoading(false);
-    }
-  };
-
-  // ============================================================================
-  // META API DIRECT - Função para testar requisição direta ao Meta
-  // ============================================================================
-  
-  // Função para testar requisição direta ao Meta Marketing API
-  const handleTestMetaApiDirect = async () => {
-    if (!liveId) return;
-
-    setMetaApiLoading(true);
-    try {
-      console.log('⚡ [META-API-DIRECT] Iniciando teste de requisição direta ao Meta...');
-      
-      // 1. Buscar dados da live no banco de dados
-      console.log('🔍 [META-API-DIRECT] Buscando dados da live no banco...');
-      const liveDataResult = await getLiveMetaDataWithFallback(liveId);
-      
-      if (!liveDataResult.success || !liveDataResult.data) {
-        throw new Error(`Erro ao buscar dados da live: ${liveDataResult.error}`);
-      }
-      
-      const liveData = liveDataResult.data;
-      console.log('✅ [META-API-DIRECT] Dados da live obtidos:', liveData);
-      
-      // 2. Buscar dados da integração Meta
-      const { data: metaIntegration } = await supabase
-        .from('meta_integrations')
-        .select('access_token')
-        .eq('user_id', live?.user_id)
-        .eq('is_active', true)
-        .single();
-      
-      if (!metaIntegration?.access_token) {
-        throw new Error('Integração Meta não encontrada ou inativa');
-      }
-      
-      const accountId = liveData.accountId;
-      const accessToken = metaIntegration.access_token;
-      
-      if (!accountId) {
-        throw new Error('Account ID não disponível');
-      }
-      
-      // 3. Preparar filtros baseados nos dados do banco
-      const filters = {
-        campaignStatus: ['ACTIVE', 'PAUSED'] as string[],
-        campaignName: liveData.campaignSearchTerm || undefined,
-        dateRange: liveData.insightsDateSince && liveData.insightsDateUntil ? {
-          since: liveData.insightsDateSince,
-          until: liveData.insightsDateUntil
-        } : undefined
-      };
-
-      // Debug: verificar se os dados estão corretos
-      console.log('🔍 [META-API-DIRECT] Dados do banco:', {
-        termo: liveData.campaignSearchTerm,
-        accountId: liveData.accountId,
-        periodo: `${liveData.insightsDateSince} até ${liveData.insightsDateUntil}`,
-        campanhas: liveData.campaignCount
-      });
-      console.log('🔍 [META-API-DIRECT] Filtros preparados:', filters);
-
-      // 4. Fazer requisição direta ao Meta
-      const result = await getCPLFromMeta({
-        accountId,
-        accessToken,
-        filters
-      });
-
-      if (result.success && result.data) {
-        setMetaApiData({
-          cpl: result.data.cpl,
-          totalSpend: result.data.totalSpend,
-          totalLeads: result.data.totalLeads,
-          campaignCount: result.data.campaignCount,
-          logs: result.logs || []
-        });
-
-        console.log('⚡ [META-API-DIRECT] ✅ Requisição direta concluída:', result.data);
-
-        // Mostrar alert com resultados
-        alert(`⚡ Meta API Direta - Sucesso!\n\n📊 RESULTADOS:\n• CPL: R$ ${result.data.cpl.toFixed(2)}\n• Gasto Total: R$ ${result.data.totalSpend.toFixed(2)}\n• Total Leads: ${result.data.totalLeads}\n• Campanhas analisadas: ${result.data.campaignCount}\n\n🔍 FILTROS APLICADOS:\n• Status: ${filters.campaignStatus.join(', ')}\n• Nome: ${filters.campaignName || 'Todos'}\n• Período: ${filters.dateRange ? `${filters.dateRange.since} até ${filters.dateRange.until}` : 'Padrão'}\n\n📋 DADOS DO BANCO:\n• Termo: ${liveData.campaignSearchTerm}\n• Account ID: ${liveData.accountId}\n• Campanhas vinculadas: ${liveData.campaignCount}\n\nVeja o console para logs detalhados!`);
-      } else {
-        console.error('⚡ [META-API-DIRECT] ❌ Erro na requisição:', result.error);
-        alert(`❌ Erro na Meta API Direta: ${result.error}`);
-      }
-
-    } catch (error) {
-      console.error('⚡ [META-API-DIRECT] ❌ Erro inesperado:', error);
-      alert(`❌ Erro inesperado: ${error}`);
-    } finally {
-      setMetaApiLoading(false);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -820,57 +669,6 @@ const Details = () => {
           </div>
         </div>
 
-        {/* Status dos Dados Meta API Direta */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Zap className="h-5 w-5 text-blue-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-blue-900">⚡ Meta API Direta</h3>
-              <div className="text-sm text-blue-700 space-y-1 mt-1">
-                {metaApiData ? (
-                  <>
-                    <p>
-                      <strong>CPL Direto:</strong> R$ {metaApiData.cpl.toFixed(2)}
-                    </p>
-                    <p>
-                      <strong>Gasto Total:</strong> R$ {metaApiData.totalSpend.toFixed(2)}
-                    </p>
-                    <p>
-                      <strong>Total Leads:</strong> {metaApiData.totalLeads}
-                    </p>
-                    <p>
-                      <strong>Campanhas:</strong> {metaApiData.campaignCount}
-                    </p>
-                    <p className="text-xs text-blue-600">
-                      <strong>Última atualização:</strong> {new Date().toLocaleTimeString()}
-                    </p>
-                  </>
-                ) : (
-                  <p>⚡ Clique no botão para testar requisição direta ao Meta</p>
-                )}
-              </div>
-            </div>
-            <Button
-              onClick={handleTestMetaApiDirect}
-              disabled={metaApiLoading}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              size="sm"
-            >
-              {metaApiLoading ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Testando...
-                </>
-              ) : (
-                <>
-                  ⚡ Testar Meta API
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
         
         {/* Lista de Campanhas Meta Ads */}
         <div className="space-y-4">
@@ -928,24 +726,6 @@ const Details = () => {
         />
       </div>
 
-      {/* Botão de Teste V2 - Posição fixa no canto inferior direito */}
-      <Button
-        onClick={handleTestLiveDataV2}
-        disabled={testLoading}
-        className="fixed bottom-6 right-6 z-50 bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-4 py-2 rounded-lg font-medium"
-        size="sm"
-      >
-        {testLoading ? (
-          <>
-            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-            Testando V2...
-          </>
-        ) : (
-          <>
-            🧪 Testar V2
-          </>
-        )}
-      </Button>
     </div>
   );
 };
