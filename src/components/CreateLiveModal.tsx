@@ -1,6 +1,5 @@
 import CampaignSelector from '@/components/CampaignSelector';
 import { GroupSearchSelector } from '@/components/GroupSearchSelector';
-import { MetaApiTestModal } from '@/components/MetaApiTestModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -50,7 +49,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
   const [campaignSearchTerm, setCampaignSearchTerm] = useState<string>('');
   const [selectedCampaignsToDelete, setSelectedCampaignsToDelete] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
-  const [showTestModal, setShowTestModal] = useState(false);
   const { createLiveWithGroups, updateLiveWithGroups, isLoading } = useLives();
   const { toast } = useToast();
   
@@ -703,14 +701,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Teste da API Meta */}
-      {editingLive && (
-        <MetaApiTestModal
-          open={showTestModal}
-          onOpenChange={setShowTestModal}
-          liveId={editingLive.id}
-        />
-      )}
 
       {/* Group Search Modal */}
       <GroupSearchSelector
