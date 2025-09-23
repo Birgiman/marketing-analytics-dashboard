@@ -5,10 +5,10 @@
 Esta integração substitui **dados mockados** das páginas de Lives com **dados reais** do Meta Ads via Facebook Marketing API v23.0.
 
 ### ✅ **IMPLEMENTADO:**
-- Hook `useMetaLivesData` para consumo automático de dados
+- ~~Hook `useMetaLivesData` para consumo automático de dados~~ (REMOVIDO)
 - Utilitários `metaApiLives.ts` para buscar campanhas, ad sets e anúncios
 - Componente `MetaCampaignsList` para visualizar campanhas
-- Integração nas páginas `Lives.tsx` e `Details.tsx`
+- Integração na página `Details.tsx` (página `Lives.tsx` removida)
 - Status de conexão e indicadores visuais
 
 ## 🎯 **CAMPOS SUBSTITUÍDOS:**
@@ -43,7 +43,7 @@ Esta integração substitui **dados mockados** das páginas de Lives com **dados
 
 ```typescript
 // 1. Hook Principal (substitui queries da tabela creatives)
-useMetaLivesData(userId) → {
+~~useMetaLivesData(userId) → {~~ (REMOVIDO)
   creatives,      // Dados formatados como tabela antiga
   isLoading,      // Estado de carregamento
   isConnected,    // Status da conexão
@@ -66,7 +66,7 @@ getCreativesData(userId, options?) → Creative[]
 
 ## 📱 **PÁGINAS ATUALIZADAS:**
 
-### `src/pages/Lives.tsx`
+### ~~`src/pages/Lives.tsx`~~ (REMOVIDO)
 - ✅ Status da integração Meta no topo
 - ✅ Badge visual (Ativo/Desconectado)
 - ✅ Botão para ir às integrações
@@ -83,7 +83,7 @@ getCreativesData(userId, options?) → Creative[]
 
 ```mermaid
 graph TD
-    A[Usuário acessa Lives/Details] --> B[useMetaLivesData hook]
+    A[Usuário acessa Details] --> B[~~useMetaLivesData hook~~] (REMOVIDO)
     B --> C{Tem Meta Integration?}
     C -->|Não| D[Mostra fallback data]
     C -->|Sim| E[getUserMetaToken]
@@ -131,7 +131,7 @@ const totalEntrou = groups.filter(g => g.evento === 'ENTROU').length
 const cplLiquido = totalSpent / totalEntrou
 
 // AGORA: Usa dados reais do Meta Ads
-✅ creatives vêm do hook useMetaLivesData
+~~✅ creatives vêm do hook useMetaLivesData~~ (REMOVIDO)
 ✅ amount_spent vêm do insights.spend da API
 ```
 

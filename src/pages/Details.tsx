@@ -123,10 +123,10 @@ const Details = () => {
   } | null>(null);
 
 
-  // Navegar para /lives se não há liveId
+  // Navegar para /dashboard se não há liveId
   useEffect(() => {
     if (!liveId) {
-      navigate('/lives');
+      navigate('/dashboard');
     }
   }, [liveId, navigate]);
 

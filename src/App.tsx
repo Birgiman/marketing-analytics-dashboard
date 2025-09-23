@@ -14,13 +14,11 @@ import Details from "./pages/Details";
 import Groups from "./pages/Groups";
 import Integrations from "./pages/Integrations";
 import Leads from "./pages/Leads";
-import Lives from "./pages/Lives";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import ResearchInsights from "./pages/ResearchInsights";
 import SalesByGroup from "./pages/SalesByGroup";
 import TrafficAnalysis from "./pages/TrafficAnalysis";
-import SupabaseConfig from "./pages/admin/SupabaseConfig";
 import AccountDisabled from "./pages/auth/AccountDisabled";
 import PendingApproval from "./pages/auth/PendingApproval";
 import ResetPassword from "./pages/auth/ResetPassword";
@@ -57,7 +55,6 @@ function AppContent() {
           <Routes>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/integrations" element={<Integrations />} />
-            <Route path="/lives" element={<Lives />} />
             <Route path="/details" element={<Details />} />
             <Route path="/traffic-analysis" element={<TrafficAnalysis />} />
             <Route path="/research-insights" element={<ResearchInsights />} />
@@ -68,7 +65,6 @@ function AppContent() {
             <Route path="/leads" element={<Leads />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<Admin />} />
-            <Route path="/admin/supabase-config" element={<SupabaseConfig />} />
             <Route path="/admin/create-test-user" element={<CreateTestUser />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
