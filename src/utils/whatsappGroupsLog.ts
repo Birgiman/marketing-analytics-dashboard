@@ -69,7 +69,7 @@ export async function getWhatsAppGroupsLogData(
         id_grupo,
         group_name,
         event,
-        count:count(*)
+        count(*)
       `)
       .in('id_grupo', groupIds)
       .eq('user_id', userId)
