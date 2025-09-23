@@ -10,119 +10,67 @@ export default function PrivacyPage() {
           </h1>
           
           <div className="space-y-6 text-muted-foreground">
-            <p className="text-sm text-muted-foreground">
-              Última atualização: {new Date().toLocaleDateString('pt-BR')}
+            <p className="text-lg">
+              A sua privacidade é importante para nós. Esta Política de Privacidade explica como o LiveShop coleta, usa e protege os seus dados.
             </p>
 
             <section>
               <h2 className="text-xl font-semibold text-foreground mb-4">
-                1. Informações que Coletamos
+                Dados que coletamos
               </h2>
-              <p>
-                Coletamos as seguintes informações quando você usa nossa plataforma:
-              </p>
               <ul className="list-disc pl-6 space-y-2">
-                <li>Dados de cadastro (nome, e-mail, senha)</li>
-                <li>Dados de login e autenticação</li>
-                <li>Dados de campanhas do Meta Ads (quando autorizado)</li>
-                <li>Dados de grupos do WhatsApp (quando autorizado)</li>
-                <li>Informações de uso da plataforma</li>
-                <li>Dados de performance e métricas das suas campanhas</li>
+                <li>Informações de cadastro (nome, e-mail, senha).</li>
+                <li>Dados de login via Facebook/Meta para integração com a Marketing API.</li>
+                <li>Dados de campanhas e anúncios fornecidos pela API do Meta.</li>
+                <li>Informações de uso da plataforma (relatórios e interações com as lives).</li>
               </ul>
             </section>
 
             <section>
               <h2 className="text-xl font-semibold text-foreground mb-4">
-                2. Como Usamos suas Informações
+                Como utilizamos seus dados
               </h2>
-              <p>
-                Utilizamos suas informações para:
-              </p>
               <ul className="list-disc pl-6 space-y-2">
-                <li>Fornecer acesso à plataforma e funcionalidades</li>
-                <li>Exibir relatórios de performance das suas campanhas</li>
-                <li>Permitir integração com Meta Ads e WhatsApp</li>
-                <li>Oferecer suporte técnico</li>
-                <li>Melhorar nossos serviços</li>
-                <li>Cumprir obrigações legais</li>
+                <li>Para permitir login e autenticação segura.</li>
+                <li>Para exibir relatórios de desempenho das campanhas de anúncios.</li>
+                <li>Para melhorar a experiência de uso e oferecer suporte técnico.</li>
+                <li>Para manter registros internos e análises de uso da plataforma.</li>
               </ul>
             </section>
 
             <section>
               <h2 className="text-xl font-semibold text-foreground mb-4">
-                3. Compartilhamento de Dados
+                Compartilhamento de dados
               </h2>
-              <p>
-                Não compartilhamos seus dados pessoais com terceiros, exceto:
-              </p>
               <ul className="list-disc pl-6 space-y-2">
-                <li>Com o Meta (Facebook) para integração de campanhas publicitárias</li>
-                <li>Com provedores de serviços essenciais (hospedagem, segurança)</li>
-                <li>Quando exigido por lei ou ordem judicial</li>
-                <li>Com seu consentimento explícito</li>
+                <li>Seus dados não são vendidos a terceiros.</li>
+                <li>O compartilhamento ocorre apenas quando necessário para o funcionamento do serviço, como no caso da API do Meta ou do Google Forms.</li>
               </ul>
             </section>
 
             <section>
               <h2 className="text-xl font-semibold text-foreground mb-4">
-                4. Seus Direitos
+                Direitos do usuário
               </h2>
               <p>
-                Você tem o direito de:
-              </p>
-              <ul className="list-disc pl-6 space-y-2">
-                <li>Acessar seus dados pessoais</li>
-                <li>Corrigir informações incorretas</li>
-                <li>Solicitar a exclusão de seus dados</li>
-                <li>Revogar consentimentos dados</li>
-                <li>Portabilidade dos dados</li>
-                <li>Oposição ao processamento</li>
-              </ul>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold text-foreground mb-4">
-                5. Segurança dos Dados
-              </h2>
-              <p>
-                Implementamos medidas de segurança técnicas e organizacionais para proteger 
-                seus dados contra acesso não autorizado, alteração, divulgação ou destruição.
+                Você pode, a qualquer momento, solicitar acesso, correção ou exclusão dos seus dados pessoais entrando em contato com nosso suporte.
               </p>
             </section>
 
             <section>
               <h2 className="text-xl font-semibold text-foreground mb-4">
-                6. Retenção de Dados
+                Contato
               </h2>
               <p>
-                Mantemos seus dados apenas pelo tempo necessário para cumprir as finalidades 
-                descritas nesta política ou conforme exigido por lei.
+                Para dúvidas ou solicitações relacionadas à privacidade, entre em contato pelo e-mail: <strong>suporte@liveshop.com</strong>
               </p>
             </section>
 
-            <section>
-              <h2 className="text-xl font-semibold text-foreground mb-4">
-                7. Contato
-              </h2>
-              <p>
-                Para questões sobre esta Política de Privacidade ou para exercer seus direitos, 
-                entre em contato conosco:
+            <div className="border-t pt-6 mt-8">
+              <p className="text-sm text-muted-foreground">
+                Última atualização: Setembro de 2025
               </p>
-              <div className="bg-muted p-4 rounded-lg mt-4">
-                <p><strong>E-mail:</strong> suporte@liveshop.com</p>
-                <p><strong>Assunto:</strong> Política de Privacidade</p>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold text-foreground mb-4">
-                8. Alterações
-              </h2>
-              <p>
-                Esta Política de Privacidade pode ser atualizada periodicamente. 
-                Notificaremos sobre mudanças significativas através da plataforma ou por e-mail.
-              </p>
-            </section>
+            </div>
           </div>
         </div>
       </Container>
