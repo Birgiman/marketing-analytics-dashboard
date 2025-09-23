@@ -86,6 +86,33 @@ Taxa de Retenção = (Pessoas que entrou no grupo ÷ Leads que o Meta entregou) 
 CPL Líquido do Planejamento = Valor investido ÷ Número de pessoas que entrou no grupo
 ```
 
+## 📊 **Cálculos de Média CPL Meta - Diferentes Agregações**
+
+### **⚠️ IMPORTANTE - Dois Cálculos Diferentes:**
+
+#### **1. Tabela de Dados Diários (Agregação por Data):**
+```
+CPL Meta Médio = Média Simples dos CPLs diários
+Exemplo: (CPL_dia1 + CPL_dia2 + ... + CPL_diaN) ÷ N dias
+```
+- **Lógica**: Cada dia tem peso igual, independente do volume
+- **Uso**: Para análise temporal (evolução dia a dia)
+- **Exemplo**: R$ 0,83 (média simples de 16 dias)
+
+#### **2. Tabela de Conjuntos de Anúncios (Agregação por Conjunto):**
+```
+CPL Meta Médio = Média Ponderada (Total Investimento ÷ Total Leads)
+Exemplo: (Investimento_total) ÷ (Leads_total)
+```
+- **Lógica**: Conjuntos com mais investimento/leads têm mais peso
+- **Uso**: Para análise de performance por conjunto de anúncios
+- **Exemplo**: R$ 2,18 (média ponderada de 25 conjuntos)
+
+### **🎯 Por que são diferentes:**
+- **Dados Diários**: Agrupa por **data** - cada dia tem peso igual
+- **Conjuntos de Anúncios**: Agrupa por **conjunto** - cada conjunto tem peso proporcional ao seu volume
+- **Resultado**: Valores diferentes são **corretos** e **esperados**
+
 ## 📝 **Exemplo de Requisição**
 
 ```javascript
