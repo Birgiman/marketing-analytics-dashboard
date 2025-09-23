@@ -656,6 +656,12 @@ const TrafficAnalysis = () => {
   // Calcular CPL médio correto para a tabela de conjuntos de anúncios
   const correctAverageCPL = calculateCorrectAverageCPL(adSetData);
   
+  // CORRIGIDO: Calcular totais específicos para conjuntos de anúncios
+  const adSetTotals = {
+    totalLeads: adSetData.reduce((sum, adSet) => sum + adSet.totalResults, 0),
+    totalInvestment: adSetData.reduce((sum, adSet) => sum + adSet.totalSpend, 0)
+  };
+  
 
   // Filtrar dados por data
   const filterDataByDate = (data: Array<{
@@ -1150,7 +1156,7 @@ const TrafficAnalysis = () => {
                     <Button variant="ghost" onClick={() => handleSort('total_leads')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
                       <div className="text-center w-full">
                       <div>Leads</div>
-                        <div className="text-xs text-muted-foreground font-normal">Total: {totals.totalLeads.toLocaleString('pt-BR')}</div>
+                        <div className="text-xs text-muted-foreground font-normal">Total: {adSetTotals.totalLeads.toLocaleString('pt-BR')}</div>
                     </div>
                       {getSortIcon('total_leads')}
                   </Button>
@@ -1159,7 +1165,7 @@ const TrafficAnalysis = () => {
                     <Button variant="ghost" onClick={() => handleSort('total_spent')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
                       <div className="text-center w-full">
                       <div>Investido</div>
-                        <div className="text-xs text-muted-foreground font-normal">Total: R$ {totals.totalInvestment.toLocaleString('pt-BR', {
+                        <div className="text-xs text-muted-foreground font-normal">Total: R$ {adSetTotals.totalInvestment.toLocaleString('pt-BR', {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2
                         })}</div>
