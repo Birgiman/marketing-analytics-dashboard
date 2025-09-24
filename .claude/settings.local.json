@@ -33,7 +33,8 @@
       "Bash(netstat:*)",
       "Bash(taskkill:*)",
       "Bash(Taskkill:*)",
-      "Bash(xargs sed:*)"
+      "Bash(xargs sed:*)",
+      "Bash(git diff:*)"
     ],
     "deny": [],
     "ask": []
