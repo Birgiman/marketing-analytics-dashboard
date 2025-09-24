@@ -3,34 +3,35 @@
  * Baseado no padrão do QRCodeDisplay
  */
 
-import { useState } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Facebook, 
-  Instagram, 
-  RefreshCw, 
-  Settings, 
-  Trash2, 
-  AlertTriangle,
-  CheckCircle,
-  Clock,
-  TrendingUp
-} from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useMetaIntegration } from '@/hooks/useMetaIntegration';
 import { facebookOAuthService } from '@/services/facebookOAuthService';
+import {
+    AlertTriangle,
+    CheckCircle,
+    Clock,
+    Facebook,
+    Instagram,
+    RefreshCw,
+    Settings,
+    Trash2,
+    TrendingUp
+} from 'lucide-react';
+import { useState } from 'react';
 
 interface MetaAdsConnectionProps {
   isOpen: boolean;
   onClose: () => void;
+  onConnectionSuccess?: () => void;
 }
 
-export const MetaAdsConnection = ({ isOpen, onClose }: MetaAdsConnectionProps) => {
+export const MetaAdsConnection = ({ isOpen, onClose, onConnectionSuccess }: MetaAdsConnectionProps) => {
   const [accessToken, setAccessToken] = useState('');
   const [showTokenInput, setShowTokenInput] = useState(false);
   
@@ -53,6 +54,11 @@ export const MetaAdsConnection = ({ isOpen, onClose }: MetaAdsConnectionProps) =
       await connectWithToken(accessToken);
       setAccessToken('');
       setShowTokenInput(false);
+      
+      // Notificar sucesso
+      if (onConnectionSuccess) {
+        onConnectionSuccess();
+      }
     } catch (err) {
       console.error('Connection error:', err);
     }
@@ -68,6 +74,11 @@ export const MetaAdsConnection = ({ isOpen, onClose }: MetaAdsConnectionProps) =
       if (result.success && result.accessToken) {
         console.log('✅ Facebook OAuth successful, connecting with token...');
         await connectWithToken(result.accessToken);
+        
+        // Notificar sucesso
+        if (onConnectionSuccess) {
+          onConnectionSuccess();
+        }
       } else {
         // Error will be handled by the hook
         console.error('Facebook OAuth failed:', result.error);
@@ -289,13 +300,6 @@ export const MetaAdsConnection = ({ isOpen, onClose }: MetaAdsConnectionProps) =
                     <div>
                       <p className="font-medium">Analytics Integrado</p>
                       <p className="text-gray-600">Veja métricas de anúncios junto com dados do WhatsApp.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <div className="w-2 h-2 rounded-full bg-purple-500 mt-2"></div>
-                    <div>
-                      <p className="font-medium">Automação</p>
-                      <p className="text-gray-600">Configure alertas e relatórios automáticos.</p>
                     </div>
                   </div>
                 </div>

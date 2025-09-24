@@ -35,7 +35,8 @@ export default function Integrations() {
   const { 
     isConnected: metaAdsConnected,
     data: metaAdsData,
-    disconnectIntegration: disconnectMetaAdsIntegration
+    disconnectIntegration: disconnectMetaAdsIntegration,
+    refreshData: refreshMetaAdsData
   } = useMetaAds();
 
   useEffect(() => {
@@ -127,6 +128,11 @@ export default function Integrations() {
     }
   };
 
+  const handleMetaAdsConnectionSuccess = () => {
+    // Recarregar dados do Meta Ads quando conexão for bem-sucedida
+    refreshMetaAdsData();
+  };
+
   // Pre-fetch groups when WhatsApp is connected (background sync)
   const preloadGroups = async () => {
     if (!currentInstance?.instance_name) return;
@@ -204,7 +210,7 @@ export default function Integrations() {
 
           <div className="grid md:grid-cols-2 gap-8">
             {/* WhatsApp Integration */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="bg-white rounded-lg shadow-md p-6 flex flex-col h-full">
               {isSyncing ? (
                 // Loading state - mantém o mesmo tamanho da div
                 <div className="flex flex-col items-center justify-center py-16">
@@ -215,118 +221,117 @@ export default function Integrations() {
               ) : (
                 // Conteúdo normal
                 <>
-                  <div className="flex items-center mb-4">
-                    <div className="p-2 bg-green-100 rounded-lg mr-3">
-                      <MessageSquare className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-xl font-semibold text-gray-900">WhatsApp Business</h3>
-                      <div className="flex items-center mt-1">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${whatsappStatus.bgColor} ${whatsappStatus.color}`}>
-                          {whatsappStatus.text}
-                        </span>
+                  {/* Header - Título e Status */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-green-100 rounded-lg mr-3">
+                        <MessageSquare className="h-6 w-6 text-green-600" />
                       </div>
+                      <h3 className="text-xl font-semibold text-gray-900">WhatsApp Business</h3>
                     </div>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${whatsappStatus.bgColor} ${whatsappStatus.color}`}>
+                      {whatsappStatus.text}
+                    </span>
                   </div>
 
-                  <p className="text-gray-600 mb-4">
-                    Conecte sua conta do WhatsApp Business para automatizar mensagens e acompanhar conversões
-                  </p>
-
-                  {currentInstance?.phone_number && (
-                    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-600">
-                        <strong>Telefone:</strong> {currentInstance.phone_number}
+                  {/* Content - Descrição e Botão */}
+                  <div className="flex flex-col justify-between flex-1">
+                    <div>
+                      <p className="text-gray-600 mb-4">
+                        Conecte sua conta do WhatsApp Business para automatizar mensagens e acompanhar conversões
                       </p>
-                    </div>
-                  )}
 
-                  {connectionState === 'connected' ? (
-                    <div className="space-y-3">
-                      <Button 
-                        onClick={handleDisconnectWhatsApp} 
-                        variant="danger" 
-                        className="w-full"
-                        disabled={isLoading}
-                      >
-                        {isLoading ? 'Desconectando...' : 'Desconectar WhatsApp'}
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button 
-                      onClick={handleConnectWhatsApp} 
-                      className="w-full"
-                      disabled={isLoading || connectionState === 'connecting'}
-                    >
-                      {isLoading || connectionState === 'connecting' 
-                        ? 'Conectando...' 
-                        : 'Conectar WhatsApp'
-                      }
-                    </Button>
-                  )}
+                      {currentInstance?.phone_number && (
+                        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                          <p className="text-sm text-gray-600">
+                            <strong>Telefone:</strong> {currentInstance.phone_number}
+                          </p>
+                        </div>
+                      )}
 
-                  {error && (
-                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-sm text-red-600">{error}</p>
+                      {error && (
+                        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <p className="text-sm text-red-600">{error}</p>
+                        </div>
+                      )}
                     </div>
-                  )}
+
+                    {/* Botão na parte inferior */}
+                    <div className="mt-auto">
+                      {connectionState === 'connected' ? (
+                        <Button 
+                          onClick={handleDisconnectWhatsApp} 
+                          variant="danger" 
+                          className="w-full"
+                          disabled={isLoading}
+                        >
+                          {isLoading ? 'Desconectando...' : 'Desconectar WhatsApp'}
+                        </Button>
+                      ) : (
+                        <Button 
+                          onClick={handleConnectWhatsApp} 
+                          className="w-full"
+                          disabled={isLoading || connectionState === 'connecting'}
+                        >
+                          {isLoading || connectionState === 'connecting' 
+                            ? 'Conectando...' 
+                            : 'Conectar WhatsApp'
+                          }
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </>
               )}
             </div>
 
             {/* Meta Ads Integration */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center mb-4">
-                <div className="p-2 bg-blue-100 rounded-lg mr-3">
-                  <Facebook className="h-6 w-6 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900">Meta Ads</h3>
-                  <div className="flex items-center mt-1">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      metaAdsConnected 
-                        ? 'bg-green-100 text-green-600' 
-                        : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {metaAdsConnected ? 'Conectado' : 'Desconectado'}
-                    </span>
+            <div className="bg-white rounded-lg shadow-md p-6 flex flex-col h-full">
+              {/* Header - Título e Status */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <div className="p-2 bg-blue-100 rounded-lg mr-3">
+                    <Facebook className="h-6 w-6 text-blue-600" />
                   </div>
+                  <h3 className="text-xl font-semibold text-gray-900">Meta Ads</h3>
                 </div>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  metaAdsConnected 
+                    ? 'bg-green-100 text-green-600' 
+                    : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {metaAdsConnected ? 'Conectado' : 'Desconectado'}
+                </span>
               </div>
 
-              <p className="text-gray-600 mb-4">
-                Sincronize dados de campanhas do Facebook e Instagram Ads para análise unificada
-              </p>
-
-              {metaAdsConnected && metaAdsData.accounts.length > 0 && (
-                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">
-                    <strong>Contas conectadas:</strong> {metaAdsData.accounts.length}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    <strong>Campanhas:</strong> {metaAdsData.campaigns.length}
+              {/* Content - Descrição e Botões */}
+              <div className="flex flex-col justify-between flex-1">
+                <div>
+                  <p className="text-gray-600 mb-4">
+                    Sincronize dados de campanhas do Facebook e Instagram Ads para análise unificada
                   </p>
                 </div>
-              )}
 
-              <div className="space-y-3">
-                <Button 
-                  onClick={() => setShowMetaAdsModal(true)} 
-                  variant={metaAdsConnected ? "outline" : "default"} 
-                  className="w-full"
-                >
-                  {metaAdsConnected ? 'Gerenciar Meta Ads' : 'Conectar Meta Ads'}
-                </Button>
-                
-                {metaAdsConnected && (
+                {/* Botões na parte inferior */}
+                <div className="mt-auto space-y-3">
                   <Button 
-                    onClick={disconnectMetaAdsIntegration} 
-                    variant="danger" 
+                    onClick={() => setShowMetaAdsModal(true)} 
+                    variant={metaAdsConnected ? "outline" : "default"} 
                     className="w-full"
                   >
-                    Desconectar Meta Ads
+                    {metaAdsConnected ? 'Gerenciar Meta Ads' : 'Conectar Meta Ads'}
                   </Button>
-                )}
+                  
+                  {metaAdsConnected && (
+                    <Button 
+                      onClick={disconnectMetaAdsIntegration} 
+                      variant="danger" 
+                      className="w-full"
+                    >
+                      Desconectar Meta Ads
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -362,6 +367,7 @@ export default function Integrations() {
         <MetaAdsConnection 
           isOpen={showMetaAdsModal}
           onClose={() => setShowMetaAdsModal(false)}
+          onConnectionSuccess={handleMetaAdsConnectionSuccess}
         />
 
         {/* Advanced Settings Component - Isolated for future use */}

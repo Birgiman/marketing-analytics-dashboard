@@ -263,14 +263,15 @@ class MetaAdsService {
    */
   async fullSync(userId: string, adAccountId?: string): Promise<void> {
     try {
-      // 1. Verificar se a integração está ativa
-      const { data: integration } = await supabase
+      // 1. Verificar se a integração está ativa (pegar a mais recente)
+      const { data: integrations } = await supabase
         .from('meta_integrations')
         .select('is_active')
         .eq('user_id', userId)
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1);
       
-      if (!integration || !integration.is_active) {
+      if (!integrations || integrations.length === 0 || !integrations[0].is_active) {
         throw new Error('Integração Meta Ads não está ativa');
       }
       
@@ -333,15 +334,16 @@ class MetaAdsService {
    */
   async getUserData(userId: string) {
     try {
-      // Primeiro verificar se a integração está ativa
-      const { data: integration } = await supabase
+      // Primeiro verificar se a integração está ativa (pegar a mais recente)
+      const { data: integrations } = await supabase
         .from('meta_integrations')
         .select('is_active')
         .eq('user_id', userId)
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1);
       
       // Se não há integração ou não está ativa, retornar dados vazios
-      if (!integration || !integration.is_active) {
+      if (!integrations || integrations.length === 0 || !integrations[0].is_active) {
         return {
           accounts: [],
           campaigns: [],
@@ -387,7 +389,7 @@ class MetaAdsService {
       };
       
     } catch (error) {
-      console.error('Error fetching user data:', error);
+      console.error('[MetaAdsService] Error fetching user data:', error);
       throw error;
     }
   }
