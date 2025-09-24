@@ -45,10 +45,41 @@ const [lives, setLives] = useState<Live[]>([]);
 
   // Função para sincronizar grupos WhatsApp em background
   const syncWhatsAppGroups = useCallback(async (userId: string, instanceName?: string) => {
-    if (!instanceName) return;
+    if (!instanceName) {
+      console.log('🚫 [Dashboard] Sync de grupos cancelado: Nenhuma instância selecionada');
+      return;
+    }
 
     try {
-      // Chamar função chunked em background (sem await para não bloquear)
+      // VERIFICAÇÃO INTERNA: Checar se instância está conectada antes da edge function
+      const { data: instanceData } = await supabase
+        .from('whatsapp_instances')
+        .select('status, api_token')
+        .eq('instance_name', instanceName)
+        .eq('user_id', userId)
+        .single();
+
+      // Não executar se instância não existe ou não está conectada
+      if (!instanceData) {
+        console.log(`🚫 [Dashboard] Sync de grupos cancelado: Instância "${instanceName}" não encontrada no banco`);
+        return;
+      }
+
+      if (instanceData.status !== 'connected') {
+        console.log(`🚫 [Dashboard] Sync de grupos cancelado: Instância "${instanceName}" está ${instanceData.status} (precisa estar "connected")`);
+        return;
+      }
+
+      if (!instanceData.api_token) {
+        console.log(`🚫 [Dashboard] Sync de grupos cancelado: Instância "${instanceName}" sem token API`);
+        return;
+      }
+
+      console.log(`✅ [Dashboard] Iniciando sync de grupos: Instância "${instanceName}" está conectada`);
+
+      // Só executa chunked se instância estiver conectada e com token
+
+      // Só executa chunked se instância estiver conectada e com token
       fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-groups-chunked`, {
         method: 'POST',
         headers: {
@@ -59,11 +90,11 @@ const [lives, setLives] = useState<Live[]>([]);
           instanceName: instanceName,
           userId: userId
         })
-      }).catch(() => {
-        // Silencioso - erro de timeout é normal
+      }).catch((error) => {
+        console.log(`⚠️ [Dashboard] Erro ao executar edge function de sync: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       });
     } catch (error) {
-      // Silencioso - erro de rede é normal
+      console.log(`❌ [Dashboard] Erro ao verificar status da instância "${instanceName}": ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   }, []);
 

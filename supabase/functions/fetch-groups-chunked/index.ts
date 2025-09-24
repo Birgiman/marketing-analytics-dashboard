@@ -57,7 +57,7 @@ serve(async (req: any) => {
     console.log('🚀 [fetch-groups-chunked] Iniciando busca paginada de grupos');
     console.log('📋 [fetch-groups-chunked] Parâmetros:', {
       instanceName,
-      userId,
+      userId: userId.substring(0, 8) + '...', // Mascarar userId sensível
       searchTerm,
       chunkSize: CHUNK_SIZE
     });
@@ -88,6 +88,9 @@ serve(async (req: any) => {
     const apiKey = instanceData.api_token;
     const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'https://evolution-api-2-3-0-production-6d75.up.railway.app';
     const cleanApiUrl = evolutionApiUrl.replace(/\/$/, '');
+
+    // Log mascarado para não vazar URLs sensíveis no frontend
+    console.log('🔗 [fetch-groups-chunked] Evolution API configurada (URL mascarada)');
     
     // Array para consolidar todos os grupos
     const allGroups: GroupData[] = [];
@@ -103,7 +106,7 @@ serve(async (req: any) => {
       console.log(`📄 [fetch-groups-chunked] Processando página ${currentPage}/${MAX_PAGES}`);
       
       const evolutionUrl = `${cleanApiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false&limit=${CHUNK_SIZE}&page=${currentPage}`;
-      
+
       let pageGroups: GroupData[] = [];
       let pageSuccess = false;
       let lastError: Error | null = null;
@@ -112,10 +115,10 @@ serve(async (req: any) => {
       for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
         try {
           console.log(`🔄 [fetch-groups-chunked] Tentativa ${attempt}/${RETRY_ATTEMPTS} para página ${currentPage} (timeout: ${REQUEST_TIMEOUT/1000}s)`);
-          
+
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-          
+
           const response = await fetch(evolutionUrl, {
             method: 'GET',
             headers: {
@@ -149,8 +152,8 @@ serve(async (req: any) => {
 
         } catch (error) {
           lastError = error as Error;
-          console.log(`❌ [fetch-groups-chunked] Tentativa ${attempt} falhou para página ${currentPage}:`, error);
-          
+          console.log(`❌ [fetch-groups-chunked] Tentativa ${attempt} falhou para página ${currentPage}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
           if (attempt < RETRY_ATTEMPTS) {
             console.log(`⏳ [fetch-groups-chunked] Aguardando 2s antes da próxima tentativa...`);
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -229,12 +232,12 @@ serve(async (req: any) => {
           });
 
         if (upsertError) {
-          console.error('❌ [fetch-groups-chunked] Erro ao salvar grupos:', upsertError);
+          console.error('❌ [fetch-groups-chunked] Erro ao salvar grupos no banco');
         } else {
-          console.log(`✅ [fetch-groups-chunked] ${validGroups.length} grupos salvos com sucesso na tabela whatsapp_groups`);
+          console.log(`✅ [fetch-groups-chunked] ${validGroups.length} grupos salvos com sucesso`);
         }
       } catch (error) {
-        console.error('❌ [fetch-groups-chunked] Erro ao processar grupos para salvar:', error);
+        console.error('❌ [fetch-groups-chunked] Erro ao processar grupos para salvar');
       }
     }
 
@@ -250,21 +253,21 @@ serve(async (req: any) => {
     );
 
   } catch (error) {
-    console.error('❌ [fetch-groups-chunked] Erro na função:', error);
-    
+    console.error('❌ [fetch-groups-chunked] Erro na função');
+
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error',
+      JSON.stringify({
+        success: false,
+        error: 'Erro interno na sincronização de grupos',
         errorType: 'FunctionError',
         timestamp: new Date().toISOString()
       }),
-      { 
-        status: 500, 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        } 
+      {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
       }
     );
   }
