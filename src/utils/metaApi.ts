@@ -376,17 +376,37 @@ export async function fetchCampaignInsights(
 
 /**
  * Extrai leads das actions do Meta
+ * CORREÇÃO: Prioriza action_type=lead que é o valor agregado (Pixel + Onsite)
  */
 export function extractLeads(actions?: Array<{ action_type: string; value: string }>): number {
   if (!actions) return 0;
-  
-  const leadAction = actions.find(action => 
-    action.action_type === 'lead' || 
+
+  // CORREÇÃO: PRIORIDADE 1 - action_type=lead (valor agregado do Meta Ads Manager)
+  const leadAction = actions.find(action => action.action_type === 'lead');
+  if (leadAction) {
+    const leads = parseInt(leadAction.value) || 0;
+    console.log(`[extractLeads] Leads encontrados (action_type=lead): ${leads}`);
+    return leads;
+  }
+
+  // PRIORIDADE 2: Outros tipos de leads
+  const otherLeadAction = actions.find(action =>
     action.action_type === 'submit_application' ||
     action.action_type === 'complete_registration'
   );
-  
-  return leadAction ? parseInt(leadAction.value) : 0;
+
+  if (otherLeadAction) {
+    const leads = parseInt(otherLeadAction.value) || 0;
+    console.log(`[extractLeads] Leads encontrados (${otherLeadAction.action_type}): ${leads}`);
+    return leads;
+  }
+
+  // Log para debug quando não encontrar leads
+  console.warn(`[extractLeads] Nenhum lead encontrado. Actions disponíveis:`,
+    actions.map(a => ({ action_type: a.action_type, value: a.value }))
+  );
+
+  return 0;
 }
 
 /**
@@ -774,8 +794,8 @@ export async function fetchMetaInsights(
   // NOTA: Validação de 1 ano removida daqui para permitir visualização de dados históricos
   // A validação deve ser aplicada apenas na criação/edição de Lives
 
-  // CAMPOS MÍNIMOS OBRIGATÓRIOS
-  const minimumFields = ['campaign_name', 'impressions', 'spend'];
+  // CAMPOS MÍNIMOS OBRIGATÓRIOS incluindo actions para capturar leads
+  const minimumFields = ['campaign_id', 'campaign_name', 'spend', 'impressions', 'clicks', 'actions'];
   const finalFields = fields.length > 0 ? fields : minimumFields;
 
   // Construir parâmetros da requisição

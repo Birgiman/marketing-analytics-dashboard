@@ -197,22 +197,21 @@ export async function fetchCompleteLiveData(
         console.log(`[LiveDataFetcher] 🔍 Buscando insights com termo: "${live.campaign_search_term}"`);
         console.log(`[LiveDataFetcher] 📅 Período: ${live.insights_date_since} até ${live.insights_date_until}`);
 
-        // Usar fetchMetaInsights com filtros dinâmicos
+        // CORREÇÃO: Usar fetchMetaInsights corrigido para buscar de /insights
         const insights = await fetchMetaInsights(
           accountId, // Account ID para buscar insights
           metaIntegration.access_token,
           {
             level: 'campaign',
             fields: [
-              'campaign_id', 'campaign_name', 'spend', 'impressions', 
-              'clicks', 'actions', 'cpm', 'ctr', 'reach', 'frequency'
-              // TODO: Adicionar 'lead' quando confirmado que funciona
+              'campaign_id', 'campaign_name', 'spend', 'impressions',
+              'clicks', 'actions' // CORREÇÃO: actions é onde estão os leads
             ],
             timeRange: {
               since: live.insights_date_since,
               until: live.insights_date_until
             },
-            timeIncrement: 1, // CORREÇÃO: Buscar dados por dia
+            timeIncrement: 1, // CORREÇÃO: Buscar dados diários
             // Filtros dinâmicos
             filtering: [
               {

@@ -110,51 +110,39 @@ export function extractMetaData(campaignInsights: Array<{
 
 /**
  * Extrai leads/results das ações do Meta
- * Prioriza leads reais, depois engajamento como proxy
+ * CORREÇÃO: Prioriza action_type=lead que é o valor agregado (Pixel + Onsite)
  * @param actions - Array de ações do Meta
  * @returns Número total de leads/results
  */
 export function extractLeadsFromActions(actions: MetaAction[]): number {
   if (!actions || actions.length === 0) return 0;
 
-  // PRIORIDADE 1: Leads específicos (conversões reais)
-  const trueLeads = actions.find(action =>
-    action.action_type === 'lead' ||
+  // CORREÇÃO: PRIORIDADE 1 - action_type=lead (valor agregado do Meta Ads Manager)
+  const leadAction = actions.find(action => action.action_type === 'lead');
+  if (leadAction) {
+    const leads = parseInt(leadAction.value) || 0;
+    console.log(`[extractLeadsFromActions] Leads encontrados (action_type=lead): ${leads}`);
+    return leads;
+  }
+
+  // PRIORIDADE 2: Outros tipos de leads específicos
+  const otherLeadAction = actions.find(action =>
     action.action_type === 'submit_application' ||
     action.action_type === 'complete_registration' ||
     action.action_type === 'offsite_conversion.fb_pixel_lead' ||
-    action.action_type === 'omni_complete_registration' ||
-    action.action_type === 'offsite_conversion' ||
-    action.action_type === 'offsite_conversion.custom'
+    action.action_type === 'omni_complete_registration'
   );
 
-  if (trueLeads) {
-    return parseInt(trueLeads.value) || 0;
+  if (otherLeadAction) {
+    const leads = parseInt(otherLeadAction.value) || 0;
+    console.log(`[extractLeadsFromActions] Leads encontrados (${otherLeadAction.action_type}): ${leads}`);
+    return leads;
   }
 
-  // PRIORIDADE 2: Engajamento como proxy (com peso reduzido)
-  const engagementAction = actions.find(action =>
-    action.action_type === 'landing_page_view' ||
-    action.action_type === 'link_click'
+  // Log para debug quando não encontrar leads
+  console.warn(`[extractLeadsFromActions] Nenhum lead encontrado. Actions disponíveis:`,
+    actions.map(a => ({ action_type: a.action_type, value: a.value }))
   );
-
-  if (engagementAction) {
-    const rawValue = parseInt(engagementAction.value) || 0;
-    return Math.round(rawValue * 0.3); // 30% de conversão estimada
-  }
-
-  // PRIORIDADE 3: Engajamento social (peso muito baixo)
-  const socialAction = actions.find(action =>
-    action.action_type === 'post_engagement' ||
-    action.action_type === 'comment' ||
-    action.action_type === 'like' ||
-    action.action_type === 'page_engagement'
-  );
-
-  if (socialAction) {
-    const rawValue = parseInt(socialAction.value) || 0;
-    return Math.round(rawValue * 0.05); // 5% de conversão estimada
-  }
 
   return 0;
 }

@@ -605,8 +605,10 @@ const TrafficAnalysis = () => {
       }
 
         const spend = parseFloat(insight.spend || '0');
-        const results = parseInt(insight.actions?.[0]?.value || '0');
-        
+        // CORREÇÃO: Usar extração correta de leads por action_type=lead
+        const leads = insight.actions?.find(action => action.action_type === 'lead');
+        const results = leads ? parseInt(leads.value || '0') : 0;
+
         dailyData[dateKey].investment += spend;
         dailyData[dateKey].cadastros += results;
       });
