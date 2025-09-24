@@ -652,11 +652,12 @@ const TrafficAnalysis = () => {
     const totalGroup = dailyData.reduce((sum, day) => sum + day.group, 0);
     const totalGroupExit = dailyData.reduce((sum, day) => sum + day.groupExit, 0);
     
-    // Calcular médias dos valores que são médias (não somas)
+    // CORRIGIDO: Calcular médias SIMPLES dos CPLs diários (não ponderadas)
+    // Para dados diários: soma dos CPL_diários / número de dias
     const cplMetaValues = dailyData.map(day => day.cplMeta).filter(val => val > 0);
     const cplLiquidoValues = dailyData.map(day => day.cplLiquido).filter(val => val > 0);
     const retentionValues = dailyData.map(day => day.retention).filter(val => val > 0);
-    
+
     const averageCplMeta = cplMetaValues.length > 0 ? cplMetaValues.reduce((sum, val) => sum + val, 0) / cplMetaValues.length : 0;
     const averageCplLiquido = cplLiquidoValues.length > 0 ? cplLiquidoValues.reduce((sum, val) => sum + val, 0) / cplLiquidoValues.length : 0;
     const averageRetention = retentionValues.length > 0 ? retentionValues.reduce((sum, val) => sum + val, 0) / retentionValues.length : 0;
@@ -699,7 +700,8 @@ const TrafficAnalysis = () => {
     }))
   });
   
-  // Calcular CPL médio correto para a tabela de conjuntos de anúncios
+  // CORRIGIDO: Calcular CPL médio PONDERADO para conjuntos de anúncios
+  // Para conjuntos: soma dos investimentos / soma dos leads (média ponderada)
   const correctAverageCPL = calculateCorrectAverageCPL(adSetData);
   
   // CORRIGIDO: Calcular totais específicos para conjuntos de anúncios

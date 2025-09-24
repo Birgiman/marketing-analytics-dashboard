@@ -557,9 +557,11 @@ export function extractAdSetDataFromInsights(
  * @param campaignData - Array com dados das campanhas
  * @returns CPL médio correto
  */
-export function calculateCorrectAverageCPL(campaignData: CampaignData[]): number {
-  const totalSpend = campaignData.reduce((sum, campaign) => sum + campaign.totalSpend, 0);
-  const totalResults = campaignData.reduce((sum, campaign) => sum + campaign.totalResults, 0);
-  
+export function calculateCorrectAverageCPL(campaignData: CampaignData[]): number;
+export function calculateCorrectAverageCPL(adSetData: AdSetData[]): number;
+export function calculateCorrectAverageCPL(data: CampaignData[] | AdSetData[]): number {
+  const totalSpend = data.reduce((sum, item) => sum + item.totalSpend, 0);
+  const totalResults = data.reduce((sum, item) => sum + item.totalResults, 0);
+
   return totalResults > 0 ? totalSpend / totalResults : 0;
 }
