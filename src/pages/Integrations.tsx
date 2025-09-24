@@ -34,7 +34,8 @@ export default function Integrations() {
 
   const { 
     isConnected: metaAdsConnected,
-    data: metaAdsData 
+    data: metaAdsData,
+    disconnectIntegration: disconnectMetaAdsIntegration
   } = useMetaAds();
 
   useEffect(() => {
@@ -308,13 +309,25 @@ export default function Integrations() {
                 </div>
               )}
 
-              <Button 
-                onClick={() => setShowMetaAdsModal(true)} 
-                variant={metaAdsConnected ? "outline" : "default"} 
-                className="w-full"
-              >
-                {metaAdsConnected ? 'Gerenciar Meta Ads' : 'Conectar Meta Ads'}
-              </Button>
+              <div className="space-y-3">
+                <Button 
+                  onClick={() => setShowMetaAdsModal(true)} 
+                  variant={metaAdsConnected ? "outline" : "default"} 
+                  className="w-full"
+                >
+                  {metaAdsConnected ? 'Gerenciar Meta Ads' : 'Conectar Meta Ads'}
+                </Button>
+                
+                {metaAdsConnected && (
+                  <Button 
+                    onClick={disconnectMetaAdsIntegration} 
+                    variant="danger" 
+                    className="w-full"
+                  >
+                    Desconectar Meta Ads
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>

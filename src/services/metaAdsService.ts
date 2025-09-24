@@ -263,7 +263,18 @@ class MetaAdsService {
    */
   async fullSync(userId: string, adAccountId?: string): Promise<void> {
     try {
-      // 1. Buscar contas ativas do usuário
+      // 1. Verificar se a integração está ativa
+      const { data: integration } = await supabase
+        .from('meta_integrations')
+        .select('is_active')
+        .eq('user_id', userId)
+        .single();
+      
+      if (!integration || !integration.is_active) {
+        throw new Error('Integração Meta Ads não está ativa');
+      }
+      
+      // 2. Buscar contas ativas do usuário
       let accounts;
       if (adAccountId) {
         const { data } = await supabase
@@ -322,6 +333,23 @@ class MetaAdsService {
    */
   async getUserData(userId: string) {
     try {
+      // Primeiro verificar se a integração está ativa
+      const { data: integration } = await supabase
+        .from('meta_integrations')
+        .select('is_active')
+        .eq('user_id', userId)
+        .single();
+      
+      // Se não há integração ou não está ativa, retornar dados vazios
+      if (!integration || !integration.is_active) {
+        return {
+          accounts: [],
+          campaigns: [],
+          insights: [],
+          logs: []
+        };
+      }
+      
       // Contas
       const { data: accounts } = await supabase
         .from('meta_ad_accounts')
@@ -360,6 +388,41 @@ class MetaAdsService {
       
     } catch (error) {
       console.error('Error fetching user data:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Desconectar integração Meta Ads
+   */
+  async disconnectIntegration(userId: string): Promise<void> {
+    try {
+      // Desativar integração
+      const { error: integrationError } = await supabase
+        .from('meta_integrations')
+        .update({ is_active: false })
+        .eq('user_id', userId);
+      
+      if (integrationError) {
+        console.error('Error deactivating integration:', integrationError);
+        throw integrationError;
+      }
+      
+      // Desativar todas as contas de anúncios do usuário
+      const { error: accountsError } = await supabase
+        .from('meta_ad_accounts')
+        .update({ is_active: false })
+        .eq('user_id', userId);
+      
+      if (accountsError) {
+        console.error('Error deactivating ad accounts:', accountsError);
+        throw accountsError;
+      }
+      
+      console.info('[MetaAdsService] Integration disconnected successfully');
+      
+    } catch (error) {
+      console.error('[MetaAdsService] Error disconnecting integration:', error);
       throw error;
     }
   }

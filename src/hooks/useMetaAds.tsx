@@ -3,10 +3,10 @@
  * Baseado no padrão do useWhatsAppConnection
  */
 
-import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { metaAdsService, type MetaAdAccount, type MetaCampaign } from '@/services/metaAdsService';
 import { DEMO_MODE } from '@/lib/demo-mode';
+import { metaAdsService, type MetaAdAccount, type MetaCampaign } from '@/services/metaAdsService';
+import { useCallback, useEffect, useState } from 'react';
 
 interface MetaAdsData {
   accounts: MetaAdAccount[];
@@ -27,6 +27,7 @@ interface UseMetaAdsReturn {
   // Ações
   connectAccount: (accessToken: string) => Promise<void>;
   disconnectAccount: (accountId: string) => Promise<void>;
+  disconnectIntegration: () => Promise<void>;
   syncData: (accountId?: string) => Promise<void>;
   refreshData: () => Promise<void>;
 }
@@ -190,6 +191,29 @@ export function useMetaAds(): UseMetaAdsReturn {
     }
   }, [userId]);
   
+  // Desconectar integração completa
+  const disconnectIntegration = useCallback(async () => {
+    if (!userId || DEMO_MODE) return;
+    
+    try {
+      await metaAdsService.disconnectIntegration(userId);
+      
+      // Limpar estado local
+      setData({
+        accounts: [],
+        campaigns: [],
+        insights: [],
+        logs: []
+      });
+      
+      console.info('[useMetaAds] Integration disconnected successfully');
+      
+    } catch (err: unknown) {
+      console.error('[useMetaAds] Error disconnecting integration:', err);
+      setError('Erro ao desconectar integração');
+    }
+  }, [userId]);
+  
   // Sincronizar dados
   const syncData = useCallback(async (accountId?: string) => {
     if (!userId) return;
@@ -260,6 +284,7 @@ export function useMetaAds(): UseMetaAdsReturn {
     lastSyncAt,
     connectAccount,
     disconnectAccount,
+    disconnectIntegration,
     syncData,
     refreshData
   };
