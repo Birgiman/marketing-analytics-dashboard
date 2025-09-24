@@ -652,14 +652,17 @@ const TrafficAnalysis = () => {
     const totalGroup = dailyData.reduce((sum, day) => sum + day.group, 0);
     const totalGroupExit = dailyData.reduce((sum, day) => sum + day.groupExit, 0);
     
-    // TABELA 1 - DADOS DIÁRIOS: Usar MÉDIA SIMPLES
-    // Razão: Cada dia tem igual importância na análise de performance diária
-    // Fórmula: (CPL_dia1 + CPL_dia2 + ... + CPL_diaN) / número_de_dias
+    // TESTE: TABELA 1 - DADOS DIÁRIOS: TEMPORARIAMENTE USANDO MÉDIA PONDERADA
+    // Invertido para validação - antes era média simples
+    const totalInvestmentDaily = dailyData.reduce((sum, day) => sum + day.investment, 0);
+    const totalLeadsDaily = dailyData.reduce((sum, day) => sum + day.cadastros, 0);
+
+    const averageCplMeta = totalLeadsDaily > 0 ? totalInvestmentDaily / totalLeadsDaily : 0;
+
+    // Manter outros cálculos inalterados
     const cplMetaValues = dailyData.map(day => day.cplMeta).filter(val => val > 0);
     const cplLiquidoValues = dailyData.map(day => day.cplLiquido).filter(val => val > 0);
     const retentionValues = dailyData.map(day => day.retention).filter(val => val > 0);
-
-    const averageCplMeta = cplMetaValues.length > 0 ? cplMetaValues.reduce((sum, val) => sum + val, 0) / cplMetaValues.length : 0;
     const averageCplLiquido = cplLiquidoValues.length > 0 ? cplLiquidoValues.reduce((sum, val) => sum + val, 0) / cplLiquidoValues.length : 0;
     const averageRetention = retentionValues.length > 0 ? retentionValues.reduce((sum, val) => sum + val, 0) / retentionValues.length : 0;
     
@@ -701,10 +704,10 @@ const TrafficAnalysis = () => {
     }))
   });
   
-  // TABELA 2 - CONJUNTOS DE ANÚNCIOS: Usar MÉDIA PONDERADA
-  // Razão: Conjuntos com maior investimento devem ter maior peso no cálculo
-  // Fórmula: (Σ investimentos_todos_conjuntos) / (Σ leads_todos_conjuntos)
-  const correctAverageCPL = calculateCorrectAverageCPL(adSetData);
+  // TESTE: TABELA 2 - CONJUNTOS DE ANÚNCIOS: TEMPORARIAMENTE USANDO MÉDIA SIMPLES
+  // Invertido para validação - antes era média ponderada
+  const cplValues = adSetData.map(adSet => adSet.cpl).filter(val => val > 0);
+  const correctAverageCPL = cplValues.length > 0 ? cplValues.reduce((sum, val) => sum + val, 0) / cplValues.length : 0;
   
   // CORRIGIDO: Calcular totais específicos para conjuntos de anúncios
   const adSetTotals = {
@@ -1059,7 +1062,7 @@ const TrafficAnalysis = () => {
                       <Button variant="ghost" onClick={() => handleSort('cplMeta')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
                         <div className="text-center w-full">
                           <div>CPL Meta</div>
-                          <div className="text-xs text-muted-foreground font-normal">Média Simples: R$ {totals.averageCplMeta.toFixed(2).replace('.', ',')}</div>
+                          <div className="text-xs text-muted-foreground font-normal">Média: R$ {totals.averageCplMeta.toFixed(2).replace('.', ',')}</div>
                         </div>
                       {getSortIcon('cplMeta')}
                     </Button>
@@ -1227,7 +1230,7 @@ const TrafficAnalysis = () => {
                     <Button variant="ghost" onClick={() => handleSort('cpl')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
                       <div className="text-center w-full">
                       <div>CPL Meta</div>
-                        <div className="text-xs text-muted-foreground font-normal">Média Ponderada: R$ {correctAverageCPL.toFixed(2).replace('.', ',')}</div>
+                        <div className="text-xs text-muted-foreground font-normal">Média: R$ {correctAverageCPL.toFixed(2).replace('.', ',')}</div>
                     </div>
                       {getSortIcon('cpl')}
                   </Button>

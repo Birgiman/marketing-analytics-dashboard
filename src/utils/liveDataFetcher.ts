@@ -253,8 +253,8 @@ export async function fetchCompleteLiveData(
           name: campaign.name,
           status: 'ACTIVE', // Assumir ativa se retornou insights
           objective: 'OUTCOME_LEADS',
-          daily_budget: null,
-          lifetime_budget: null,
+          daily_budget: undefined,
+          lifetime_budget: undefined,
           created_time: new Date().toISOString(),
           updated_time: new Date().toISOString(),
           insights: campaign.insights // Manter insights agrupados
