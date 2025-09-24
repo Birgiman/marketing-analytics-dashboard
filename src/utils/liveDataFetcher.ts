@@ -205,8 +205,8 @@ export async function fetchCompleteLiveData(
             level: 'campaign',
             fields: [
               'campaign_id', 'campaign_name', 'spend', 'impressions', 
-              'clicks', 'actions', 'cpm', 'ctr', 'reach', 'frequency',
-              'lead' // CORREÇÃO: Campo agregado de leads (Pixel + Onsite)
+              'clicks', 'actions', 'cpm', 'ctr', 'reach', 'frequency'
+              // TODO: Adicionar 'lead' quando confirmado que funciona
             ],
             timeRange: {
               since: live.insights_date_since,
