@@ -719,7 +719,7 @@ export default function Calculator() {
                       {formatNumber(currentResults.vendasPrevistas)}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Total de Leads × Conversão
+                      Participantes × Conversão
                     </p>
                   </div>
 

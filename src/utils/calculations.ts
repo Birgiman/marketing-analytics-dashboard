@@ -42,13 +42,13 @@ export function calculateParticipantesPrevistos(leadsPrevistos: number, comparec
 }
 
 /**
- * Calcula vendas previstas baseado nos participantes e taxa de conversão
- * @param participantesPrevistos - Número de participantes previstos
+ * Calcula vendas previstas baseado no total de leads e taxa de conversão
+ * @param leadsPrevistos - Número total de leads previstos
  * @param conversao - Taxa de conversão em porcentagem (ex: 15 para 15%)
  * @returns Número de vendas previstas
  */
-export function calculateVendasPrevistas(participantesPrevistos: number, conversao: number): number {
-  return Math.floor(participantesPrevistos * (conversao / 100));
+export function calculateVendasPrevistas(leadsPrevistos: number, conversao: number): number {
+  return Math.floor(leadsPrevistos * (conversao / 100));
 }
 
 /**
@@ -91,7 +91,7 @@ export function calculateLiveShopProjection(inputs: CalculatorInputs): Calculato
 
   const leadsPrevistos = calculateLeadsPrevistos(processedInputs.orcamento, processedInputs.cplLiquido);
   const participantesPrevistos = calculateParticipantesPrevistos(leadsPrevistos, processedInputs.comparecimento);
-  const vendasPrevistas = calculateVendasPrevistas(participantesPrevistos, processedInputs.conversao);
+  const vendasPrevistas = calculateVendasPrevistas(leadsPrevistos, processedInputs.conversao);
   const faturamento = calculateFaturamento(vendasPrevistas, processedInputs.ticketMedio);
   const roes = calculateROES(faturamento, processedInputs.orcamento);
 
