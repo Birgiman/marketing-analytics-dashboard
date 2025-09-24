@@ -5,7 +5,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { MetaInsightsOptions } from '@/types/metaApi';
-import { fetchCampaignInsightsById, fetchCampaigns, fetchMetaInsights, MetaCampaign, MetaInsight } from './metaApi';
+import { fetchCampaignInsightsById, fetchMetaInsights, MetaCampaign, MetaInsight } from './metaApi';
 
 export interface LiveDataResponse {
   live: {
@@ -230,16 +230,34 @@ export async function fetchCompleteLiveData(
 
         console.log(`[LiveDataFetcher] ✅ ${insights.length} insights encontrados com termo "${live.campaign_search_term}"`);
 
-        // Converter insights para formato de campanhas
-        allUserCampaigns = insights.map(insight => ({
-          id: insight.campaign_id,
-          name: insight.campaign_name,
+        // CORREÇÃO: Agrupar insights por campanha para evitar duplicação
+        const insightsByCampaign = new Map();
+
+        insights.forEach(insight => {
+          const campaignId = insight.campaign_id;
+          if (!insightsByCampaign.has(campaignId)) {
+            insightsByCampaign.set(campaignId, {
+              id: campaignId,
+              name: insight.campaign_name,
+              insights: []
+            });
+          }
+          insightsByCampaign.get(campaignId).insights.push(insight);
+        });
+
+        console.log(`[LiveDataFetcher] 📊 ${insightsByCampaign.size} campanhas únicas encontradas (${insights.length} insights total)`);
+
+        // Converter para array de campanhas
+        allUserCampaigns = Array.from(insightsByCampaign.values()).map(campaign => ({
+          id: campaign.id,
+          name: campaign.name,
           status: 'ACTIVE', // Assumir ativa se retornou insights
           objective: 'OUTCOME_LEADS',
           daily_budget: null,
           lifetime_budget: null,
           created_time: new Date().toISOString(),
-          updated_time: new Date().toISOString()
+          updated_time: new Date().toISOString(),
+          insights: campaign.insights // Manter insights agrupados
         }));
 
         console.log(`[LiveDataFetcher] ${allUserCampaigns.length} campanhas encontradas no Meta${live.campaign_search_term ? ` com termo "${live.campaign_search_term}"` : ' (todas)'}`);
