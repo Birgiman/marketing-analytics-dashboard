@@ -71,7 +71,7 @@ export async function getCPLFromMeta(request: MetaCPLRequest): Promise<MetaCPLRe
     
     // 3. Preparar parâmetros da requisição
     const params = new URLSearchParams({
-      fields: 'campaign_id,campaign_name,spend,results,actions,cost_per_action_type',
+      fields: 'campaign_id,campaign_name,spend,results,actions,cost_per_action_type,lead',
       access_token: request.accessToken,
       level: 'account'
     });
