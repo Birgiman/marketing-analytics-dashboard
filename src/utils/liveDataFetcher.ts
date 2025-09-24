@@ -5,7 +5,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { MetaInsightsOptions } from '@/types/metaApi';
-import { fetchCampaignInsightsById, fetchCampaigns, MetaCampaign, MetaInsight } from './metaApi';
+import { fetchCampaignInsightsById, fetchCampaigns, fetchMetaInsights, MetaCampaign, MetaInsight } from './metaApi';
 
 export interface LiveDataResponse {
   live: {
@@ -184,33 +184,62 @@ export async function fetchCompleteLiveData(
       console.log(`[LiveDataFetcher] Termo de busca: "${live.campaign_search_term || 'Não definido'}"`);
 
       try {
-        // NOVO: Usar termo de busca salvo na Live
-        const searchOptions: any = {
-          limit: 100,
-          status: ['ACTIVE', 'PAUSED'], // Incluir ativas e pausadas
-          fields: [
-            'id', 'name', 'status', 'objective', 'effective_status',
-            'daily_budget', 'lifetime_budget', 'start_time', 'stop_time',
-            'created_time', 'updated_time', 'buying_type', 'bid_strategy'
-          ]
-        };
-
-        // Adicionar filtro de termo SE EXISTIR na requisição para a Meta API
-        if (live.campaign_search_term && live.campaign_search_term.trim()) {
-          // CORRIGIDO: Manter formatação original (não converter para title case)
-          const searchTerm = live.campaign_search_term.trim();
-
-          searchOptions.searchTerm = searchTerm;
-          console.log(`[LiveDataFetcher] 🔍 Aplicando filtro por termo NA META API: "${searchTerm}" (original: "${live.campaign_search_term}")`);
-        } else {
-          console.log(`[LiveDataFetcher] 🔍 Buscando TODAS as campanhas (sem termo de filtro)`);
+        // CORREÇÃO: Usar fetchCampaignInsights com filtros dinâmicos
+        // Validar dados obrigatórios - SEM FALLBACKS
+        if (!live.insights_date_since || !live.insights_date_until) {
+          throw new Error(`[LiveDataFetcher] Datas de insights obrigatórias não encontradas: since=${live.insights_date_since}, until=${live.insights_date_until}`);
         }
 
-        allUserCampaigns = await fetchCampaigns(
-          accountId,
+        if (!live.campaign_search_term || !live.campaign_search_term.trim()) {
+          throw new Error(`[LiveDataFetcher] Termo de busca de campanha obrigatório não encontrado: "${live.campaign_search_term}"`);
+        }
+
+        console.log(`[LiveDataFetcher] 🔍 Buscando insights com termo: "${live.campaign_search_term}"`);
+        console.log(`[LiveDataFetcher] 📅 Período: ${live.insights_date_since} até ${live.insights_date_until}`);
+
+        // Usar fetchMetaInsights com filtros dinâmicos
+        const insights = await fetchMetaInsights(
+          accountId, // Account ID para buscar insights
           metaIntegration.access_token,
-          searchOptions
+          {
+            level: 'campaign',
+            fields: [
+              'campaign_id', 'campaign_name', 'spend', 'impressions', 
+              'clicks', 'actions', 'cpm', 'ctr', 'reach', 'frequency'
+            ],
+            timeRange: {
+              since: live.insights_date_since,
+              until: live.insights_date_until
+            },
+            // Filtros dinâmicos
+            filtering: [
+              {
+                field: 'campaign.effective_status',
+                operator: 'IN',
+                value: ['ACTIVE', 'PAUSED'] // Fixo - não arquivadas
+              },
+              {
+                field: 'campaign.name',
+                operator: 'CONTAIN',
+                value: live.campaign_search_term // Dinâmico - da live
+              }
+            ]
+          }
         );
+
+        console.log(`[LiveDataFetcher] ✅ ${insights.length} insights encontrados com termo "${live.campaign_search_term}"`);
+
+        // Converter insights para formato de campanhas
+        allUserCampaigns = insights.map(insight => ({
+          id: insight.campaign_id,
+          name: insight.campaign_name,
+          status: 'ACTIVE', // Assumir ativa se retornou insights
+          objective: 'OUTCOME_LEADS',
+          daily_budget: null,
+          lifetime_budget: null,
+          created_time: new Date().toISOString(),
+          updated_time: new Date().toISOString()
+        }));
 
         console.log(`[LiveDataFetcher] ${allUserCampaigns.length} campanhas encontradas no Meta${live.campaign_search_term ? ` com termo "${live.campaign_search_term}"` : ' (todas)'}`);
 
