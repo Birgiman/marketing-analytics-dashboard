@@ -197,12 +197,8 @@ export async function fetchCompleteLiveData(
 
         // Adicionar filtro de termo SE EXISTIR na requisição para a Meta API
         if (live.campaign_search_term && live.campaign_search_term.trim()) {
-          // Converter para title case como nos exemplos: "Post Do Instagram"
-          const searchTerm = live.campaign_search_term.trim()
-            .toLowerCase()
-            .split(' ')
-            .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
+          // CORRIGIDO: Manter formatação original (não converter para title case)
+          const searchTerm = live.campaign_search_term.trim();
 
           searchOptions.searchTerm = searchTerm;
           console.log(`[LiveDataFetcher] 🔍 Aplicando filtro por termo NA META API: "${searchTerm}" (original: "${live.campaign_search_term}")`);

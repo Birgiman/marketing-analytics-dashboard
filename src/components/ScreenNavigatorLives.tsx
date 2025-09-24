@@ -27,7 +27,7 @@ export function ScreenNavigatorLives({
         {/* Navegação à esquerda */}
         <div className="flex flex-1 items-center justify-start space-x-2">
           <Button variant={location.pathname === "/details" ? "default" : "outline"} size="sm" asChild>
-            <Link to={`/details?live=${liveId}`}>Dashboard</Link>
+            <Link to={`/details?live=${liveId}`}>Detalhes</Link>
           </Button>
           <Button variant={location.pathname === "/traffic-analysis" ? "default" : "outline"} size="sm" asChild>
             <Link to={`/traffic-analysis?live=${liveId}`}>Análise de Tráfego</Link>
