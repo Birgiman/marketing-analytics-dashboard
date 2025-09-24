@@ -234,11 +234,19 @@ const Details = () => {
         }))
       };
 
+      // Validar parâmetros obrigatórios para cálculos
+      if (!completeData.live?.insights_date_since || !completeData.live?.insights_date_until || !completeData.live?.user_id) {
+        throw new Error(`Parâmetros obrigatórios ausentes: insights_date_since=${completeData.live?.insights_date_since}, insights_date_until=${completeData.live?.insights_date_until}, user_id=${completeData.live?.user_id}`);
+      }
+
       // Calcular métricas usando a nova função
       const result = await calculateCompleteLiveMetrics(liveData, {
         enableLogging: true,
         enableValidation: true,
-        orcamentoGasto: completeData.live?.ad_budget
+        orcamentoGasto: completeData.live?.ad_budget,
+        dateFrom: completeData.live.insights_date_since,
+        dateTo: completeData.live.insights_date_until,
+        userId: completeData.live.user_id
       });
 
       // Atualizar estados com métricas calculadas
@@ -371,11 +379,19 @@ const Details = () => {
             }))
           };
 
+          // Validar parâmetros obrigatórios para cálculos
+          if (!live?.insights_date_since || !live?.insights_date_until || !live?.user_id) {
+            throw new Error(`Parâmetros obrigatórios ausentes: insights_date_since=${live?.insights_date_since}, insights_date_until=${live?.insights_date_until}, user_id=${live?.user_id}`);
+          }
+
           // Calcular métricas usando a nova função
           const result = await calculateCompleteLiveMetrics(liveData, {
             enableLogging: true,
             enableValidation: true,
-            orcamentoGasto: live?.ad_budget
+            orcamentoGasto: live?.ad_budget,
+            dateFrom: live.insights_date_since,
+            dateTo: live.insights_date_until,
+            userId: live.user_id
           });
 
           setMetricsV2(result.metrics);

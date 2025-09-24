@@ -46,6 +46,9 @@ export interface LiveMetricsOptions {
   enableLogging?: boolean;
   enableValidation?: boolean;
   orcamentoGasto?: number;
+  dateFrom: string;
+  dateTo: string;
+  userId: string;
 }
 
 // ============================================================================
@@ -67,16 +70,24 @@ export async function calculateCompleteLiveMetrics(
       insights: any[];
     }>;
   },
-  options: LiveMetricsOptions = {}
+  options: LiveMetricsOptions
 ): Promise<LiveMetricsResult> {
   const {
     enableLogging = true,
     enableValidation = true,
-    orcamentoGasto
+    orcamentoGasto,
+    dateFrom,
+    dateTo,
+    userId
   } = options;
 
+  // Validar parâmetros obrigatórios
+  if (!dateFrom || !dateTo || !userId) {
+    throw new Error(`[calculateCompleteLiveMetrics] Parâmetros obrigatórios ausentes: dateFrom=${dateFrom}, dateTo=${dateTo}, userId=${userId}`);
+  }
+
   // 1. Extrair dados das APIs
-  const extractedData = await extractLiveDataForCalculations(liveData);
+  const extractedData = await extractLiveDataForCalculations(liveData, dateFrom, dateTo, userId);
   
   // 2. Validar dados (se habilitado)
   const validation = enableValidation ? validateExtractedData(extractedData) : {
@@ -140,21 +151,32 @@ export async function calculateCompleteLiveMetrics(
 /**
  * Calcula apenas as métricas principais (sem validação e logs)
  * @param liveData - Dados completos da Live
+ * @param dateFrom - Data de início do período (OBRIGATÓRIO)
+ * @param dateTo - Data de fim do período (OBRIGATÓRIO)
+ * @param userId - ID do usuário logado (OBRIGATÓRIO)
  * @returns Métricas calculadas
  */
-export async function calculateSimpleMetrics(liveData: {
-  live: any;
-  groups: any[];
-  campaignInsights: Array<{
-    campaign_id: string;
-    insights: any[];
-  }>;
-}): Promise<LiveMetricsV2> {
+export async function calculateSimpleMetrics(
+  liveData: {
+    live: any;
+    groups: any[];
+    campaignInsights: Array<{
+      campaign_id: string;
+      insights: any[];
+    }>;
+  },
+  dateFrom: string,
+  dateTo: string,
+  userId: string
+): Promise<LiveMetricsV2> {
   const result = calculateCompleteLiveMetrics(liveData, {
     enableLogging: false,
-    enableValidation: false
+    enableValidation: false,
+    dateFrom,
+    dateTo,
+    userId
   });
-  
+
   const resolved = await result;
   return resolved.metrics;
 }
@@ -162,19 +184,30 @@ export async function calculateSimpleMetrics(liveData: {
 /**
  * Calcula métricas com validação (sem logs)
  * @param liveData - Dados completos da Live
+ * @param dateFrom - Data de início do período (OBRIGATÓRIO)
+ * @param dateTo - Data de fim do período (OBRIGATÓRIO)
+ * @param userId - ID do usuário logado (OBRIGATÓRIO)
  * @returns Resultado com métricas e validação
  */
-export async function calculateMetricsWithValidation(liveData: {
-  live: any;
-  groups: any[];
-  campaignInsights: Array<{
-    campaign_id: string;
-    insights: any[];
-  }>;
-}): Promise<Omit<LiveMetricsResult, 'extractedData' | 'summary'>> {
+export async function calculateMetricsWithValidation(
+  liveData: {
+    live: any;
+    groups: any[];
+    campaignInsights: Array<{
+      campaign_id: string;
+      insights: any[];
+    }>;
+  },
+  dateFrom: string,
+  dateTo: string,
+  userId: string
+): Promise<Omit<LiveMetricsResult, 'extractedData' | 'summary'>> {
   const result = calculateCompleteLiveMetrics(liveData, {
     enableLogging: false,
-    enableValidation: true
+    enableValidation: true,
+    dateFrom,
+    dateTo,
+    userId
   });
   
   const resolved = await result;
@@ -192,11 +225,17 @@ export async function calculateMetricsWithValidation(liveData: {
  * Compara métricas entre duas Lives
  * @param live1Data - Dados da primeira Live
  * @param live2Data - Dados da segunda Live
+ * @param dateFrom - Data de início do período (OBRIGATÓRIO)
+ * @param dateTo - Data de fim do período (OBRIGATÓRIO)
+ * @param userId - ID do usuário logado (OBRIGATÓRIO)
  * @returns Comparação das métricas
  */
 export async function compareLiveMetrics(
   live1Data: any,
-  live2Data: any
+  live2Data: any,
+  dateFrom: string,
+  dateTo: string,
+  userId: string
 ): Promise<{
   live1: LiveMetricsV2;
   live2: LiveMetricsV2;
@@ -207,8 +246,8 @@ export async function compareLiveMetrics(
     cplLiquidoPlanejamentoDiff: number;
   };
 }> {
-  const metrics1 = await calculateSimpleMetrics(live1Data);
-  const metrics2 = await calculateSimpleMetrics(live2Data);
+  const metrics1 = await calculateSimpleMetrics(live1Data, dateFrom, dateTo, userId);
+  const metrics2 = await calculateSimpleMetrics(live2Data, dateFrom, dateTo, userId);
 
   const comparison = {
     cplLiquidoDiff: metrics2.cplLiquido - metrics1.cplLiquido,

@@ -154,9 +154,9 @@ export function extractLeadsFromActions(actions: MetaAction[]): number {
 /**
  * Extrai dados consolidados dos grupos do WhatsApp
  * @param groups - Array de grupos vinculados à Live
- * @param dateFrom - Data de início do período (opcional)
- * @param dateTo - Data de fim do período (opcional)
- * @param userId - ID do usuário logado (opcional)
+ * @param dateFrom - Data de início do período (OBRIGATÓRIO)
+ * @param dateTo - Data de fim do período (OBRIGATÓRIO)
+ * @param userId - ID do usuário logado (OBRIGATÓRIO)
  * @returns Dados consolidados dos grupos
  */
 export async function extractGroupData(
@@ -169,46 +169,37 @@ export async function extractGroupData(
     created_at: string;
     updated_at: string;
   }>,
-  dateFrom?: string,
-  dateTo?: string,
-  userId?: string
+  dateFrom: string,
+  dateTo: string,
+  userId: string
 ): Promise<ExtractedGroupData> {
+  // Validar parâmetros obrigatórios
+  if (!dateFrom || !dateTo || !userId) {
+    throw new Error(`[extractGroupData] Parâmetros obrigatórios ausentes: dateFrom=${dateFrom}, dateTo=${dateTo}, userId=${userId}`);
+  }
+
   const totalMembers = groups.reduce((sum, group) => sum + (group.group_size || 0), 0);
   const totalGroups = groups.length;
-  
-  // Se temos parâmetros para consulta real, usar dados reais
-  if (dateFrom && dateTo && userId) {
-    try {
-      const groupIds = groups.map(group => group.group_id);
-      const logData = await getWhatsAppGroupsLogData(groupIds, dateFrom, dateTo, userId);
-      
-      console.log('📱 [extractGroupData] Usando dados reais do WhatsApp Groups Log:', logData);
-      
-      return {
-        totalMembers,
-        totalGroups,
-        entries: logData.totalEntries,
-        exits: logData.totalExits,
-        activeMembers: logData.totalActiveMembers
-      };
-    } catch (error) {
-      console.warn('⚠️ [extractGroupData] Erro ao consultar dados reais, usando fallback:', error);
-    }
-  }
-  
-  // Fallback: usar dados simulados (comportamento anterior)
-  console.log('📱 [extractGroupData] Usando dados simulados (fallback)');
-  const entries = totalMembers;
-  const exits = 0;
-  const activeMembers = totalMembers;
 
-  return {
-    totalMembers,
-    totalGroups,
-    entries,
-    exits,
-    activeMembers
-  };
+  console.log(`📱 [extractGroupData] Buscando dados reais para período: ${dateFrom} até ${dateTo}, usuário: ${userId}`);
+
+  try {
+    const groupIds = groups.map(group => group.group_id);
+    const logData = await getWhatsAppGroupsLogData(groupIds, dateFrom, dateTo, userId);
+
+    console.log('✅ [extractGroupData] Usando dados reais do WhatsApp Groups Log:', logData);
+
+    return {
+      totalMembers,
+      totalGroups,
+      entries: logData.totalEntries,
+      exits: logData.totalExits,
+      activeMembers: logData.totalActiveMembers
+    };
+  } catch (error) {
+    console.error('❌ [extractGroupData] Erro ao consultar dados reais - FALLBACK REMOVIDO:', error);
+    throw new Error(`[extractGroupData] Falha ao obter dados reais do WhatsApp: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+  }
 }
 
 // ============================================================================
@@ -218,9 +209,9 @@ export async function extractGroupData(
 /**
  * Extrai todos os dados necessários para os cálculos
  * @param liveData - Dados completos da Live
- * @param dateFrom - Data de início do período (opcional)
- * @param dateTo - Data de fim do período (opcional)
- * @param userId - ID do usuário logado (opcional)
+ * @param dateFrom - Data de início do período (OBRIGATÓRIO)
+ * @param dateTo - Data de fim do período (OBRIGATÓRIO)
+ * @param userId - ID do usuário logado (OBRIGATÓRIO)
  * @returns Dados extraídos e processados
  */
 export async function extractLiveDataForCalculations(
@@ -244,10 +235,15 @@ export async function extractLiveDataForCalculations(
       insights: MetaInsight[];
     }>;
   },
-  dateFrom?: string,
-  dateTo?: string,
-  userId?: string
+  dateFrom: string,
+  dateTo: string,
+  userId: string
 ): Promise<ExtractedLiveData> {
+  // Validar parâmetros obrigatórios
+  if (!dateFrom || !dateTo || !userId) {
+    throw new Error(`[extractLiveDataForCalculations] Parâmetros obrigatórios ausentes: dateFrom=${dateFrom}, dateTo=${dateTo}, userId=${userId}`);
+  }
+
   const metaData = extractMetaData(liveData.campaignInsights);
   const groupData = await extractGroupData(liveData.groups, dateFrom, dateTo, userId);
 

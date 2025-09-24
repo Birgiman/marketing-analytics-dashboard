@@ -37,9 +37,12 @@ export interface LiveDataResponse {
   metaIntegration: {
     user_id: string;
     access_token: string;
-    account_id: string;
-    account_name?: string;
     is_active: boolean;
+  } | null;
+  metaAdAccount: {
+    ad_account_id: string;
+    account_name?: string;
+    access_token?: string;
   } | null;
   allUserCampaigns: MetaCampaign[];
   liveCampaigns: Array<{
@@ -147,8 +150,6 @@ export async function fetchCompleteLiveData(
     } else if (metaIntegration) {
       console.log('[LiveDataFetcher] Integração Meta encontrada:', {
         user_id: metaIntegration.user_id,
-        account_id: metaIntegration.account_id,
-        account_name: metaIntegration.account_name,
         is_active: metaIntegration.is_active,
         has_access_token: !!metaIntegration.access_token
       });
@@ -157,8 +158,8 @@ export async function fetchCompleteLiveData(
     let allUserCampaigns: MetaCampaign[] = [];
     let campaignInsights: Array<{ campaign_id: string; insights: MetaInsight[] }> = [];
 
-    // 5a. Buscar campanhas vinculadas à Live (dados salvos no banco)
-    console.log('[LiveDataFetcher] 5a. Buscando campanhas vinculadas à Live (banco de dados)...');
+    // 4.1. Buscar campanhas vinculadas à Live (para obter account_id selecionado)
+    console.log('[LiveDataFetcher] 4.1. Buscando campanhas vinculadas à Live (banco de dados)...');
     const { data: liveCampaignsList, error: liveCampaignsError } = await supabase
       .from('live_campaigns')
       .select('*')
@@ -172,19 +173,44 @@ export async function fetchCompleteLiveData(
     const liveCampaigns = liveCampaignsList || [];
     console.log(`[LiveDataFetcher] ${liveCampaigns.length} campanhas vinculadas encontradas no banco`);
 
-    // 5. Se tem integração Meta, buscar campanhas usando termo salvo na Live
-    // Como meta_integrations não tem account_id, usar account_id da primeira campanha como fallback
-    const fallbackAccountId = liveCampaigns.length > 0 ? liveCampaigns[0].account_id : null;
-    const accountId = metaIntegration?.account_id || fallbackAccountId;
+    // 4.2. Obter account_id da Live (a conta selecionada na criação)
+    const selectedAccountId = liveCampaigns.length > 0 ? liveCampaigns[0].account_id : null;
+    console.log(`[LiveDataFetcher] 4.2. Account ID selecionado para esta Live: ${selectedAccountId}`);
 
-    if (metaIntegration?.access_token && accountId) {
+    // 4.3. Buscar dados completos da conta Meta selecionada
+    let metaAdAccount = null;
+    if (selectedAccountId) {
+      console.log('[LiveDataFetcher] 4.3. Buscando dados completos da conta Meta selecionada...');
+      const { data: adAccountData, error: adAccountError } = await supabase
+        .from('meta_ad_accounts')
+        .select('ad_account_id, account_name, access_token')
+        .eq('ad_account_id', selectedAccountId)
+        .eq('is_active', true)
+        .single();
+
+      if (adAccountError) {
+        console.warn('[LiveDataFetcher] Conta Meta selecionada não encontrada:', adAccountError.message);
+      } else if (adAccountData) {
+        metaAdAccount = adAccountData;
+        console.log('[LiveDataFetcher] Conta Meta selecionada encontrada:', {
+          ad_account_id: metaAdAccount.ad_account_id,
+          account_name: metaAdAccount.account_name,
+          has_access_token: !!metaAdAccount.access_token
+        });
+      }
+    } else {
+      console.warn('[LiveDataFetcher] Nenhuma campanha vinculada encontrada para obter account_id');
+    }
+
+    // 5. Se tem conta Meta com dados completos, buscar campanhas usando termo salvo na Live
+    const accessToken = metaAdAccount?.access_token || metaIntegration?.access_token;
+    if (accessToken && metaAdAccount?.ad_account_id) {
       console.log('[LiveDataFetcher] 5. Buscando campanhas usando termo salvo na Live...');
-      console.log(`[LiveDataFetcher] Account ID usado: ${accountId} (Meta: ${metaIntegration.account_id || 'undefined'}, Fallback: ${fallbackAccountId || 'undefined'})`);
-      console.log(`[LiveDataFetcher] Access Token presente: ${!!metaIntegration.access_token}`);
+      console.log(`[LiveDataFetcher] Account ID usado: ${metaAdAccount.ad_account_id}`);
+      console.log(`[LiveDataFetcher] Access Token fonte: ${metaAdAccount.access_token ? 'meta_ad_accounts' : 'meta_integrations'}`);
       console.log(`[LiveDataFetcher] Termo de busca: "${live.campaign_search_term || 'Não definido'}"`);
 
       try {
-        // CORREÇÃO: Usar fetchCampaignInsights com filtros dinâmicos
         // Validar dados obrigatórios - SEM FALLBACKS
         if (!live.insights_date_since || !live.insights_date_until) {
           throw new Error(`[LiveDataFetcher] Datas de insights obrigatórias não encontradas: since=${live.insights_date_since}, until=${live.insights_date_until}`);
@@ -197,10 +223,10 @@ export async function fetchCompleteLiveData(
         console.log(`[LiveDataFetcher] 🔍 Buscando insights com termo: "${live.campaign_search_term}"`);
         console.log(`[LiveDataFetcher] 📅 Período: ${live.insights_date_since} até ${live.insights_date_until}`);
 
-        // CORREÇÃO: Usar fetchMetaInsights corrigido para buscar de /insights
+        // CORREÇÃO: Usar fetchMetaInsights com a conta e token corretos
         const insights = await fetchMetaInsights(
-          accountId, // Account ID para buscar insights
-          metaIntegration.access_token,
+          metaAdAccount.ad_account_id, // Account ID da conta selecionada para esta Live
+          accessToken, // Access Token (preferência: meta_ad_accounts > meta_integrations)
           {
             level: 'campaign',
             fields: [
@@ -270,8 +296,12 @@ export async function fetchCompleteLiveData(
         console.warn('[LiveDataFetcher] Erro detalhado:', (error as Error).message);
       }
     } else {
-      console.log('[LiveDataFetcher] 5. Pular busca de campanhas - Integração Meta não disponível');
-      console.log(`[LiveDataFetcher] Meta integration: ${!!metaIntegration}, Access token: ${!!metaIntegration?.access_token}, Account ID: ${accountId || 'undefined'} (Meta: ${metaIntegration?.account_id || 'undefined'}, Fallback: ${fallbackAccountId || 'undefined'})`);
+      console.log('[LiveDataFetcher] 5. Pular busca de campanhas - Dados insuficientes');
+      console.log(`[LiveDataFetcher] Meta Integration: ${!!metaIntegration}`);
+      console.log(`[LiveDataFetcher] Meta Ad Account: ${!!metaAdAccount}`);
+      console.log(`[LiveDataFetcher] Access Token disponível: ${!!accessToken}`);
+      console.log(`[LiveDataFetcher] Account ID: ${metaAdAccount?.ad_account_id || 'undefined'}`);
+      console.log(`[LiveDataFetcher] Campanhas vinculadas: ${liveCampaigns.length}`);
     }
 
     // 6. NOVO: Usar campanhas encontradas pelo termo ao invés das salvas no banco
@@ -530,6 +560,7 @@ export async function fetchCompleteLiveData(
       },
       groups: liveGroups,
       metaIntegration,
+      metaAdAccount,
       allUserCampaigns,
       liveCampaigns: liveCampaigns,
       campaignInsights,

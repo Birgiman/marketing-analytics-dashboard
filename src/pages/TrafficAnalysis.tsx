@@ -347,9 +347,8 @@ const TrafficAnalysis = () => {
       // Buscar dados de conjuntos de anúncios diretamente do Meta
       let adSetDataToCache: AdSetData[] = [];
       try {
-        const fallbackAccountId = completeData.liveCampaigns?.[0]?.account_id;
-        const accountId = completeData.metaIntegration?.account_id || fallbackAccountId;
-        
+        const accountId = completeData.metaAdAccount?.ad_account_id;
+
         if (accountId && completeData.metaIntegration?.access_token) {
           console.log('🔄 [TrafficAnalysis Cache] Buscando adSetInsights do Meta...');
           
@@ -834,7 +833,19 @@ const TrafficAnalysis = () => {
           campaignInsights: campaignInsights
         };
         
-        const result = await calculateCompleteLiveMetrics(liveDataForCalculations);
+        // Validar parâmetros obrigatórios para cálculos
+        if (!completeData.live?.insights_date_since || !completeData.live?.insights_date_until || !completeData.live?.user_id) {
+          throw new Error(`Parâmetros obrigatórios ausentes: insights_date_since=${completeData.live?.insights_date_since}, insights_date_until=${completeData.live?.insights_date_until}, user_id=${completeData.live?.user_id}`);
+        }
+
+        const result = await calculateCompleteLiveMetrics(liveDataForCalculations, {
+          enableLogging: true,
+          enableValidation: true,
+          orcamentoGasto: completeData.live.ad_budget,
+          dateFrom: completeData.live.insights_date_since,
+          dateTo: completeData.live.insights_date_until,
+          userId: completeData.live.user_id
+        });
         setMetricsV2(result.metrics);
         setExtractedDataV2(result.extractedData);
         
@@ -845,9 +856,8 @@ const TrafficAnalysis = () => {
         // CORRIGIDO: Buscar dados de conjuntos de anúncios diretamente do Meta
         console.log('🔄 [TrafficAnalysis] Buscando dados de conjuntos de anúncios do Meta...');
         
-        const fallbackAccountId = completeData.liveCampaigns?.[0]?.account_id;
-        const accountId = completeData.metaIntegration?.account_id || fallbackAccountId;
-        
+        const accountId = completeData.metaAdAccount?.ad_account_id;
+
         if (accountId && completeData.metaIntegration?.access_token) {
           try {
             const adSetInsights = await fetchAdSetInsights(
