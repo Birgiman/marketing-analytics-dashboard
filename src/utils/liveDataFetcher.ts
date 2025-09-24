@@ -211,6 +211,7 @@ export async function fetchCompleteLiveData(
               since: live.insights_date_since,
               until: live.insights_date_until
             },
+            timeIncrement: 1, // CORREÇÃO: Buscar dados por dia
             // Filtros dinâmicos
             filtering: [
               {
