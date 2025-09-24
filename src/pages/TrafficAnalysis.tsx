@@ -652,8 +652,9 @@ const TrafficAnalysis = () => {
     const totalGroup = dailyData.reduce((sum, day) => sum + day.group, 0);
     const totalGroupExit = dailyData.reduce((sum, day) => sum + day.groupExit, 0);
     
-    // CORRIGIDO: Calcular médias SIMPLES dos CPLs diários (não ponderadas)
-    // Para dados diários: soma dos CPL_diários / número de dias
+    // TABELA 1 - DADOS DIÁRIOS: Usar MÉDIA SIMPLES
+    // Razão: Cada dia tem igual importância na análise de performance diária
+    // Fórmula: (CPL_dia1 + CPL_dia2 + ... + CPL_diaN) / número_de_dias
     const cplMetaValues = dailyData.map(day => day.cplMeta).filter(val => val > 0);
     const cplLiquidoValues = dailyData.map(day => day.cplLiquido).filter(val => val > 0);
     const retentionValues = dailyData.map(day => day.retention).filter(val => val > 0);
@@ -700,8 +701,9 @@ const TrafficAnalysis = () => {
     }))
   });
   
-  // CORRIGIDO: Calcular CPL médio PONDERADO para conjuntos de anúncios
-  // Para conjuntos: soma dos investimentos / soma dos leads (média ponderada)
+  // TABELA 2 - CONJUNTOS DE ANÚNCIOS: Usar MÉDIA PONDERADA
+  // Razão: Conjuntos com maior investimento devem ter maior peso no cálculo
+  // Fórmula: (Σ investimentos_todos_conjuntos) / (Σ leads_todos_conjuntos)
   const correctAverageCPL = calculateCorrectAverageCPL(adSetData);
   
   // CORRIGIDO: Calcular totais específicos para conjuntos de anúncios
@@ -1057,7 +1059,7 @@ const TrafficAnalysis = () => {
                       <Button variant="ghost" onClick={() => handleSort('cplMeta')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
                         <div className="text-center w-full">
                           <div>CPL Meta</div>
-                          <div className="text-xs text-muted-foreground font-normal">Média: R$ {totals.averageCplMeta.toFixed(2).replace('.', ',')}</div>
+                          <div className="text-xs text-muted-foreground font-normal">Média Simples: R$ {totals.averageCplMeta.toFixed(2).replace('.', ',')}</div>
                         </div>
                       {getSortIcon('cplMeta')}
                     </Button>
@@ -1225,7 +1227,7 @@ const TrafficAnalysis = () => {
                     <Button variant="ghost" onClick={() => handleSort('cpl')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
                       <div className="text-center w-full">
                       <div>CPL Meta</div>
-                        <div className="text-xs text-muted-foreground font-normal">Média: R$ {correctAverageCPL.toFixed(2).replace('.', ',')}</div>
+                        <div className="text-xs text-muted-foreground font-normal">Média Ponderada: R$ {correctAverageCPL.toFixed(2).replace('.', ',')}</div>
                     </div>
                       {getSortIcon('cpl')}
                   </Button>
