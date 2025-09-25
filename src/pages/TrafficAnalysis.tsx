@@ -7,8 +7,9 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { AdSetData, calculateCorrectAverageCPL, CampaignData, extractAdSetDataFromInsights, extractCampaignData } from "@/utils/data-extractors-v2";
+import { AdSetData, CampaignData, extractAdSetDataFromInsights, extractCampaignData } from "@/utils/data-extractors-v2";
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
+import { getLiveDataFromDatabase } from '@/utils/LiveData/getLiveData';
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 import { fetchAdSetInsights } from "@/utils/metaApi";
 import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
@@ -28,7 +29,7 @@ const TrafficAnalysis = () => {
     needsRefresh: boolean;
     lastSynced?: string;
   }>({
-    isLoading: true,
+    isLoading: false, // ✅ FORÇADO PARA FALSE
     fromCache: false,
     needsRefresh: false
   });
@@ -133,6 +134,7 @@ const TrafficAnalysis = () => {
     }>;
   }>>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isButtonRefreshing, setIsButtonRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Estados para métricas V2
@@ -208,6 +210,127 @@ const TrafficAnalysis = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showPublicoDropdown]);
+
+  // Função para carregar dados do banco (mesmo padrão das outras telas)
+  const loadDataFromDatabase = useCallback(async (isFromButton = false) => {
+    if (!liveId) return;
+    
+    console.log('[LOADING DO BOTÃO] 🚀 Iniciando loadDataFromDatabase para liveId:', liveId, 'isFromButton:', isFromButton);
+    
+    try {
+      console.log(`[LOADING DO BOTÃO] 📦 Carregando dados do banco para Live: ${liveId}`);
+      const liveData = await getLiveDataFromDatabase(liveId);
+      
+      if (liveData) {
+        console.log(`[LOADING DO BOTÃO] ✅ Dados carregados do banco:`, liveData.name);
+        
+        // Atualizar dados básicos da Live
+        setLive({
+          id: liveData.id,
+          name: liveData.name,
+          ad_budget: parseFloat(liveData.ad_budget),
+          cached_metrics: liveData.cached_metrics,
+          cached_group_data: liveData.cached_group_data,
+          cached_meta_data: liveData.cached_meta_data,
+          cached_traffic_data: liveData.cached_traffic_data,
+          cached_traffic_metrics: liveData.cached_traffic_metrics,
+          traffic_last_synced_at: liveData.traffic_last_synced_at
+        });
+        
+        // Carregar dados específicos de tráfego do cache
+        if (liveData.cached_traffic_data) {
+          console.log('[LOADING DO BOTÃO] 📊 Carregando dados de tráfego do cache:', liveData.cached_traffic_data);
+          console.log('[LOADING DO BOTÃO] 🔍 Estrutura do cached_traffic_data:', {
+            hasGroups: !!liveData.cached_traffic_data.groups,
+            groupsLength: liveData.cached_traffic_data.groups?.length || 0,
+            hasCampaigns: !!liveData.cached_traffic_data.campaigns,
+            campaignsLength: liveData.cached_traffic_data.campaigns?.length || 0,
+            hasCampaignsWithInsights: !!liveData.cached_traffic_data.campaignsWithInsights,
+            campaignsWithInsightsLength: liveData.cached_traffic_data.campaignsWithInsights?.length || 0,
+            hasAdSetData: !!liveData.cached_traffic_data.adSetData,
+            adSetDataLength: liveData.cached_traffic_data.adSetData?.length || 0
+          });
+          
+          // DEBUG: Verificar se campaignsWithInsights existe e tem dados
+          if (liveData.cached_traffic_data.campaignsWithInsights) {
+            console.log('[LOADING DO BOTÃO] 🔍 DEBUG campaignsWithInsights:', liveData.cached_traffic_data.campaignsWithInsights);
+          } else {
+            console.log('[LOADING DO BOTÃO] ⚠️ campaignsWithInsights não existe no cache');
+          }
+          
+          // Carregar grupos
+          if (liveData.cached_traffic_data.groups) {
+            setGroups(liveData.cached_traffic_data.groups);
+            console.log('[LOADING DO BOTÃO] ✅ Grupos carregados:', liveData.cached_traffic_data.groups.length);
+          }
+          
+          // Carregar campanhas
+          if (liveData.cached_traffic_data.campaigns) {
+            setCampaigns(liveData.cached_traffic_data.campaigns);
+            console.log('[LOADING DO BOTÃO] ✅ Campanhas carregadas:', liveData.cached_traffic_data.campaigns.length);
+          }
+          
+          // Carregar campanhas com insights (dados para tabela)
+          if (liveData.cached_traffic_data.campaignsWithInsights) {
+            // Formatar dados do cache para corresponder ao formato esperado pela calculateDailyData
+            const formattedCampaignsWithInsights = liveData.cached_traffic_data.campaignsWithInsights.map(campaign => ({
+              campaign_id: campaign.campaign_id,
+              campaign_name: campaign.campaign_name || '',
+              insights: campaign.insights.map(insight => ({
+                campaign_name: insight.campaign_name || '',
+                ad_name: insight.ad_name || '',
+                date_start: insight.date_start || '',
+                date_stop: insight.date_stop || insight.date_start || '',
+                spend: insight.spend || '0',
+                impressions: insight.impressions || '0',
+                clicks: insight.clicks || '0',
+                reach: insight.reach || '0',
+                frequency: insight.frequency || '0',
+                cpm: insight.cpm || '0',
+                ctr: insight.ctr || '0',
+                cpp: insight.cpp || '0',
+                cost_per_unique_click: insight.cost_per_unique_click || '0',
+                actions: insight.actions || []
+              }))
+            }));
+
+            setCampaignsWithInsights(formattedCampaignsWithInsights);
+            console.log('[LOADING DO BOTÃO] ✅ Campanhas com insights carregadas e formatadas:', formattedCampaignsWithInsights.length);
+            console.log('[LOADING DO BOTÃO] 🔍 DEBUG: setCampaignsWithInsights formatado:', formattedCampaignsWithInsights);
+          } else {
+            console.log('[LOADING DO BOTÃO] ⚠️ Nenhuma campanha com insights encontrada no cache');
+          }
+          
+          // Carregar dados de ad sets
+          if (liveData.cached_traffic_data.adSetData) {
+            setAdSetData(liveData.cached_traffic_data.adSetData);
+            console.log('[LOADING DO BOTÃO] ✅ Dados de ad sets carregados:', liveData.cached_traffic_data.adSetData.length);
+          }
+        } else {
+          console.log('[LOADING DO BOTÃO] ⚠️ Nenhum dado de tráfego encontrado no cache');
+        }
+        
+        console.log('[LOADING DO BOTÃO] ✅ Dados básicos carregados');
+        console.log('[LOADING DO BOTÃO] ✅ Definindo setIsLoading(false) - dados carregados');
+        setIsLoading(false);
+        
+      } else {
+        console.log(`[LOADING DO BOTÃO] ⚠️ Nenhum dado encontrado no banco`);
+        console.log('[LOADING DO BOTÃO] ✅ Definindo setIsLoading(false) - sem dados');
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error(`[LOADING DO BOTÃO] ❌ Erro ao carregar dados do banco:`, error);
+      console.log('[LOADING DO BOTÃO] ✅ Definindo setIsLoading(false) - erro');
+      setIsLoading(false);
+    } finally {
+      // Só controla isButtonRefreshing se foi chamado pelo botão
+      if (isFromButton) {
+        console.log('[LOADING DO BOTÃO] 🔄 Definindo setIsButtonRefreshing(false)');
+        setIsButtonRefreshing(false);
+      }
+    }
+  }, [liveId]);
 
   // CACHE SYSTEM - Funções de cache
   const fetchTrafficDataWithCache = useCallback(async () => {
@@ -294,8 +417,24 @@ const TrafficAnalysis = () => {
           }
         }
         
-        // Preencher campos de data com valores padrão da Live
-        if (live.insights_date_since && live.insights_date_until) {
+        // Preencher campos de data automaticamente baseado nos dados disponíveis
+        if (live.cached_traffic_data?.dailyInsights && live.cached_traffic_data.dailyInsights.length > 0) {
+          const insights = live.cached_traffic_data.dailyInsights;
+          const dates = insights.map(insight => insight.date).sort();
+          const minDate = dates[0];
+          const maxDate = dates[dates.length - 1];
+
+          console.log('[TrafficAnalysis] Preenchendo calendário automaticamente:', {
+            minDate,
+            maxDate,
+            totalDays: dates.length
+          });
+
+          setTempStartDate(minDate);
+          setTempEndDate(maxDate);
+          setStartDate(minDate);
+          setEndDate(maxDate);
+        } else if (live.insights_date_since && live.insights_date_until) {
           setTempStartDate(live.insights_date_since);
           setTempEndDate(live.insights_date_until);
           setStartDate(live.insights_date_since);
@@ -476,6 +615,12 @@ const TrafficAnalysis = () => {
     }
   };
 
+  // Função para iniciar o refresh (chamada pelo botão)
+  const handleRefreshStart = () => {
+    console.log(`[TrafficAnalysis] 🔄 Iniciando refresh - ativando overlay`);
+    setIsButtonRefreshing(true);
+  };
+
   // Função para forçar refresh do cache
   const handleForceRefresh = async () => {
     if (!liveId) return;
@@ -514,9 +659,11 @@ const TrafficAnalysis = () => {
   // Buscar dados com sistema de cache
   useEffect(() => {
     if (liveId) {
-      fetchTrafficDataWithCache();
+      console.log('[LOADING DO BOTÃO] 🔄 useEffect executando - liveId:', liveId);
+      console.log('[LOADING DO BOTÃO] 🚀 Chamando loadDataFromDatabase (carregamento inicial)');
+      loadDataFromDatabase(false); // Carregamento inicial, não do botão
     }
-  }, [liveId, fetchTrafficDataWithCache]); // Agora pode incluir fetchTrafficDataWithCache pois está estabilizada com useCallback
+  }, [liveId, loadDataFromDatabase]); // Adicionado loadDataFromDatabase nas dependências
   
   
   // Usar métricas do cache ou calcular se necessário
@@ -545,99 +692,42 @@ const TrafficAnalysis = () => {
   // Debug: Log do timezone do servidor
   console.log('🌍 [TrafficAnalysis] Timezone do servidor:', Intl.DateTimeFormat().resolvedOptions().timeZone);
   
-  // Calcular dados diários (baseado no exemplo)
+  // Calcular dados diários usando dailyInsights do cache
   const calculateDailyData = () => {
-    console.log('🔍 [TrafficAnalysis Debug] calculateDailyData chamada:', {
-      campaignsWithInsights: campaignsWithInsights?.length || 0,
-      hasData: campaignsWithInsights && campaignsWithInsights.length > 0
-    });
-    
-    if (!campaignsWithInsights || campaignsWithInsights.length === 0) {
-      console.log('❌ [TrafficAnalysis Debug] calculateDailyData retornando array vazio - sem campaignsWithInsights');
+    console.log('🔍 [TrafficAnalysis Debug] calculateDailyData usando dailyInsights do cache');
+
+    // Verificar se temos dailyInsights do cache
+    const dailyInsights = live?.cached_traffic_data?.dailyInsights;
+
+    if (!dailyInsights || dailyInsights.length === 0) {
+      console.log('❌ [TrafficAnalysis Debug] Nenhum dailyInsights encontrado no cache');
       return [];
     }
 
-    const dailyData: Record<string, {
-      date: string;
-      investment: number;
-      cadastros: number;
-      group: number;
-      groupExit: number;
-      cplMeta: number;
-      cplLiquido: number;
-      retention: number;
-    }> = {};
-    
-    // Processar dados das campanhas (Meta API)
-    console.log('🔍 [TrafficAnalysis Debug] Processando campaignsWithInsights:', campaignsWithInsights.length, 'campanhas');
-    
-    campaignsWithInsights.forEach((campaign, index) => {
-      console.log(`🔍 [TrafficAnalysis Debug] Campanha ${index + 1}:`, {
-        campaign_id: campaign.campaign_id,
-        insightsCount: campaign.insights?.length || 0,
-        hasInsights: !!(campaign.insights && Array.isArray(campaign.insights))
-      });
-      
-      if (!campaign.insights || !Array.isArray(campaign.insights)) {
-        console.log(`❌ [TrafficAnalysis Debug] Campanha ${index + 1} sem insights válidos`);
-        return;
-      }
-      
-      campaign.insights.forEach((insight, insightIndex) => {
-        if (!insight.date_start) {
-          console.log(`❌ [TrafficAnalysis Debug] Insight ${insightIndex + 1} sem date_start`);
-          return;
-        }
-        
-        const dateKey = insight.date_start;
-      if (!dailyData[dateKey]) {
-        dailyData[dateKey] = {
-          date: dateKey,
-          investment: 0,
-          cadastros: 0,
-          group: 0,
-          groupExit: 0,
-          cplMeta: 0,
-          cplLiquido: 0,
-          retention: 0
-        };
-      }
-
-        const spend = parseFloat(insight.spend || '0');
-        // CORREÇÃO: Usar extração correta de leads por action_type=lead
-        const leads = insight.actions?.find(action => action.action_type === 'lead');
-        const results = leads ? parseInt(leads.value || '0') : 0;
-
-        dailyData[dateKey].investment += spend;
-        dailyData[dateKey].cadastros += results;
-      });
-    });
-    
-    // Processar dados dos grupos (WhatsApp/Evolution API)
-    // Por enquanto, usar dados simulados baseados nos cadastros
-    // TODO: Implementar consulta real ao WhatsApp Groups Log
-    Object.values(dailyData).forEach((day) => {
-      // Simular entrada no grupo baseado nos cadastros (80% de retenção)
-      day.group = Math.round(day.cadastros * 0.8);
-      // Simular saídas do grupo (5% dos que entraram)
-      day.groupExit = Math.round(day.group * 0.05);
+    console.log('✅ [TrafficAnalysis Debug] Usando dailyInsights do cache:', {
+      totalDays: dailyInsights.length,
+      dates: dailyInsights.map(day => day.date)
     });
 
-    // Calcular CPL Meta e CPL Líquido para cada dia
-    Object.values(dailyData).forEach((day) => {
-      day.cplMeta = day.cadastros > 0 ? day.investment / day.cadastros : 0;
-      day.cplLiquido = day.group > 0 ? day.investment / day.group : 0;
-      day.retention = day.cadastros > 0 ? Math.round(day.group / day.cadastros * 100) : 0;
-    });
-    
-    const result = Object.values(dailyData).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // Converter dailyInsights para formato esperado pela tabela
+    const result = dailyInsights.map(insight => ({
+      date: insight.date,
+      investment: insight.spend,
+      cadastros: insight.leads,
+      group: insight.groupJoin || 0,
+      groupExit: insight.groupExit || 0,
+      cplMeta: insight.cplMeta,
+      cplLiquido: insight.cplLiquido || 0,
+      retention: insight.retention || 0
+    })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
     console.log('✅ [TrafficAnalysis Debug] calculateDailyData finalizado:', {
       totalDays: result.length,
       dates: result.map(day => day.date),
       totalInvestment: result.reduce((sum, day) => sum + day.investment, 0),
       totalCadastros: result.reduce((sum, day) => sum + day.cadastros, 0)
     });
-    
+
     return result;
   };
   
@@ -935,12 +1025,26 @@ const TrafficAnalysis = () => {
       {/* Navegação interna */}
       <ScreenNavigatorLives 
         liveId={liveId} 
-        onRefresh={handleForceRefresh}
-        isRefreshing={cacheStatus.isLoading}
+        onRefresh={() => {}}
+        isRefreshing={false}
+        onRefreshStart={handleRefreshStart}
+        onDataUpdated={() => loadDataFromDatabase(true)}
         showRefreshButton={true}
       />
       
-      <div className="container mx-auto p-6 space-y-8">
+      <div className="container mx-auto p-6 space-y-8 relative">
+        {/* Overlay de loading quando está atualizando */}
+        {(cacheStatus.isLoading || isButtonRefreshing) && (
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <div className="text-xl font-semibold">Carregando dados...</div>
+              <div className="text-sm text-gray-600 flex items-center justify-center gap-2">
+                <div className="h-4 w-4 animate-spin border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                Buscando dados do Meta Ads...
+              </div>
+            </div>
+          </div>
+        )}
         {/* Error Alert */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">

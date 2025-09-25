@@ -47,6 +47,7 @@ export async function getWhatsAppGroupsLogData(
   try {
     console.log('🔍 [WhatsAppGroupsLog] Consultando dados reais dos grupos:', {
       groupIds: groupIds.length,
+      groupIdsArray: groupIds,
       dateFrom,
       dateTo,
       userId
@@ -64,15 +65,23 @@ export async function getWhatsAppGroupsLogData(
 
     // Consulta otimizada: buscar apenas os dados necessários com filtros específicos
     console.log('🔍 [WhatsAppGroupsLog] Fazendo consulta otimizada na tabela...');
-    
+    console.log('🔍 [WhatsAppGroupsLog] Parâmetros da consulta:', {
+      totalGroupIds: groupIds.length,
+      groupIds: groupIds.slice(0, 3), // Primeiros 3 IDs para debug
+      dateFrom,
+      dateTo,
+      userId: userId.substring(0, 8) + '...' // Primeiros 8 chars do user_id
+    });
+
     const { data, error } = await supabase
       .from('whatsapp_groups_log')
-      .select('id_grupo, group_name, event')
+      .select('id_grupo, group_name, event, created_at')
       .in('id_grupo', groupIds)
       .eq('user_id', userId)
       .gte('created_at', dateFrom)
       .lte('created_at', dateTo)
       .in('event', ['join', 'leave'])
+      .order('created_at', { ascending: true })
       .limit(10000); // Limite para evitar timeout
 
     if (error) {
@@ -245,65 +254,90 @@ export async function getWhatsAppGroupsLogByPeriod(
         dateFunction = 'DATE(created_at)';
     }
 
-    // Consulta SQL para obter dados agrupados por período
-    const { data, error } = await supabase
-      .rpc('get_whatsapp_groups_log_by_period', {
-        group_ids: groupIds,
-        date_from: dateFrom,
-        date_to: dateTo,
-        user_id: userId,
-        group_by: groupBy
-      });
+    // Consulta direta otimizada (sem RPC)
+    console.log('🔍 [WhatsAppGroupsLog] Fazendo consulta direta otimizada por período...');
+
+    const { data: rawData, error } = await supabase
+      .from('whatsapp_groups_log')
+      .select('created_at, event, id_grupo')
+      .in('id_grupo', groupIds)
+      .eq('user_id', userId)
+      .gte('created_at', dateFrom)
+      .lte('created_at', dateTo)
+      .in('event', ['join', 'leave'])
+      .order('created_at', { ascending: true });
 
     if (error) {
       console.error('❌ [WhatsAppGroupsLog] Erro na consulta por período:', error);
-      
-      // Fallback: consulta simples sem agrupamento
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('whatsapp_groups_log')
-        .select('created_at, event')
-        .in('id_grupo', groupIds)
-        .eq('user_id', userId)
-        .gte('created_at', dateFrom)
-        .lte('created_at', dateTo)
-        .in('event', ['join', 'leave']);
-
-      if (fallbackError) {
-        throw fallbackError;
-      }
-
-      // Processar dados manualmente
-      const dailyData = new Map<string, { entries: number; exits: number }>();
-      
-      fallbackData?.forEach((row: any) => {
-        const date = new Date(row.created_at).toISOString().split('T')[0];
-        if (!dailyData.has(date)) {
-          dailyData.set(date, { entries: 0, exits: 0 });
-        }
-        
-        const dayData = dailyData.get(date)!;
-        if (row.event === 'join') {
-          dayData.entries++;
-        } else if (row.event === 'leave') {
-          dayData.exits++;
-        }
-      });
-
-      return Array.from(dailyData.entries()).map(([date, data]) => ({
-        date,
-        entries: data.entries,
-        exits: data.exits,
-        activeMembers: Math.max(0, data.entries - data.exits)
-      }));
+      throw error;
     }
 
-    // Processar dados da função RPC
-    return data?.map((row: any) => ({
-      date: row.date,
-      entries: row.entries || 0,
-      exits: row.exits || 0,
-      activeMembers: Math.max(0, (row.entries || 0) - (row.exits || 0))
-    })) || [];
+    console.log('📊 [WhatsAppGroupsLog] Dados brutos obtidos:', {
+      totalRecords: rawData?.length || 0,
+      dateRange: {
+        from: dateFrom,
+        to: dateTo
+      },
+      groupBy,
+      sampleRecords: rawData?.slice(0, 3).map(r => ({
+        date: new Date(r.created_at).toISOString().split('T')[0],
+        event: r.event,
+        group: r.id_grupo?.substring(0, 10) + '...'
+      }))
+    });
+
+    // Processar dados manualmente com agrupamento por período
+    const periodData = new Map<string, { entries: number; exits: number }>();
+
+    rawData?.forEach((row: any) => {
+      let dateKey: string;
+
+      // Determinar a chave de agrupamento baseada no parâmetro groupBy
+      const recordDate = new Date(row.created_at);
+      switch (groupBy) {
+        case 'day':
+          dateKey = recordDate.toISOString().split('T')[0];
+          break;
+        case 'week':
+          // Primeiro dia da semana (domingo)
+          const weekStart = new Date(recordDate);
+          weekStart.setDate(recordDate.getDate() - recordDate.getDay());
+          dateKey = weekStart.toISOString().split('T')[0];
+          break;
+        case 'month':
+          dateKey = `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}-01`;
+          break;
+        default:
+          dateKey = recordDate.toISOString().split('T')[0];
+      }
+
+      if (!periodData.has(dateKey)) {
+        periodData.set(dateKey, { entries: 0, exits: 0 });
+      }
+
+      const dayData = periodData.get(dateKey)!;
+      if (row.event === 'join') {
+        dayData.entries++;
+      } else if (row.event === 'leave') {
+        dayData.exits++;
+      }
+    });
+
+    const result = Array.from(periodData.entries()).map(([date, data]) => ({
+      date,
+      entries: data.entries,
+      exits: data.exits,
+      activeMembers: Math.max(0, data.entries - data.exits)
+    })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    console.log('✅ [WhatsAppGroupsLog] Dados processados por período:', {
+      totalPeriods: result.length,
+      totalEntries: result.reduce((sum, p) => sum + p.entries, 0),
+      totalExits: result.reduce((sum, p) => sum + p.exits, 0),
+      samplePeriods: result.slice(0, 3)
+    });
+
+    return result;
 
   } catch (error) {
     console.error('❌ [WhatsAppGroupsLog] Erro ao consultar dados por período:', error);
