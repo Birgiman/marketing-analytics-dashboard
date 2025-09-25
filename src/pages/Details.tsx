@@ -189,13 +189,7 @@ const Details = () => {
               </div>
             </div>
           </div>}
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Detalhes da Live</h1>
-            <p className="text-muted-foreground mt-1">{live?.name || 'Carregando...'}</p>
-          </div>
-        </div>
+        {/* Header removido */}
 
         {/* Error Alert */}
         {error && <div className="bg-red-50 border border-red-200 rounded-lg p-4">
