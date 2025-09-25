@@ -12,8 +12,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { DEMO_MODE } from "@/lib/demo-mode";
 import { Live, LiveGroup } from "@/types/live";
 import { ChevronRight, DollarSign, Edit, Eye, Plus, Search, Trash2, TrendingUp, Users, Video } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { debounce } from "@/lib/utils";
 
 interface DashboardStats {
   totalLives: number;
@@ -46,27 +47,36 @@ const [lives, setLives] = useState<Live[]>([]);
   const [isSyncingGroups, setIsSyncingGroups] = useState(false);
   const [hasSyncedGroups, setHasSyncedGroups] = useState(false);
   const [lastSyncAttempt, setLastSyncAttempt] = useState<number>(0);
+  
+  // Refs para evitar stale closures e controlar execução única
+  const hasExecutedInitialSync = useRef(false);
+  const syncInProgress = useRef(false);
 
-  // Função para sincronizar grupos WhatsApp em background
-  const syncWhatsAppGroups = useCallback(async (userId: string, instanceName?: string) => {
+  // Função para sincronizar grupos WhatsApp em background com debounce
+  const syncWhatsAppGroupsInternal = useCallback(async (userId: string, instanceName: string) => {
     const now = Date.now();
-    const COOLDOWN_PERIOD = 5 * 60 * 1000; // 5 minutos em millisegundos
-    
-    if (!instanceName || isSyncingGroups || hasSyncedGroups) {
+    const COOLDOWN_PERIOD = 5 * 60 * 1000; // 5 minutos
+
+    // Verificações de segurança com refs para evitar loops
+    if (!instanceName || syncInProgress.current || hasSyncedGroups) {
+      console.log(`🚫 [Dashboard] Sync bloqueado: instanceName=${!!instanceName}, syncInProgress=${syncInProgress.current}, hasSyncedGroups=${hasSyncedGroups}`);
       return;
     }
 
-    // Verificar cooldown para evitar rate limiting
+    // Verificar cooldown
     if (lastSyncAttempt && (now - lastSyncAttempt) < COOLDOWN_PERIOD) {
-      console.log(`⏳ [Dashboard] Aguardando cooldown de ${Math.round((COOLDOWN_PERIOD - (now - lastSyncAttempt)) / 1000)}s antes da próxima sincronização`);
+      console.log(`⏳ [Dashboard] Cooldown ativo: ${Math.round((COOLDOWN_PERIOD - (now - lastSyncAttempt)) / 1000)}s restantes`);
       return;
     }
 
+    syncInProgress.current = true;
     setIsSyncingGroups(true);
     setLastSyncAttempt(now);
 
     try {
-      // VERIFICAÇÃO INTERNA: Checar se instância está conectada antes da edge function
+      console.log(`🔄 [Dashboard] Iniciando sincronização para instância: ${instanceName}`);
+
+      // Verificar status da instância antes de chamar a edge function
       const { data: instanceData } = await supabase
         .from('whatsapp_instances')
         .select('status, api_token')
@@ -74,25 +84,12 @@ const [lives, setLives] = useState<Live[]>([]);
         .eq('user_id', userId)
         .single();
 
-      // Não executar se instância não existe ou não está conectada
-      if (!instanceData) {
-
+      if (!instanceData?.api_token || instanceData.status !== 'connected') {
+        console.log(`❌ [Dashboard] Instância não conectada ou sem token`);
         return;
       }
 
-      if (instanceData.status !== 'connected') {
-
-        return;
-      }
-
-      if (!instanceData.api_token) {
-
-        return;
-      }
-
-      // Só executa chunked se instância estiver conectada e com token
-
-      // Só executa chunked se instância estiver conectada e com token
+      // Fazer a requisição da edge function (não aguardar resposta para evitar timeout)
       fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-groups-chunked`, {
         method: 'POST',
         headers: {
@@ -104,15 +101,25 @@ const [lives, setLives] = useState<Live[]>([]);
           userId: userId
         })
       }).catch((error) => {
-
+        console.log(`⚠️ [Dashboard] Edge function falhou silenciosamente:`, error.message);
       });
-    } catch (error) {
 
+      console.log(`✅ [Dashboard] Sincronização enviada com sucesso`);
+      
+    } catch (error) {
+      console.log(`❌ [Dashboard] Erro na sincronização:`, error);
     } finally {
+      syncInProgress.current = false;
       setIsSyncingGroups(false);
       setHasSyncedGroups(true);
     }
-  }, [supabase, isSyncingGroups, hasSyncedGroups, lastSyncAttempt]);
+  }, [supabase, hasSyncedGroups, lastSyncAttempt]);
+
+  // Função com debounce para evitar execuções excessivas
+  const syncWhatsAppGroups = useCallback(
+    debounce(syncWhatsAppGroupsInternal, 2000), // 2 segundos de debounce
+    [syncWhatsAppGroupsInternal]
+  );
 
   const [hasLoadedStats, setHasLoadedStats] = useState(false);
 
@@ -173,15 +180,8 @@ const [lives, setLives] = useState<Live[]>([]);
 
         await loadStats(session.user.id);
         
-        // Sincronizar grupos WhatsApp em background (FALLBACK - usar dados existentes se Evolution API falhar)
-        if (!isSyncingGroups && !hasSyncedGroups && currentInstance?.instance_name) {
-          // Tentar sincronização, mas não bloquear se falhar
-          syncWhatsAppGroups(session.user.id, currentInstance.instance_name).catch(() => {
-            // Silenciosamente falhar - dados existentes serão usados
-          });
-        }
       } catch (error) {
-
+        console.log(`❌ [Dashboard] Erro na autenticação:`, error);
         if (!DEMO_MODE) {
           navigate("/auth/signin");
         }
@@ -191,7 +191,35 @@ const [lives, setLives] = useState<Live[]>([]);
     };
 
     checkAuth();
-  }, [navigate, loadStats, syncWhatsAppGroups, currentInstance?.instance_name, isSyncingGroups, hasSyncedGroups]);
+  }, [navigate, loadStats]); // Removidas dependências problemáticas
+
+  // useEffect separado para sincronização de grupos (executado apenas uma vez)
+  useEffect(() => {
+    const handleGroupSync = async () => {
+      // Só executa uma vez por sessão
+      if (hasExecutedInitialSync.current || DEMO_MODE || !currentInstance?.instance_name) {
+        return;
+      }
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+
+        hasExecutedInitialSync.current = true;
+        console.log(`🚀 [Dashboard] Iniciando sincronização única de grupos`);
+        
+        // Usar setTimeout para executar após o render inicial
+        setTimeout(() => {
+          syncWhatsAppGroups(session.user.id, currentInstance.instance_name);
+        }, 1000);
+        
+      } catch (error) {
+        console.log(`⚠️ [Dashboard] Erro na sincronização inicial:`, error);
+      }
+    };
+
+    handleGroupSync();
+  }, [currentInstance?.instance_name, syncWhatsAppGroups]); // Executar quando instance_name mudar
 
   const handleEditLive = (live: Live) => {
     setEditingLive(live);
