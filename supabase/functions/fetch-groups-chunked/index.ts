@@ -28,11 +28,11 @@ interface GroupData {
 }
 
 // CONFIGURAÇÕES PARA PAGINAÇÃO MULTI-CHAMADA
-const CHUNK_SIZE = 30; // Grupos por página na Evolution API
+const CHUNK_SIZE = 10; // Grupos por página na Evolution API (reduzido para melhor performance)
 const REQUEST_TIMEOUT = 30000; // 30 segundos por requisição individual
-const RETRY_ATTEMPTS = 1; // 1 tentativa por página para economizar tempo
-const PAGE_DELAY = 1000; // 1 segundo entre páginas
-const DEFAULT_MAX_PAGES_PER_CALL = 8; // Páginas processadas por chamada da Edge Function
+const RETRY_ATTEMPTS = 3; // 3 tentativas por página para maior confiabilidade
+const PAGE_DELAY = 500; // 500ms entre páginas (reduzido para chunks menores)
+const DEFAULT_MAX_PAGES_PER_CALL = 15; // Páginas processadas por chamada da Edge Function
 
 serve(async (req: any) => {
   // Handle CORS preflight requests
@@ -65,8 +65,8 @@ serve(async (req: any) => {
       startPage,
       maxPagesPerCall,
       chunkSize: CHUNK_SIZE,
-      pageDelay: `${PAGE_DELAY/1000}s`,
-      estimatedTime: `~${(maxPagesPerCall * (PAGE_DELAY/1000 + 2))}s`
+      pageDelay: `${PAGE_DELAY}ms`,
+      estimatedTime: `~${Math.round(maxPagesPerCall * (PAGE_DELAY/1000 + 1.5))}s`
     });
 
     if (!instanceName || !userId) {
@@ -126,12 +126,13 @@ serve(async (req: any) => {
         try {
           console.log(`🔄 [fetch-groups-chunked] Tentativa ${attempt}/${RETRY_ATTEMPTS} para página ${currentPage} (timeout: ${REQUEST_TIMEOUT/1000}s)`);
 
+          const requestStartTime = Date.now();
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
-          // TIMEOUT SAFETY: Parar se estivermos próximos do limite de 60s
+          // TIMEOUT SAFETY: Parar se estivermos próximos do limite de 30s da Edge Function
           const elapsedTime = Date.now() - startTime;
-          if (elapsedTime > 50000) { // 50s safety margin
+          if (elapsedTime > 25000) { // 25s safety margin para Edge Function de 30s
             console.log(`⏰ [fetch-groups-chunked] TIMEOUT PREVENTION: Parando aos ${elapsedTime/1000}s`);
             hasMorePages = false;
             break;
@@ -164,8 +165,9 @@ serve(async (req: any) => {
 
           pageGroups = groupsData;
           pageSuccess = true;
-          
-          console.log(`✅ [fetch-groups-chunked] Página ${currentPage} processada com sucesso: ${pageGroups.length} grupos`);
+
+          const requestTime = Date.now() - requestStartTime;
+          console.log(`✅ [fetch-groups-chunked] Página ${currentPage} processada com sucesso: ${pageGroups.length} grupos (tempo: ${requestTime}ms)`);
           break;
 
         } catch (error) {
@@ -173,8 +175,9 @@ serve(async (req: any) => {
           console.log(`❌ [fetch-groups-chunked] Tentativa ${attempt} falhou para página ${currentPage}: ${error instanceof Error ? error.message : 'Unknown error'}`);
 
           if (attempt < RETRY_ATTEMPTS) {
-            console.log(`⏳ [fetch-groups-chunked] Aguardando 2s antes da próxima tentativa...`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            const backoffDelay = 1000 * Math.pow(2, attempt - 1); // 1s, 2s, 4s
+            console.log(`⏳ [fetch-groups-chunked] Aguardando ${backoffDelay}ms antes da próxima tentativa...`);
+            await new Promise(resolve => setTimeout(resolve, backoffDelay));
           }
         }
       }
