@@ -25,11 +25,12 @@ interface GroupData {
   participants?: any[];
 }
 
-// CONFIGURAÇÕES DE PAGINAÇÃO
-const CHUNK_SIZE = 50; // Grupos por página (configurável)
-const MAX_PAGES = 20; // Limite máximo de páginas para evitar loop infinito
+// CONFIGURAÇÕES DE PAGINAÇÃO OTIMIZADAS
+const CHUNK_SIZE = 20; // Reduzido para 20 grupos por página (menos carga na Evolution API)
+const MAX_PAGES = 30; // Aumentado para 30 páginas (600 grupos max)
 const REQUEST_TIMEOUT = 45000; // 45 segundos por requisição (Edge Function timeout é 60s)
 const RETRY_ATTEMPTS = 2; // Tentativas de retry por página
+const PAGE_DELAY = 3000; // 3 segundos de delay entre páginas para evitar rate limiting
 
 serve(async (req: any) => {
   // Handle CORS preflight requests
@@ -55,11 +56,13 @@ serve(async (req: any) => {
     const { instanceName, userId, searchTerm }: FetchGroupsRequest = await req.json();
     
     console.log('🚀 [fetch-groups-chunked] Iniciando busca paginada de grupos');
-    console.log('📋 [fetch-groups-chunked] Parâmetros:', {
+    console.log('📋 [fetch-groups-chunked] Parâmetros OTIMIZADOS:', {
       instanceName,
       userId: userId.substring(0, 8) + '...', // Mascarar userId sensível
       searchTerm,
-      chunkSize: CHUNK_SIZE
+      chunkSize: CHUNK_SIZE,
+      maxPages: MAX_PAGES,
+      pageDelay: `${PAGE_DELAY/1000}s`
     });
 
     if (!instanceName || !userId) {
@@ -86,6 +89,7 @@ serve(async (req: any) => {
     }
 
     const apiKey = instanceData.api_token;
+    // @ts-ignore
     const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'https://evolution-api-2-3-0-production-6d75.up.railway.app';
     const cleanApiUrl = evolutionApiUrl.replace(/\/$/, '');
 
@@ -177,6 +181,12 @@ serve(async (req: any) => {
       } else {
         currentPage++;
         console.log(`➡️ [fetch-groups-chunked] Continuando para próxima página...`);
+        
+        // Delay entre páginas para reduzir carga na Evolution API
+        if (hasMorePages && currentPage <= MAX_PAGES) {
+          console.log(`⏳ [fetch-groups-chunked] Aguardando ${PAGE_DELAY/1000}s antes da próxima página...`);
+          await new Promise(resolve => setTimeout(resolve, PAGE_DELAY));
+        }
       }
     }
 
