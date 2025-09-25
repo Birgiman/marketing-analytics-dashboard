@@ -11,6 +11,7 @@ import { useWhatsAppInstances } from "@/hooks/useWhatsAppInstances";
 import { supabase } from "@/integrations/supabase/client";
 import { DEMO_MODE } from "@/lib/demo-mode";
 import { Live, LiveGroup } from "@/types/live";
+import { whatsappService } from "@/services/whatsappService";
 import { ChevronRight, DollarSign, Edit, Eye, Plus, Search, Trash2, TrendingUp, Users, Video } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -89,22 +90,18 @@ const [lives, setLives] = useState<Live[]>([]);
         return;
       }
 
-      // Fazer a requisição da edge function (não aguardar resposta para evitar timeout)
-      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-groups-chunked`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        },
-        body: JSON.stringify({
-          instanceName: instanceName,
-          userId: userId
-        })
+      // Iniciar sincronização assíncrona usando novo método paginado
+      whatsappService.syncGroupsPaged(instanceName, userId).then((result) => {
+        if (result.success) {
+          console.log(`✅ [Dashboard] Sincronização concluída: ${result.totalGroups} grupos sincronizados`);
+        } else {
+          console.log(`❌ [Dashboard] Sincronização falhou: ${result.error}`);
+        }
       }).catch((error) => {
-        console.log(`⚠️ [Dashboard] Edge function falhou silenciosamente:`, error.message);
+        console.log(`⚠️ [Dashboard] Erro na sincronização paginada:`, error.message);
       });
 
-      console.log(`✅ [Dashboard] Sincronização enviada com sucesso`);
+      console.log(`✅ [Dashboard] Sincronização paginada iniciada`);
       
     } catch (error) {
       console.log(`❌ [Dashboard] Erro na sincronização:`, error);

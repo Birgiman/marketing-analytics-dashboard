@@ -405,6 +405,102 @@ class WhatsAppService {
       throw error;
     }
   }
+
+  // Sincronizar grupos com paginação multi-chamada
+  async syncGroupsPaged(instanceName: string, userId: string, searchTerm?: string): Promise<{ success: boolean; totalGroups: number; error?: string }> {
+    try {
+      console.log('🚀 [syncGroupsPaged] Iniciando sincronização paginada para:', instanceName);
+      
+      let currentPage = 1;
+      let hasMore = true;
+      let totalGroups = 0;
+      let attemptCount = 0;
+      const maxPagesPerCall = 8; // Páginas por chamada da Edge Function
+      const maxRetries = 3;
+      const baseDelay = 1000; // 1s base delay entre chamadas
+      
+      while (hasMore && attemptCount < 50) { // Safety: max 50 iterações (400 páginas)
+        attemptCount++;
+        
+        try {
+          console.log(`📄 [syncGroupsPaged] Chamada ${attemptCount}: páginas ${currentPage} até ${currentPage + maxPagesPerCall - 1}`);
+          
+          const response = await supabase.functions.invoke('fetch-groups-chunked', {
+            body: {
+              instanceName,
+              userId,
+              searchTerm,
+              startPage: currentPage,
+              maxPagesPerCall
+            }
+          });
+
+          if (response.error) {
+            console.error('❌ [syncGroupsPaged] Erro na Edge Function:', response.error);
+            
+            // Backoff em caso de erro
+            if (attemptCount < maxRetries) {
+              const delay = baseDelay * attemptCount; // 1s, 2s, 3s
+              console.log(`⏳ [syncGroupsPaged] Retry em ${delay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              continue; // Retry mesma página
+            } else {
+              throw new Error(response.error.message || 'Erro na sincronização');
+            }
+          }
+
+          const result = response.data;
+          
+          if (result.savedCount) {
+            totalGroups += result.savedCount;
+            console.log(`✅ [syncGroupsPaged] Chamada ${attemptCount}: +${result.savedCount} grupos salvos (total: ${totalGroups})`);
+          }
+          
+          hasMore = result.hasMore;
+          if (result.nextPage) {
+            currentPage = result.nextPage;
+          } else {
+            currentPage += maxPagesPerCall;
+          }
+          
+          // Pequena pausa entre chamadas para não pressionar a Evolution API
+          if (hasMore) {
+            const delay = 500 + Math.random() * 200; // 500-700ms aleatório
+            console.log(`⏸️ [syncGroupsPaged] Pausa de ${Math.round(delay)}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+          
+        } catch (callError) {
+          console.error(`❌ [syncGroupsPaged] Erro na chamada ${attemptCount}:`, callError);
+          
+          // Backoff exponencial em caso de erro
+          if (attemptCount < maxRetries) {
+            const delay = baseDelay * Math.pow(2, attemptCount - 1); // 1s, 2s, 4s
+            console.log(`⏳ [syncGroupsPaged] Retry em ${delay}ms após erro...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue; // Retry mesma página
+          } else {
+            throw callError;
+          }
+        }
+      }
+      
+      console.log(`🎯 [syncGroupsPaged] Concluído: ${totalGroups} grupos sincronizados em ${attemptCount} chamadas`);
+      
+      return {
+        success: true,
+        totalGroups
+      };
+      
+    } catch (error) {
+      console.error('❌ [syncGroupsPaged] Erro geral:', error);
+      return {
+        success: false,
+        totalGroups: 0,
+        error: error instanceof Error ? error.message : 'Erro desconhecido na sincronização'
+      };
+    }
+  }
 }
 
 export const whatsappService = new WhatsAppService();

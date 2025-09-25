@@ -14,6 +14,8 @@ interface FetchGroupsRequest {
   instanceName: string;
   userId: string;
   searchTerm?: string;
+  startPage?: number;
+  maxPagesPerCall?: number;
 }
 
 interface GroupData {
@@ -25,12 +27,12 @@ interface GroupData {
   participants?: any[];
 }
 
-// CONFIGURAÇÕES DE PAGINAÇÃO ULTRA-OTIMIZADAS PARA CONTAS GRANDES
-const CHUNK_SIZE = 30; // Aumentado para 30 grupos por página (balance performance/carga)
-const MAX_PAGES = 20; // Reduzido para 20 páginas (600 grupos max, timeout protection)
-const REQUEST_TIMEOUT = 30000; // Reduzido para 30 segundos por requisição  
-const RETRY_ATTEMPTS = 1; // Reduzido para 1 tentativa (sem retry para economizar tempo)
-const PAGE_DELAY = 1000; // Reduzido para 1 segundo de delay (mínimo necessário)
+// CONFIGURAÇÕES PARA PAGINAÇÃO MULTI-CHAMADA
+const CHUNK_SIZE = 30; // Grupos por página na Evolution API
+const REQUEST_TIMEOUT = 30000; // 30 segundos por requisição individual
+const RETRY_ATTEMPTS = 1; // 1 tentativa por página para economizar tempo
+const PAGE_DELAY = 1000; // 1 segundo entre páginas
+const DEFAULT_MAX_PAGES_PER_CALL = 8; // Páginas processadas por chamada da Edge Function
 
 serve(async (req: any) => {
   // Handle CORS preflight requests
@@ -53,18 +55,18 @@ serve(async (req: any) => {
       );
     }
 
-    const { instanceName, userId, searchTerm }: FetchGroupsRequest = await req.json();
+    const { instanceName, userId, searchTerm, startPage = 1, maxPagesPerCall = DEFAULT_MAX_PAGES_PER_CALL }: FetchGroupsRequest = await req.json();
     
-    console.log('🚀 [fetch-groups-chunked] Iniciando busca paginada de grupos');
-    console.log('📋 [fetch-groups-chunked] Parâmetros ULTRA-OTIMIZADOS:', {
+    console.log('🚀 [fetch-groups-chunked] Iniciando busca paginada (multi-chamada)');
+    console.log('📋 [fetch-groups-chunked] Parâmetros:', {
       instanceName,
       userId: userId.substring(0, 8) + '...', // Mascarar userId sensível
       searchTerm,
+      startPage,
+      maxPagesPerCall,
       chunkSize: CHUNK_SIZE,
-      maxPages: MAX_PAGES,
       pageDelay: `${PAGE_DELAY/1000}s`,
-      timeoutProtection: `${MAX_PAGES * (PAGE_DELAY/1000)}s max delay`,
-      estimatedTime: `~${(MAX_PAGES * (PAGE_DELAY/1000 + 2))}s total`
+      estimatedTime: `~${(maxPagesPerCall * (PAGE_DELAY/1000 + 2))}s`
     });
 
     if (!instanceName || !userId) {
@@ -98,19 +100,20 @@ serve(async (req: any) => {
     // Log mascarado para não vazar URLs sensíveis no frontend
     console.log('🔗 [fetch-groups-chunked] Evolution API configurada (URL mascarada)');
     
-    // Array para consolidar todos os grupos
+    // Array para consolidar grupos desta chamada
     const allGroups: GroupData[] = [];
-    let currentPage = 1;
+    let currentPage = startPage;
     let hasMorePages = true;
     let totalRequests = 0;
     let totalGroupsReceived = 0;
-    const startTime = Date.now(); // Para tracking de timeout
+    const startTime = Date.now();
+    const endPage = startPage + maxPagesPerCall - 1;
 
-    console.log('🔄 [fetch-groups-chunked] Iniciando paginação (sem timeout)...');
+    console.log(`🔄 [fetch-groups-chunked] Processando páginas ${startPage} até ${endPage}...`);
 
-    // Loop de paginação
-    while (hasMorePages && currentPage <= MAX_PAGES) {
-      console.log(`📄 [fetch-groups-chunked] Processando página ${currentPage}/${MAX_PAGES}`);
+    // Loop de paginação limitado por maxPagesPerCall
+    while (hasMorePages && currentPage <= endPage) {
+      console.log(`📄 [fetch-groups-chunked] Processando página ${currentPage} (páginas ${startPage}-${endPage})`);
       
       const evolutionUrl = `${cleanApiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false&limit=${CHUNK_SIZE}&page=${currentPage}`;
 
@@ -126,10 +129,10 @@ serve(async (req: any) => {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
-          // TIMEOUT GLOBAL: Parar se estivermos próximos do limite de 60s
+          // TIMEOUT SAFETY: Parar se estivermos próximos do limite de 60s
           const elapsedTime = Date.now() - startTime;
           if (elapsedTime > 50000) { // 50s safety margin
-            console.log(`⏰ [fetch-groups-chunked] TIMEOUT PREVENTION: Parando aos ${elapsedTime/1000}s para evitar edge function timeout`);
+            console.log(`⏰ [fetch-groups-chunked] TIMEOUT PREVENTION: Parando aos ${elapsedTime/1000}s`);
             hasMorePages = false;
             break;
           }
@@ -194,7 +197,7 @@ serve(async (req: any) => {
         console.log(`➡️ [fetch-groups-chunked] Continuando para próxima página...`);
         
         // Delay entre páginas para reduzir carga na Evolution API
-        if (hasMorePages && currentPage <= MAX_PAGES) {
+        if (hasMorePages && currentPage <= endPage) {
           console.log(`⏳ [fetch-groups-chunked] Aguardando ${PAGE_DELAY/1000}s antes da próxima página...`);
           await new Promise(resolve => setTimeout(resolve, PAGE_DELAY));
         }
@@ -263,9 +266,26 @@ serve(async (req: any) => {
       }
     }
 
-    // Retornar no mesmo formato da Evolution API
+    // Verificar se há mais páginas para processar
+    const nextPage = (currentPage > endPage && hasMorePages) ? currentPage : null;
+    const hasMore = nextPage !== null;
+    
+    // Retornar resposta com informações de paginação
     return new Response(
-      JSON.stringify(validGroups),
+      JSON.stringify({
+        hasMore,
+        nextPage,
+        processedPages: currentPage - startPage,
+        totalGroupsReceived,
+        savedCount: validGroups.length,
+        groups: validGroups,
+        debug: {
+          startPage,
+          endPage,
+          finalPage: currentPage - 1,
+          totalRequests
+        }
+      }),
       { 
         headers: { 
           ...corsHeaders, 
@@ -282,6 +302,7 @@ serve(async (req: any) => {
         success: false,
         error: 'Erro interno na sincronização de grupos',
         errorType: 'FunctionError',
+        hasMore: true, // Permite retry
         timestamp: new Date().toISOString()
       }),
       {
