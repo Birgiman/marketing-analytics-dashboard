@@ -217,8 +217,8 @@ serve(async (req: any) => {
           group_size: group.size || 0,
           group_owner: group.owner || '',
           group_created_at: group.creation ? new Date(group.creation * 1000).toISOString() : null,
-          participants_count: group.participants?.length || 0,
-          monitor: false, // Padrão: não monitorar
+          participant_count: group.participants?.length || 0,  // Corrigido: participant_count (singular)
+          monitoring: true, // Corrigido: monitoring (não monitor) - padrão: monitorar grupos buscados
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }));
@@ -232,12 +232,13 @@ serve(async (req: any) => {
           });
 
         if (upsertError) {
-          console.error('❌ [fetch-groups-chunked] Erro ao salvar grupos no banco');
+          console.error('❌ [fetch-groups-chunked] Erro ao salvar grupos no banco:', upsertError.message);
+          console.error('❌ [fetch-groups-chunked] Detalhes do erro:', JSON.stringify(upsertError, null, 2));
         } else {
           console.log(`✅ [fetch-groups-chunked] ${validGroups.length} grupos salvos com sucesso`);
         }
       } catch (error) {
-        console.error('❌ [fetch-groups-chunked] Erro ao processar grupos para salvar');
+        console.error('❌ [fetch-groups-chunked] Erro ao processar grupos para salvar:', error);
       }
     }
 
