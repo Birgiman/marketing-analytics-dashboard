@@ -198,29 +198,16 @@ export async function getWhatsAppGroupsLogByPeriod(
 }>> {
   try {
     if (!groupIds || groupIds.length === 0) {
+      console.log(`⚠️ [WhatsApp Groups Log] Nenhum grupo fornecido`);
       return [];
     }
 
-    // Determinar a função de agrupamento baseada no parâmetro
-    let dateFunction: string;
-    switch (groupBy) {
-      case 'day':
-        dateFunction = 'DATE(created_at)';
-        break;
-      case 'week':
-        dateFunction = 'DATE_TRUNC(\'week\', created_at)';
-        break;
-      case 'month':
-        dateFunction = 'DATE_TRUNC(\'month\', created_at)';
-        break;
-      default:
-        dateFunction = 'DATE(created_at)';
-    }
+    console.log(`📊 [WhatsApp Groups Log] Consultando período ${dateFrom} até ${dateTo} para ${groupIds.length} grupos`);
 
-    // Consulta direta otimizada (sem RPC)
+    // Consulta otimizada com logs detalhados
     const { data: rawData, error } = await supabase
       .from('whatsapp_groups_log')
-      .select('created_at, event, id_grupo')
+      .select('created_at, event, id_grupo, group_name')
       .in('id_grupo', groupIds)
       .eq('user_id', userId)
       .gte('created_at', dateFrom)
@@ -229,8 +216,12 @@ export async function getWhatsAppGroupsLogByPeriod(
       .order('created_at', { ascending: true });
 
     if (error) {
+      console.error(`❌ [WhatsApp Groups Log] Erro na consulta:`, error);
       throw error;
     }
+
+    console.log(`📋 [WhatsApp Groups Log] Encontrados ${rawData?.length || 0} registros brutos`);
+
     // Processar dados manualmente com agrupamento por período
     const periodData = new Map<string, { entries: number; exits: number }>();
 
@@ -274,9 +265,58 @@ export async function getWhatsAppGroupsLogByPeriod(
       exits: data.exits,
       activeMembers: Math.max(0, data.entries - data.exits)
     })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Log do resultado processado
+    console.log(`✅ [WhatsApp Groups Log] Processados ${result.length} períodos:`);
+    result.forEach(day => {
+      if (day.entries > 0 || day.exits > 0) {
+        console.log(`  📅 ${day.date}: ${day.entries} entradas, ${day.exits} saídas`);
+      }
+    });
+
+    const totalEntries = result.reduce((sum, day) => sum + day.entries, 0);
+    const totalExits = result.reduce((sum, day) => sum + day.exits, 0);
+    console.log(`📊 [WhatsApp Groups Log] Total: ${totalEntries} entradas, ${totalExits} saídas`);
+
     return result;
 
   } catch (error) {
+    console.error(`❌ [WhatsApp Groups Log] Erro:`, error);
+    return [];
+  }
+}
+
+/**
+ * NOVA FUNÇÃO: Consulta otimizada para estratégia "2 Dias Fresh"
+ * Separa consultas entre dados fresh (hoje/ontem) e dados cached (anteriores)
+ */
+export async function getWhatsAppGroupsLogOptimized(
+  groupIds: string[],
+  dateFrom: string,
+  dateTo: string,
+  userId: string,
+  preferFresh: boolean = false
+): Promise<Array<{
+  date: string;
+  entries: number;
+  exits: number;
+  activeMembers: number;
+}>> {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    if (preferFresh || dateFrom >= yesterday) {
+      console.log(`✨ [WhatsApp Groups Optimized] Modo FRESH - sempre buscar dados atualizados`);
+      return await getWhatsAppGroupsLogByPeriod(groupIds, dateFrom, dateTo, userId, 'day');
+    }
+    
+    // Para dados antigos, implementar lógica de cache aqui se necessário
+    console.log(`📦 [WhatsApp Groups Optimized] Modo CACHED - pode usar dados em cache`);
+    return await getWhatsAppGroupsLogByPeriod(groupIds, dateFrom, dateTo, userId, 'day');
+    
+  } catch (error) {
+    console.error(`❌ [WhatsApp Groups Optimized] Erro:`, error);
     return [];
   }
 }

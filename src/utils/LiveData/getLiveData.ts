@@ -372,7 +372,8 @@ async function generateCampaignsWithInsightsFromDailyData(
 
 /**
  * Enriquece os insights diários com dados reais dos grupos WhatsApp
- * Implementa cache inteligente: dias anteriores usam cache, dia atual sempre fresh
+ * Implementa cache inteligente e correção do mapeamento por data
+ * CORREÇÃO: Implementa estratégia "2 Dias Fresh" e mapeamento exato por data
  */
 async function enrichDailyInsightsWithGroupData(
   dailyInsights: Array<{
@@ -387,68 +388,105 @@ async function enrichDailyInsightsWithGroupData(
   dateTo: string
 ) {
   try {
-    // Verificar se já temos dados em cache para dias anteriores
-    const { data: liveData, error: liveCacheError } = await supabase
-      .from('lives')
-      .select('cached_traffic_data')
-      .eq('id', liveId)
-      .single();
+    console.log(`🔄 [WhatsApp Groups Fix] Enriquecendo ${dailyInsights.length} insights diários`);
+    console.log(`📅 Período: ${dateFrom} até ${dateTo}`);
 
+    // Implementar estratégia "2 Dias Fresh"
     const today = new Date().toISOString().split('T')[0];
-    // Separar insights por categoria: dias anteriores vs dia atual
-    const previousDays = dailyInsights.filter(insight => insight.date < today);
-    const currentDay = dailyInsights.filter(insight => insight.date >= today);
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    // Separar insights por categoria de freshness
+    const freshDays = dailyInsights.filter(insight => 
+      insight.date === today || insight.date === yesterday
+    );
+    const olderDays = dailyInsights.filter(insight => 
+      insight.date < yesterday
+    );
+
+    console.log(`✨ Fresh days (sempre buscar): ${freshDays.length} dias`);
+    console.log(`📦 Older days (tentar cache): ${olderDays.length} dias`);
+
     let enrichedInsights = [];
 
-    // ETAPA 1: Tentar usar cache para dias anteriores
-    if (previousDays.length > 0 && liveData?.cached_traffic_data?.dailyInsights) {
-      const cachedInsights = liveData.cached_traffic_data.dailyInsights;
-      const cacheMap = new Map();
+    // ETAPA 1: Tentar usar cache para dias anteriores (antes de ontem)
+    if (olderDays.length > 0) {
+      const { data: liveData } = await supabase
+        .from('lives')
+        .select('cached_traffic_data')
+        .eq('id', liveId)
+        .single();
 
-      cachedInsights.forEach((cached: any) => {
-        if (cached.groupJoin !== undefined && cached.groupExit !== undefined) {
-          cacheMap.set(cached.date, cached);
-        }
-      });
-      // Usar cache para dias anteriores que já têm dados de grupo
-      const previousWithCache = previousDays.map(insight => {
-        const cached = cacheMap.get(insight.date);
-        if (cached && cached.groupJoin !== undefined) {
-          return {
-            ...insight,
-            groupJoin: cached.groupJoin,
-            groupExit: cached.groupExit,
-            cplLiquido: cached.cplLiquido,
-            retention: cached.retention
-          };
-        } else {
+      if (liveData?.cached_traffic_data?.dailyInsights) {
+        const cachedInsights = liveData.cached_traffic_data.dailyInsights;
+        const cacheMap = new Map();
+
+        cachedInsights.forEach((cached: any) => {
+          if (cached.groupJoin !== undefined && cached.groupExit !== undefined) {
+            cacheMap.set(cached.date, cached);
+          }
+        });
+
+        // Usar cache para dias anteriores que já têm dados completos
+        const olderWithCache = olderDays.map(insight => {
+          const cached = cacheMap.get(insight.date);
+          if (cached && cached.groupJoin !== undefined) {
+            console.log(`📦 Usando cache para ${insight.date}: ${cached.groupJoin} entradas, ${cached.groupExit} saídas`);
+            return {
+              ...insight,
+              groupJoin: cached.groupJoin,
+              groupExit: cached.groupExit,
+              cplLiquido: cached.cplLiquido || 0,
+              retention: cached.retention || 0
+            };
+          }
           return insight;
+        });
+
+        // Separar quais dias ainda precisam de dados frescos
+        const needsFreshData = olderWithCache.filter(insight => (insight as any).groupJoin === undefined);
+        const fromCache = olderWithCache.filter(insight => (insight as any).groupJoin !== undefined);
+
+        enrichedInsights.push(...fromCache);
+        
+        console.log(`📦 Recuperados do cache: ${fromCache.length} dias`);
+        console.log(`🔍 Ainda precisam de dados: ${needsFreshData.length} dias antigos + ${freshDays.length} dias recentes`);
+
+        // Buscar dados frescos para dias que não estão em cache + dias recentes
+        const allNeedingFresh = [...needsFreshData, ...freshDays];
+        if (allNeedingFresh.length > 0) {
+          const freshEnriched = await fetchFreshWhatsappData(allNeedingFresh, liveId, userId);
+          enrichedInsights.push(...freshEnriched);
         }
-      });
-
-      // Separar quais dias ainda precisam de dados frescos
-      const needsFreshData = previousWithCache.filter(insight => (insight as any).groupJoin === undefined);
-      const fromCache = previousWithCache.filter(insight => (insight as any).groupJoin !== undefined);
-
-      enrichedInsights.push(...fromCache);
-
-      // Buscar dados frescos apenas para dias que não estão em cache + dia atual
-      const daysNeedingFresh = [...needsFreshData, ...currentDay];
-
-      if (daysNeedingFresh.length > 0) {
-        const freshEnriched = await fetchFreshWhatsappData(daysNeedingFresh, liveId, userId);
-        enrichedInsights.push(...freshEnriched);
+      } else {
+        console.log(`📦 Cache não encontrado, buscando todos os dados frescos`);
+        // Sem cache válido, buscar todos os dados frescos
+        const allFreshEnriched = await fetchFreshWhatsappData([...olderDays, ...freshDays], liveId, userId);
+        enrichedInsights.push(...allFreshEnriched);
       }
     } else {
-      // ETAPA 2: Sem cache válido, buscar todos os dados frescos
-      enrichedInsights = await fetchFreshWhatsappData(dailyInsights, liveId, userId);
+      console.log(`✨ Apenas dias recentes, buscando dados frescos`);
+      // Apenas dias recentes, buscar dados frescos
+      if (freshDays.length > 0) {
+        const freshEnriched = await fetchFreshWhatsappData(freshDays, liveId, userId);
+        enrichedInsights.push(...freshEnriched);
+      }
     }
 
-    // Ordenar por data
+    // Ordenar por data e validar mapeamento
     enrichedInsights.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    // Log final de validação
+    console.log(`✅ [WhatsApp Groups Fix] Resultado final: ${enrichedInsights.length} insights enriquecidos`);
+    enrichedInsights.forEach(insight => {
+      if (insight.groupJoin > 0 || insight.groupExit > 0) {
+        console.log(`📊 ${insight.date}: ${insight.groupJoin} entradas, ${insight.groupExit} saídas, CPL Líquido: R$ ${insight.cplLiquido?.toFixed(2) || '0.00'}`);
+      }
+    });
+
     return enrichedInsights;
 
   } catch (error) {
+    console.error(`❌ [WhatsApp Groups Fix] Erro ao enriquecer insights:`, error);
     // Retornar insights originais com dados zerados em caso de erro
     return dailyInsights.map(insight => ({
       ...insight,
@@ -462,6 +500,7 @@ async function enrichDailyInsightsWithGroupData(
 
 /**
  * Busca dados frescos do WhatsApp para os insights fornecidos
+ * CORREÇÃO: Implementa mapeamento exato por data e validação detalhada
  */
 async function fetchFreshWhatsappData(
   insights: Array<any>,
@@ -470,12 +509,16 @@ async function fetchFreshWhatsappData(
 ): Promise<Array<any>> {
   if (insights.length === 0) return [];
 
+  console.log(`🔍 [WhatsApp Fresh Data] Buscando dados frescos para ${insights.length} dias`);
+
   // Buscar IDs dos grupos da Live
   const { data: groups, error: groupsError } = await supabase
     .from('live_groups')
     .select('group_id, group_name')
     .eq('live_id', liveId);
+    
   if (groupsError || !groups || groups.length === 0) {
+    console.log(`⚠️ Nenhum grupo encontrado para Live ${liveId}`);
     return insights.map(insight => ({
       ...insight,
       groupJoin: 0,
@@ -486,43 +529,75 @@ async function fetchFreshWhatsappData(
   }
 
   const groupIds = groups.map(group => group.group_id);
+  console.log(`📱 Grupos encontrados: ${groupIds.length} grupos`);
 
-  // Determinar período de busca
-  const dates = insights.map(i => i.date).sort();
-  const dateFrom = dates[0];
-  const dateTo = dates[dates.length - 1];
-  // Buscar dados do WhatsApp Groups Log
-  const whatsappDailyData = await getWhatsAppGroupsLogByPeriod(
-    groupIds,
-    dateFrom,
-    dateTo,
-    userId,
-    'day'
-  );
-  // Criar mapa por data
-  const whatsappDataMap = new Map();
-  whatsappDailyData.forEach(dayData => {
-    whatsappDataMap.set(dayData.date, dayData);
-  });
+  // CORREÇÃO CRÍTICA: Buscar dados de cada dia individualmente para garantir mapeamento exato
+  const enrichedResults = [];
 
-  // Enriquecer insights
-  return insights.map(insight => {
-    const whatsappData = whatsappDataMap.get(insight.date);
+  for (const insight of insights) {
+    try {
+      console.log(`📅 Processando dados para ${insight.date}`);
+      
+      // Buscar dados específicos do dia (com margem de 1 dia)
+      const dayStart = `${insight.date} 00:00:00`;
+      const dayEnd = `${insight.date} 23:59:59`;
+      
+      const whatsappDayData = await getWhatsAppGroupsLogByPeriod(
+        groupIds,
+        dayStart,
+        dayEnd,
+        userId,
+        'day'
+      );
 
-    const groupJoin = whatsappData?.entries || 0;
-    const groupExit = whatsappData?.exits || 0;
-    const activeMembers = Math.max(0, groupJoin - groupExit);
-    const cplLiquido = activeMembers > 0 ? insight.spend / activeMembers : 0;
-    const retention = insight.leads > 0 ? Math.round((activeMembers / insight.leads) * 100) : 0;
+      // Filtrar apenas dados do dia exato (correção adicional)
+      const exactDayData = whatsappDayData.filter(data => data.date === insight.date);
+      
+      let groupJoin = 0;
+      let groupExit = 0;
+      
+      if (exactDayData.length > 0) {
+        // Somar entradas e saídas do dia específico
+        groupJoin = exactDayData.reduce((sum, data) => sum + data.entries, 0);
+        groupExit = exactDayData.reduce((sum, data) => sum + data.exits, 0);
+        
+        console.log(`✅ ${insight.date}: ${groupJoin} entradas, ${groupExit} saídas (dados encontrados)`);
+      } else {
+        console.log(`⚠️ ${insight.date}: Nenhum dado encontrado (entradas=0, saídas=0)`);
+      }
 
-    return {
-      ...insight,
-      groupJoin,
-      groupExit,
-      cplLiquido,
-      retention
-    };
-  });
+      // Calcular métricas derivadas
+      const activeMembers = Math.max(0, groupJoin - groupExit);
+      const cplLiquido = activeMembers > 0 ? insight.spend / activeMembers : 0;
+      const retention = insight.leads > 0 ? Math.round((activeMembers / insight.leads) * 100) : 0;
+
+      enrichedResults.push({
+        ...insight,
+        groupJoin,
+        groupExit,
+        cplLiquido,
+        retention
+      });
+
+    } catch (error) {
+      console.error(`❌ Erro ao processar ${insight.date}:`, error);
+      // Fallback para dados zerados em caso de erro específico do dia
+      enrichedResults.push({
+        ...insight,
+        groupJoin: 0,
+        groupExit: 0,
+        cplLiquido: 0,
+        retention: 0
+      });
+    }
+  }
+
+  // Log de resumo
+  const totalEntries = enrichedResults.reduce((sum, r) => sum + r.groupJoin, 0);
+  const totalExits = enrichedResults.reduce((sum, r) => sum + r.groupExit, 0);
+  console.log(`📊 [WhatsApp Fresh Data] Total processado: ${totalEntries} entradas, ${totalExits} saídas`);
+
+  return enrichedResults;
 }
 
 async function fetchCampaignsFromMeta(live: Live) {
