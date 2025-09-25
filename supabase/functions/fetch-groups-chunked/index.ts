@@ -25,12 +25,12 @@ interface GroupData {
   participants?: any[];
 }
 
-// CONFIGURAÇÕES DE PAGINAÇÃO OTIMIZADAS
-const CHUNK_SIZE = 20; // Reduzido para 20 grupos por página (menos carga na Evolution API)
-const MAX_PAGES = 30; // Aumentado para 30 páginas (600 grupos max)
-const REQUEST_TIMEOUT = 45000; // 45 segundos por requisição (Edge Function timeout é 60s)
-const RETRY_ATTEMPTS = 2; // Tentativas de retry por página
-const PAGE_DELAY = 3000; // 3 segundos de delay entre páginas para evitar rate limiting
+// CONFIGURAÇÕES DE PAGINAÇÃO ULTRA-OTIMIZADAS PARA CONTAS GRANDES
+const CHUNK_SIZE = 30; // Aumentado para 30 grupos por página (balance performance/carga)
+const MAX_PAGES = 20; // Reduzido para 20 páginas (600 grupos max, timeout protection)
+const REQUEST_TIMEOUT = 30000; // Reduzido para 30 segundos por requisição  
+const RETRY_ATTEMPTS = 1; // Reduzido para 1 tentativa (sem retry para economizar tempo)
+const PAGE_DELAY = 1000; // Reduzido para 1 segundo de delay (mínimo necessário)
 
 serve(async (req: any) => {
   // Handle CORS preflight requests
@@ -56,13 +56,15 @@ serve(async (req: any) => {
     const { instanceName, userId, searchTerm }: FetchGroupsRequest = await req.json();
     
     console.log('🚀 [fetch-groups-chunked] Iniciando busca paginada de grupos');
-    console.log('📋 [fetch-groups-chunked] Parâmetros OTIMIZADOS:', {
+    console.log('📋 [fetch-groups-chunked] Parâmetros ULTRA-OTIMIZADOS:', {
       instanceName,
       userId: userId.substring(0, 8) + '...', // Mascarar userId sensível
       searchTerm,
       chunkSize: CHUNK_SIZE,
       maxPages: MAX_PAGES,
-      pageDelay: `${PAGE_DELAY/1000}s`
+      pageDelay: `${PAGE_DELAY/1000}s`,
+      timeoutProtection: `${MAX_PAGES * (PAGE_DELAY/1000)}s max delay`,
+      estimatedTime: `~${(MAX_PAGES * (PAGE_DELAY/1000 + 2))}s total`
     });
 
     if (!instanceName || !userId) {
@@ -102,6 +104,7 @@ serve(async (req: any) => {
     let hasMorePages = true;
     let totalRequests = 0;
     let totalGroupsReceived = 0;
+    const startTime = Date.now(); // Para tracking de timeout
 
     console.log('🔄 [fetch-groups-chunked] Iniciando paginação (sem timeout)...');
 
@@ -122,6 +125,14 @@ serve(async (req: any) => {
 
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+          // TIMEOUT GLOBAL: Parar se estivermos próximos do limite de 60s
+          const elapsedTime = Date.now() - startTime;
+          if (elapsedTime > 50000) { // 50s safety margin
+            console.log(`⏰ [fetch-groups-chunked] TIMEOUT PREVENTION: Parando aos ${elapsedTime/1000}s para evitar edge function timeout`);
+            hasMorePages = false;
+            break;
+          }
 
           const response = await fetch(evolutionUrl, {
             method: 'GET',
