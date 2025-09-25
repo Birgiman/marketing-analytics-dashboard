@@ -7,12 +7,11 @@ import { getLiveData, getLiveDataFromDatabase } from '@/utils/LiveData/getLiveDa
 import { AlertCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-
 const Details = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const liveId = searchParams.get('live');
-  
+
   // Estados para dados da Live
   const [live, setLive] = useState<{
     id: string;
@@ -28,7 +27,6 @@ const Details = () => {
     created_at: string;
     updated_at: string;
   } | null>(null);
-  
   const [isLoading, setIsLoading] = useState(true);
   const [isButtonRefreshing, setIsButtonRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,26 +38,26 @@ const Details = () => {
     retentionRate: number;
     cplLiquidoPlanejamento: number;
   } | null>(null);
-  
   const [extractedData, setExtractedData] = useState<{
-    groupData: { 
-      totalGroups: number; 
+    groupData: {
+      totalGroups: number;
       totalMembers: number;
       entries: number;
       exits: number;
       activeMembers: number;
     };
-    metaData: { campaignCount: number; totalSpend: number; totalResults: number };
+    metaData: {
+      campaignCount: number;
+      totalSpend: number;
+      totalResults: number;
+    };
   } | null>(null);
-
 
   // Função para carregar dados do banco
   const loadDataFromDatabase = useCallback(async () => {
     if (!liveId) return;
-    
     try {
       const liveData = await getLiveDataFromDatabase(liveId);
-      
       if (liveData) {
         // Atualizar dados básicos da Live
         setLive({
@@ -76,7 +74,7 @@ const Details = () => {
           created_at: liveData.created_at,
           updated_at: liveData.updated_at
         });
-        
+
         // Extrair dados do cache JSONB
         if (liveData.cached_metrics) {
           const cachedMetrics = liveData.cached_metrics;
@@ -87,7 +85,6 @@ const Details = () => {
             cplLiquidoPlanejamento: cachedMetrics.cplLiquidoPlanejamento || 0
           });
         }
-        
         if (liveData.cached_group_data) {
           const cachedGroupData = liveData.cached_group_data;
           if (liveData.cached_meta_data) {
@@ -108,7 +105,6 @@ const Details = () => {
             });
           }
         }
-        
         setIsLoading(false);
       } else {
         setIsLoading(false);
@@ -136,28 +132,22 @@ const Details = () => {
     }
   }, [liveId, loadDataFromDatabase]);
 
-
   // Função para iniciar o refresh (chamada pelo botão)
   const handleRefreshStart = () => {
     setIsButtonRefreshing(true);
   };
-  
+
   // Função para testar getLiveData
   const handleTestGetLiveData = async () => {
     if (!liveId) {
       return;
     }
-    
     try {
       const result = await getLiveData(liveId); // Sem force = verifica cache primeiro
-    } catch (error) {
-    }
+    } catch (error) {}
   };
-
-
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
+    return <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="text-xl">Carregando detalhes da live...</div>
           <div className="text-sm text-gray-600 flex items-center justify-center gap-2">
@@ -165,16 +155,12 @@ const Details = () => {
             Buscando dados do Meta Ads...
           </div>
         </div>
-      </div>
-    );
+      </div>;
   }
-
   if (!live) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
+    return <div className="min-h-screen flex items-center justify-center">
         <div className="text-xl">Live não encontrada</div>
-      </div>
-    );
+      </div>;
   }
 
   // Dados para exibição
@@ -184,24 +170,17 @@ const Details = () => {
   const totalSpend = extractedData?.metaData?.totalSpend || 0;
 
   // Debug: Log dos dados que serão exibidos nos cards
-  return (
-    <div className="flex flex-col min-h-screen bg-background">
+  return <div className="flex flex-col min-h-screen bg-background">
       <Header />
       
       {/* Navegação interna */}
-      <ScreenNavigatorLives 
-        liveId={liveId} 
-        onRefresh={() => {}} // Função vazia - não usamos mais
-        isRefreshing={false} // Sempre false - não usamos mais
-        showRefreshButton={true}
-        onDataUpdated={loadDataFromDatabase}
-        onRefreshStart={handleRefreshStart}
-      />
+      <ScreenNavigatorLives liveId={liveId} onRefresh={() => {}} // Função vazia - não usamos mais
+    isRefreshing={false} // Sempre false - não usamos mais
+    showRefreshButton={true} onDataUpdated={loadDataFromDatabase} onRefreshStart={handleRefreshStart} />
       
       <div className="container mx-auto p-6 space-y-8 relative">
         {/* Overlay de loading quando está atualizando */}
-        {isButtonRefreshing && (
-          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        {isButtonRefreshing && <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
             <div className="text-center space-y-4">
               <div className="text-xl font-semibold">Atualizando dados...</div>
               <div className="text-sm text-gray-600 flex items-center justify-center gap-2">
@@ -209,8 +188,7 @@ const Details = () => {
                 Buscando dados do Meta Ads...
               </div>
             </div>
-          </div>
-        )}
+          </div>}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -220,57 +198,28 @@ const Details = () => {
         </div>
 
         {/* Error Alert */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        {error && <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-red-600" />
               <div>
                 <p className="text-sm font-medium text-red-800">Erro ao carregar dados</p>
                 <p className="text-xs text-red-600 mt-1">{error}</p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setError(null)}
-                  className="mt-2 text-red-600 hover:text-red-700"
-                >
+                <Button variant="ghost" size="sm" onClick={() => setError(null)} className="mt-2 text-red-600 hover:text-red-700">
                   Fechar
                 </Button>
               </div>
             </div>
-          </div>
-        )}
+          </div>}
 
         {/* Métricas Principais */}
-        <LiveMetricsCards
-          cplLiquido={cplLiquido}
-          cplMeta={cplMeta}
-          retentionRate={retentionRate}
-          groupMembers={extractedData?.groupData?.totalMembers || 0}
-          groupExits={extractedData?.groupData?.exits || 0}
-          activeLeads={extractedData?.groupData?.activeMembers || 0}
-          isLoading={isLoading}
-        />
+        <LiveMetricsCards cplLiquido={cplLiquido} cplMeta={cplMeta} retentionRate={retentionRate} groupMembers={extractedData?.groupData?.totalMembers || 0} groupExits={extractedData?.groupData?.exits || 0} activeLeads={extractedData?.groupData?.activeMembers || 0} isLoading={isLoading} />
 
         {/* Análise de Performance */}
-        <PerformanceAnalysis
-          live={live}
-          totalSpend={totalSpend}
-          totalGroupMembers={extractedData?.groupData?.totalMembers || 0}
-          cplLiquido={cplLiquido}
-          cplMeta={cplMeta}
-        />
+        <PerformanceAnalysis live={live} totalSpend={totalSpend} totalGroupMembers={extractedData?.groupData?.totalMembers || 0} cplLiquido={cplLiquido} cplMeta={cplMeta} />
       </div>
 
       {/* BOTÃO DE TESTE - TEMPORÁRIO */}
-      <button
-        onClick={handleTestGetLiveData}
-        className="fixed bottom-4 right-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-lg z-50"
-        style={{ zIndex: 50 }}
-      >
-        🧪 Testar getLiveData
-      </button>
-    </div>
-  );
+      
+    </div>;
 };
-
 export default Details;
