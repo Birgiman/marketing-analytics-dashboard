@@ -31,8 +31,10 @@ interface ProcessJobResponse {
 }
 
 // Configurações
-const REQUEST_TIMEOUT = 60000; // 60 segundos por requisição
+const REQUEST_TIMEOUT = 55000; // 55 segundos por requisição (teste de timeout)
 const RETRY_ATTEMPTS = 2; // 2 tentativas
+const CHUNK_SIZE = 50; // Reduzir chunk size para operações mais rápidas
+// DEBUG_DELAY removido após confirmar que Supabase não tem limite de 60s
 
 serve(async (req: any) => {
   // Handle CORS preflight requests
@@ -95,14 +97,14 @@ serve(async (req: any) => {
       jobs = result.data ? [result.data] : [];
       jobsError = result.error;
     } else {
-      // Buscar jobs pendentes ou que estão rodando há muito tempo (> 5 min sem update)
+      // Buscar jobs pendentes, failed ou que estão rodando há muito tempo (> 5 min sem update)
       console.log('🔍 [process-fetch-groups-job] Buscando jobs pendentes automaticamente');
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
       const result = await supabase
         .from('whatsapp_group_fetch_jobs')
         .select('*')
-        .or(`status.eq.pending,and(status.eq.running,updated_at.lt.${fiveMinutesAgo})`)
+        .or(`status.eq.pending,status.eq.failed,and(status.eq.running,updated_at.lt.${fiveMinutesAgo})`)
         .order('created_at', { ascending: true })
         .limit(5); // Processar até 5 jobs por execução
 
@@ -144,8 +146,18 @@ serve(async (req: any) => {
         const jobStartTime = Date.now();
         console.log(`🚀 [process-fetch-groups-job] Processando job ${job.id} (status: ${job.status})`);
 
-        // Marcar job como running se ainda estiver pending
-        if (job.status === 'pending') {
+        // Validar se job pode ser executado
+        if (job.status === 'completed') {
+          console.log(`⚠️ [process-fetch-groups-job] Job ${job.id} já foi concluído, pulando execução`);
+          continue;
+        }
+        
+        if (job.status === 'failed') {
+          console.log(`🔄 [process-fetch-groups-job] Job ${job.id} falhou anteriormente, reprocessando...`);
+        }
+
+        // Marcar job como running se ainda estiver pending ou failed
+        if (job.status === 'pending' || job.status === 'failed') {
           console.log(`📝 [process-fetch-groups-job] Marcando job ${job.id} como 'running'`);
           await supabase
             .from('whatsapp_group_fetch_jobs')
@@ -200,6 +212,12 @@ serve(async (req: any) => {
         for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
           try {
             console.log(`🔄 [process-fetch-groups-job] Tentativa ${attempt}/${RETRY_ATTEMPTS} para buscar grupos`);
+
+            // Delay pequeno antes da primeira tentativa para evitar problemas de timing
+            if (attempt === 1) {
+              console.log(`⏳ [process-fetch-groups-job] Aguardando 1s antes da primeira tentativa...`);
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
 
             const requestStartTime = Date.now();
             const controller = new AbortController();
@@ -285,7 +303,7 @@ serve(async (req: any) => {
         if (filteredGroups.length > 0) {
           console.log(`💾 [process-fetch-groups-job] Fazendo upsert de ${filteredGroups.length} grupos (insert novos + update existentes)`);
 
-          const CHUNK_SIZE = 100; // Processar em grupos de 100 para evitar operações muito grandes
+          // Usar CHUNK_SIZE global definido no topo para consistência
 
           // Processar todos os grupos em chunks
           for (let i = 0; i < filteredGroups.length; i += CHUNK_SIZE) {

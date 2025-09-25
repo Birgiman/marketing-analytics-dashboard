@@ -85,34 +85,31 @@ serve(async (req: any) => {
       );
     }
 
-    // Calcular progresso
+    // Calcular progresso (nova lógica sem paginação)
     let progress: JobStatusResponse['job']['progress'] = undefined;
 
-    if (job.status === 'running' && job.total_pages && job.total_pages > 0) {
-      const percentage = Math.round((job.current_page / job.total_pages) * 100);
-      let message = `Processando página ${job.current_page} de ${job.total_pages}`;
-
-      // Estimar tempo restante se temos páginas restantes
-      if (job.current_page > 0 && job.started_at) {
+    if (job.status === 'running') {
+      // Para jobs running, mostrar progresso baseado no tempo decorrido
+      if (job.started_at) {
         const startTime = new Date(job.started_at).getTime();
         const currentTime = new Date().getTime();
         const elapsedTime = currentTime - startTime;
-        const avgTimePerPage = elapsedTime / job.current_page;
-        const remainingPages = job.total_pages - job.current_page;
-        const estimatedRemainingMs = remainingPages * avgTimePerPage;
-        const estimatedRemainingMin = Math.ceil(estimatedRemainingMs / (1000 * 60));
-
-        if (estimatedRemainingMin > 0) {
-          progress = {
-            percentage,
-            message,
-            estimatedTimeRemaining: `${estimatedRemainingMin} min restantes`
-          };
-        } else {
-          progress = { percentage, message };
-        }
+        const elapsedMinutes = Math.floor(elapsedTime / (1000 * 60));
+        const elapsedSeconds = Math.floor((elapsedTime % (1000 * 60)) / 1000);
+        
+        // Estimativa baseada em tempo médio (45-60s)
+        const estimatedProgress = Math.min(85, (elapsedTime / 50000) * 100); // 50s como referência
+        
+        progress = {
+          percentage: Math.round(estimatedProgress),
+          message: `Processando grupos... (${elapsedMinutes}:${elapsedSeconds.toString().padStart(2, '0')} decorridos)`,
+          estimatedTimeRemaining: estimatedProgress < 80 ? '1-2 min restantes' : 'Finalizando...'
+        };
       } else {
-        progress = { percentage, message };
+        progress = {
+          percentage: 10,
+          message: 'Iniciando processamento...'
+        };
       }
     } else if (job.status === 'pending') {
       progress = {
@@ -122,11 +119,11 @@ serve(async (req: any) => {
     } else if (job.status === 'completed') {
       progress = {
         percentage: 100,
-        message: `Concluído! ${job.result_count} grupos encontrados`
+        message: `Concluído! ${job.result_count} grupos processados`
       };
     } else if (job.status === 'failed') {
       progress = {
-        percentage: job.total_pages ? Math.round((job.current_page / job.total_pages) * 100) : 0,
+        percentage: 0,
         message: `Falha no processamento: ${job.last_error || 'Erro desconhecido'}`
       };
     }
