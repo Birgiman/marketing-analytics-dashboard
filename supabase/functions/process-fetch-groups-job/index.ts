@@ -281,95 +281,58 @@ serve(async (req: any) => {
         let totalGroupsFound = 0;
         const allSavedGroupIds: string[] = [];
 
-        // Verificar quais grupos já existem no banco (em chunks para evitar URLs muito longas)
+        // Fazer UPSERT de todos os grupos (não precisa verificar duplicatas)
         if (filteredGroups.length > 0) {
-          console.log(`🔍 [process-fetch-groups-job] Verificando duplicatas para ${filteredGroups.length} grupos`);
+          console.log(`💾 [process-fetch-groups-job] Fazendo upsert de ${filteredGroups.length} grupos (insert novos + update existentes)`);
 
-          const CHUNK_SIZE = 100; // Processar em grupos de 100 para evitar URL muito longa
-          const existingGroupIds = new Set<string>();
-          const checkErrors: any[] = [];
+          const CHUNK_SIZE = 100; // Processar em grupos de 100 para evitar operações muito grandes
 
-          // Verificar em chunks
+          // Processar todos os grupos em chunks
           for (let i = 0; i < filteredGroups.length; i += CHUNK_SIZE) {
             const chunk = filteredGroups.slice(i, i + CHUNK_SIZE);
-            const groupIds = chunk.map(g => g.id);
             
-            console.log(`🔍 [process-fetch-groups-job] Verificando chunk ${Math.floor(i/CHUNK_SIZE) + 1}/${Math.ceil(filteredGroups.length/CHUNK_SIZE)} (${groupIds.length} grupos)`);
+            console.log(`💾 [process-fetch-groups-job] Upsert chunk ${Math.floor(i/CHUNK_SIZE) + 1}/${Math.ceil(filteredGroups.length/CHUNK_SIZE)} (${chunk.length} grupos)`);
+
+            const groupsToUpsert = chunk.map(group => ({
+              group_id: group.id,
+              group_name: group.subject || '',
+              user_id: job.user_id,
+              group_size: group.size || 0,
+              group_owner: group.owner || '',
+              group_created_at: group.creation ? new Date(group.creation * 1000).toISOString() : null,
+              participant_count: group.participants?.length || 0,
+              monitoring: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }));
 
             try {
-              const { data: existingGroups, error: checkError } = await supabase
+              const { error: upsertError } = await supabase
                 .from('whatsapp_groups')
-                .select('group_id')
-                .eq('user_id', job.user_id)
-                .in('group_id', groupIds);
+                .upsert(groupsToUpsert, { 
+                  onConflict: 'group_id,user_id',
+                  ignoreDuplicates: false 
+                });
 
-              if (checkError) {
-                console.error(`❌ [process-fetch-groups-job] Erro ao verificar chunk ${Math.floor(i/CHUNK_SIZE) + 1}:`, checkError);
-                checkErrors.push(checkError);
-              } else if (existingGroups) {
-                existingGroups.forEach(g => existingGroupIds.add(g.group_id));
+              if (upsertError) {
+                console.error(`❌ [process-fetch-groups-job] Erro ao fazer upsert chunk ${Math.floor(i/CHUNK_SIZE) + 1}:`, upsertError);
+              } else {
+                totalGroupsFound += chunk.length;
+                const processedIds = chunk.map(g => g.id);
+                allSavedGroupIds.push(...processedIds);
+                console.log(`✅ [process-fetch-groups-job] Chunk ${Math.floor(i/CHUNK_SIZE) + 1} processado: ${chunk.length} grupos (insert/update)`);
               }
             } catch (error) {
-              console.error(`❌ [process-fetch-groups-job] Erro crítico no chunk ${Math.floor(i/CHUNK_SIZE) + 1}:`, error);
-              checkErrors.push(error);
+              console.error(`❌ [process-fetch-groups-job] Erro crítico ao fazer upsert chunk ${Math.floor(i/CHUNK_SIZE) + 1}:`, error);
             }
           }
 
-          if (checkErrors.length > 0) {
-            console.log(`⚠️ [process-fetch-groups-job] ${checkErrors.length} erros durante verificação, mas continuando...`);
+          console.log(`✅ [process-fetch-groups-job] Total processado: ${totalGroupsFound} grupos (novos + atualizados)`);
+          if (allSavedGroupIds.length > 0) {
+            console.log(`🆔 [process-fetch-groups-job] Primeiros IDs processados:`, allSavedGroupIds.slice(0, 5).join(', '), allSavedGroupIds.length > 5 ? `... (+${allSavedGroupIds.length - 5} mais)` : '');
           }
-
-          const newGroups = filteredGroups.filter(group => !existingGroupIds.has(group.id));
-
-          console.log(`📊 [process-fetch-groups-job] Grupos: ${filteredGroups.length} total, ${existingGroupIds.size} já existem, ${newGroups.length} novos`);
-
-          // Salvar apenas grupos novos (também em chunks)
-          if (newGroups.length > 0) {
-            console.log(`💾 [process-fetch-groups-job] Salvando ${newGroups.length} grupos novos em chunks`);
-
-            for (let i = 0; i < newGroups.length; i += CHUNK_SIZE) {
-              const chunk = newGroups.slice(i, i + CHUNK_SIZE);
-              
-              console.log(`💾 [process-fetch-groups-job] Salvando chunk ${Math.floor(i/CHUNK_SIZE) + 1}/${Math.ceil(newGroups.length/CHUNK_SIZE)} (${chunk.length} grupos)`);
-
-              const groupsToInsert = chunk.map(group => ({
-                group_id: group.id,
-                group_name: group.subject || '',
-                user_id: job.user_id,
-                group_size: group.size || 0,
-                group_owner: group.owner || '',
-                group_created_at: group.creation ? new Date(group.creation * 1000).toISOString() : null,
-                participant_count: group.participants?.length || 0,
-                monitoring: true,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              }));
-
-              try {
-                const { error: insertError } = await supabase
-                  .from('whatsapp_groups')
-                  .insert(groupsToInsert);
-
-                if (insertError) {
-                  console.error(`❌ [process-fetch-groups-job] Erro ao salvar chunk ${Math.floor(i/CHUNK_SIZE) + 1}:`, insertError);
-                } else {
-                  totalGroupsFound += chunk.length;
-                  const savedIds = chunk.map(g => g.id);
-                  allSavedGroupIds.push(...savedIds);
-                  console.log(`✅ [process-fetch-groups-job] Chunk ${Math.floor(i/CHUNK_SIZE) + 1} salvo: ${chunk.length} grupos`);
-                }
-              } catch (error) {
-                console.error(`❌ [process-fetch-groups-job] Erro crítico ao salvar chunk ${Math.floor(i/CHUNK_SIZE) + 1}:`, error);
-              }
-            }
-
-            console.log(`✅ [process-fetch-groups-job] Total salvo: ${totalGroupsFound} grupos novos`);
-            if (allSavedGroupIds.length > 0) {
-              console.log(`🆔 [process-fetch-groups-job] Primeiros IDs salvos:`, allSavedGroupIds.slice(0, 5).join(', '), allSavedGroupIds.length > 5 ? `... (+${allSavedGroupIds.length - 5} mais)` : '');
-            }
-          } else {
-            console.log(`ℹ️ [process-fetch-groups-job] Nenhum grupo novo para salvar`);
-          }
+        } else {
+          console.log(`ℹ️ [process-fetch-groups-job] Nenhum grupo para processar`);
         }
 
         // Como a Evolution API retorna todos os grupos de uma vez, marcamos como completo
@@ -390,12 +353,12 @@ serve(async (req: any) => {
 
         console.log(`🎉 [process-fetch-groups-job] Job ${job.id} concluído!`);
         console.log(`📊 [process-fetch-groups-job] Estatísticas do job:`);
-        console.log(`   • Total de grupos processados: ${allGroups.length}`);
+        console.log(`   • Total de grupos da Evolution API: ${allGroups.length}`);
         console.log(`   • Grupos após filtros: ${filteredGroups.length}`);
-        console.log(`   • Total de grupos novos salvos: ${totalGroupsFound}`);
+        console.log(`   • Total de grupos processados (insert/update): ${totalGroupsFound}`);
         console.log(`   • Tempo de processamento: ${jobDuration}ms (${(jobDuration / 1000).toFixed(2)}s)`);
         if (allSavedGroupIds.length > 0) {
-          console.log(`🆔 [process-fetch-groups-job] IDs salvos:`, allSavedGroupIds.join(', '));
+          console.log(`🆔 [process-fetch-groups-job] IDs processados:`, allSavedGroupIds.slice(0, 10).join(', '), allSavedGroupIds.length > 10 ? `... (+${allSavedGroupIds.length - 10} mais)` : '');
         }
 
         processedJobs++;
