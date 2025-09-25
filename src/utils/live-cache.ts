@@ -78,7 +78,6 @@ export async function fetchLiveWithCache(liveId: string): Promise<{
     };
 
   } catch (error) {
-    console.error('❌ [Cache] Erro ao buscar live:', error);
     throw error;
   }
 }
@@ -120,14 +119,9 @@ export async function updateLiveCache(
       .eq('id', liveId);
 
     if (error) {
-      console.error('❌ [Cache] Erro ao atualizar cache:', error);
       throw error;
     }
-
-    console.log('✅ [Cache] Cache atualizado com sucesso para live:', liveId);
-
   } catch (error) {
-    console.error('❌ [Cache] Erro ao atualizar cache:', error);
     throw error;
   }
 }
@@ -149,14 +143,9 @@ export async function clearLiveCache(liveId: string): Promise<void> {
       .eq('id', liveId);
 
     if (error) {
-      console.error('❌ [Cache] Erro ao limpar cache:', error);
       throw error;
     }
-
-    console.log('✅ [Cache] Cache limpo para live:', liveId);
-
   } catch (error) {
-    console.error('❌ [Cache] Erro ao limpar cache:', error);
     throw error;
   }
 }

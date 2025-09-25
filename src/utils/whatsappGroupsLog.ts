@@ -45,16 +45,7 @@ export async function getWhatsAppGroupsLogData(
   userId: string
 ): Promise<GroupLogSummary> {
   try {
-    console.log('🔍 [WhatsAppGroupsLog] Consultando dados reais dos grupos:', {
-      groupIds: groupIds.length,
-      groupIdsArray: groupIds,
-      dateFrom,
-      dateTo,
-      userId
-    });
-
     if (!groupIds || groupIds.length === 0) {
-      console.warn('⚠️ [WhatsAppGroupsLog] Nenhum grupo fornecido');
       return {
         totalEntries: 0,
         totalExits: 0,
@@ -64,15 +55,6 @@ export async function getWhatsAppGroupsLogData(
     }
 
     // Consulta otimizada: buscar apenas os dados necessários com filtros específicos
-    console.log('🔍 [WhatsAppGroupsLog] Fazendo consulta otimizada na tabela...');
-    console.log('🔍 [WhatsAppGroupsLog] Parâmetros da consulta:', {
-      totalGroupIds: groupIds.length,
-      groupIds: groupIds.slice(0, 3), // Primeiros 3 IDs para debug
-      dateFrom,
-      dateTo,
-      userId: userId.substring(0, 8) + '...' // Primeiros 8 chars do user_id
-    });
-
     const { data, error } = await supabase
       .from('whatsapp_groups_log')
       .select('id_grupo, group_name, event, created_at')
@@ -85,15 +67,8 @@ export async function getWhatsAppGroupsLogData(
       .limit(10000); // Limite para evitar timeout
 
     if (error) {
-      console.error('❌ [WhatsAppGroupsLog] Erro na consulta:', error);
       throw error;
     }
-
-    console.log('📊 [WhatsAppGroupsLog] Dados brutos da consulta:', {
-      totalRows: data?.length || 0,
-      sampleData: data?.slice(0, 3)
-    });
-
     // Processar dados e agrupar por grupo
     const groupMap = new Map<string, GroupLogData>();
 
@@ -157,14 +132,9 @@ export async function getWhatsAppGroupsLogData(
       totalActiveMembers,
       groupsData
     };
-
-    console.log('✅ [WhatsAppGroupsLog] Dados processados:', result);
-
     return result;
 
   } catch (error) {
-    console.error('❌ [WhatsAppGroupsLog] Erro ao consultar dados:', error);
-    
     // Retornar dados zerados em caso de erro
     return {
       totalEntries: 0,
@@ -227,13 +197,6 @@ export async function getWhatsAppGroupsLogByPeriod(
   activeMembers: number;
 }>> {
   try {
-    console.log('📈 [WhatsAppGroupsLog] Consultando dados por período:', {
-      groupIds: groupIds.length,
-      dateFrom,
-      dateTo,
-      groupBy
-    });
-
     if (!groupIds || groupIds.length === 0) {
       return [];
     }
@@ -255,8 +218,6 @@ export async function getWhatsAppGroupsLogByPeriod(
     }
 
     // Consulta direta otimizada (sem RPC)
-    console.log('🔍 [WhatsAppGroupsLog] Fazendo consulta direta otimizada por período...');
-
     const { data: rawData, error } = await supabase
       .from('whatsapp_groups_log')
       .select('created_at, event, id_grupo')
@@ -268,24 +229,8 @@ export async function getWhatsAppGroupsLogByPeriod(
       .order('created_at', { ascending: true });
 
     if (error) {
-      console.error('❌ [WhatsAppGroupsLog] Erro na consulta por período:', error);
       throw error;
     }
-
-    console.log('📊 [WhatsAppGroupsLog] Dados brutos obtidos:', {
-      totalRecords: rawData?.length || 0,
-      dateRange: {
-        from: dateFrom,
-        to: dateTo
-      },
-      groupBy,
-      sampleRecords: rawData?.slice(0, 3).map(r => ({
-        date: new Date(r.created_at).toISOString().split('T')[0],
-        event: r.event,
-        group: r.id_grupo?.substring(0, 10) + '...'
-      }))
-    });
-
     // Processar dados manualmente com agrupamento por período
     const periodData = new Map<string, { entries: number; exits: number }>();
 
@@ -329,18 +274,9 @@ export async function getWhatsAppGroupsLogByPeriod(
       exits: data.exits,
       activeMembers: Math.max(0, data.entries - data.exits)
     })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    console.log('✅ [WhatsAppGroupsLog] Dados processados por período:', {
-      totalPeriods: result.length,
-      totalEntries: result.reduce((sum, p) => sum + p.entries, 0),
-      totalExits: result.reduce((sum, p) => sum + p.exits, 0),
-      samplePeriods: result.slice(0, 3)
-    });
-
     return result;
 
   } catch (error) {
-    console.error('❌ [WhatsAppGroupsLog] Erro ao consultar dados por período:', error);
     return [];
   }
 }
@@ -396,20 +332,6 @@ export function validateGroupLogData(logData: GroupLogSummary): {
  * @param logData - Dados do log
  */
 export function logGroupLogData(logData: GroupLogSummary): void {
-  console.log('📱 [WhatsAppGroupsLog] Dados dos grupos WhatsApp:');
-  console.log('==========================================');
-  console.log(`📊 RESUMO GERAL:`);
-  console.log(`  • Total de entradas: ${logData.totalEntries}`);
-  console.log(`  • Total de saídas: ${logData.totalExits}`);
-  console.log(`  • Total de membros ativos: ${logData.totalActiveMembers}`);
-  console.log(`  • Grupos analisados: ${logData.groupsData.length}`);
-  console.log('');
-  console.log('👥 DADOS POR GRUPO:');
   logData.groupsData.forEach((group, index) => {
-    console.log(`  ${index + 1}. ${group.group_name} (${group.id_grupo}):`);
-    console.log(`     • Entradas: ${group.entries}`);
-    console.log(`     • Saídas: ${group.exits}`);
-    console.log(`     • Membros ativos: ${group.activeMembers}`);
   });
-  console.log('==========================================');
 }

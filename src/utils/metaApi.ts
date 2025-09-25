@@ -151,8 +151,6 @@ export async function fetchCampaigns(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('📱 ❌ Erro na resposta:', response.status, errorText);
-
     try {
       const error = JSON.parse(errorText);
       throw new Error(error.error?.message || 'Erro ao buscar campanhas');
@@ -220,20 +218,10 @@ export async function fetchAdSetInsights(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    console.error('❌ [fetchAdSetInsights] Erro na resposta:', {
-      status: response.status,
-      statusText: response.statusText,
-      errorData
-    });
     throw new Error(`Erro ao buscar insights de conjuntos de anúncios: ${response.status} - ${errorData.error?.message || response.statusText}`);
   }
 
   const data = await response.json();
-  console.log('🔍 [fetchAdSetInsights] Resposta da API:', {
-    dataLength: data.data?.length || 0,
-    firstItem: data.data?.[0]
-  });
-  
   return data.data || [];
 }
 
@@ -359,7 +347,6 @@ export async function fetchCampaignInsights(
       const response = await fetch(`${BASE_URL}/${campaignId}/insights?${params}`);
 
       if (!response.ok) {
-        console.warn(`Erro ao buscar insights para campanha ${campaignId}`);
         continue;
       }
 
@@ -367,7 +354,6 @@ export async function fetchCampaignInsights(
       insights.push(...(data.data || []));
 
     } catch (error) {
-      console.warn(`Erro ao processar insights da campanha ${campaignId}:`, error);
     }
   }
 
@@ -385,7 +371,6 @@ export function extractLeads(actions?: Array<{ action_type: string; value: strin
   const leadAction = actions.find(action => action.action_type === 'lead');
   if (leadAction) {
     const leads = parseInt(leadAction.value) || 0;
-    console.log(`[extractLeads] Leads encontrados (action_type=lead): ${leads}`);
     return leads;
   }
 
@@ -397,15 +382,10 @@ export function extractLeads(actions?: Array<{ action_type: string; value: strin
 
   if (otherLeadAction) {
     const leads = parseInt(otherLeadAction.value) || 0;
-    console.log(`[extractLeads] Leads encontrados (${otherLeadAction.action_type}): ${leads}`);
     return leads;
   }
 
   // Log para debug quando não encontrar leads
-  console.warn(`[extractLeads] Nenhum lead encontrado. Actions disponíveis:`,
-    actions.map(a => ({ action_type: a.action_type, value: a.value }))
-  );
-
   return 0;
 }
 
@@ -671,7 +651,6 @@ export async function fetchLiveCampaignsInsights(
     if (dateRange) {
       const validation = validateMetaTimeRange(dateRange);
       if (!validation.isValid) {
-        console.error('📊 [fetchLiveCampaignsInsights] ❌ Período de datas inválido:', validation.error);
         throw new Error(validation.error);
       }
     }
@@ -726,7 +705,6 @@ export async function fetchLiveCampaignsInsights(
     };
 
   } catch (error) {
-    console.error('📊 [fetchLiveCampaignsInsights] Erro:', error);
     throw error;
   }
 }
@@ -828,8 +806,8 @@ export async function fetchMetaInsights(
 
   // Construir URL
   const url = `${BASE_URL}/${targetId}/insights?${params}`;
-  
 
+  // DEBUG: Log da URL e parâmetros
   try {
     const response = await fetch(url);
 
@@ -839,11 +817,36 @@ export async function fetchMetaInsights(
     }
 
     const data = await response.json();
-    
+
+    // DEBUG: Log do resultado
+    if (data.data?.length > 0) {
+      // Mostrar campanhas únicas encontradas
+      const uniqueCampaigns = new Map();
+      data.data.forEach((insight: any) => {
+        if (!uniqueCampaigns.has(insight.campaign_id)) {
+          uniqueCampaigns.set(insight.campaign_id, {
+            campaign_id: insight.campaign_id,
+            campaign_name: insight.campaign_name,
+            totalSpend: 0,
+            insightsCount: 0
+          });
+        }
+        const campaign = uniqueCampaigns.get(insight.campaign_id);
+        campaign.totalSpend += parseFloat(insight.spend || '0');
+        campaign.insightsCount++;
+      });
+      Array.from(uniqueCampaigns.values()).forEach((camp, index) => {
+      });
+    }
+
+    // DEBUG: Verificar paginação
+    if (data.paging) {
+      if (data.paging.next) {
+      }
+    }
 
     return data.data || [];
   } catch (error) {
-    console.error('📊 [fetchMetaInsights] ❌ Erro:', error);
     throw error;
   }
 }

@@ -64,7 +64,6 @@ export function extractMetaData(campaignInsights: Array<{
 
   // Verificar se campaignInsights existe e não está vazio
   if (!campaignInsights || campaignInsights.length === 0) {
-    console.warn('⚠️ [extractMetaData] Nenhum insight de campanha disponível');
     return {
       totalSpend: 0,
       totalResults: 0,
@@ -121,7 +120,6 @@ export function extractLeadsFromActions(actions: MetaAction[]): number {
   const leadAction = actions.find(action => action.action_type === 'lead');
   if (leadAction) {
     const leads = parseInt(leadAction.value) || 0;
-    console.log(`[extractLeadsFromActions] Leads encontrados (action_type=lead): ${leads}`);
     return leads;
   }
 
@@ -135,14 +133,10 @@ export function extractLeadsFromActions(actions: MetaAction[]): number {
 
   if (otherLeadAction) {
     const leads = parseInt(otherLeadAction.value) || 0;
-    console.log(`[extractLeadsFromActions] Leads encontrados (${otherLeadAction.action_type}): ${leads}`);
     return leads;
   }
 
-  // Log para debug quando não encontrar leads
-  console.warn(`[extractLeadsFromActions] Nenhum lead encontrado. Actions disponíveis:`,
-    actions.map(a => ({ action_type: a.action_type, value: a.value }))
-  );
+  // Se nenhum lead for encontrado, retornar 0 silenciosamente
 
   return 0;
 }
@@ -180,15 +174,9 @@ export async function extractGroupData(
 
   const totalMembers = groups.reduce((sum, group) => sum + (group.group_size || 0), 0);
   const totalGroups = groups.length;
-
-  console.log(`📱 [extractGroupData] Buscando dados reais para período: ${dateFrom} até ${dateTo}, usuário: ${userId}`);
-
   try {
     const groupIds = groups.map(group => group.group_id);
     const logData = await getWhatsAppGroupsLogData(groupIds, dateFrom, dateTo, userId);
-
-    console.log('✅ [extractGroupData] Usando dados reais do WhatsApp Groups Log:', logData);
-
     return {
       totalMembers,
       totalGroups,
@@ -197,7 +185,6 @@ export async function extractGroupData(
       activeMembers: logData.totalActiveMembers
     };
   } catch (error) {
-    console.error('❌ [extractGroupData] Erro ao consultar dados reais - FALLBACK REMOVIDO:', error);
     throw new Error(`[extractGroupData] Falha ao obter dados reais do WhatsApp: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
   }
 }
@@ -338,49 +325,19 @@ export function validateExtractedData(extractedData: ExtractedLiveData): {
  * @param extractedData - Dados extraídos
  */
 export function logExtractedData(extractedData: ExtractedLiveData): void {
-  console.log('📊 [DATA-EXTRACTORS-V2] Dados extraídos:');
-  console.log('==========================================');
-  
   // Verificar se os dados existem antes de logar
   if (!extractedData) {
-    console.log('❌ Dados extraídos não disponíveis');
     return;
   }
-
-  console.log('🎯 META DATA:');
   if (extractedData.metaData) {
-    console.log(`  • Total gasto: R$ ${extractedData.metaData.totalSpend.toFixed(2)}`);
-    console.log(`  • Total results/leads: ${extractedData.metaData.totalResults}`);
-    console.log(`  • Total impressões: ${extractedData.metaData.totalImpressions.toLocaleString()}`);
-    console.log(`  • Total cliques: ${extractedData.metaData.totalClicks.toLocaleString()}`);
-    console.log(`  • Campanhas analisadas: ${extractedData.metaData.campaignCount}`);
-    console.log(`  • Insights processados: ${extractedData.metaData.insightsCount}`);
   } else {
-    console.log('  ❌ Dados do Meta não disponíveis');
   }
-  
-  console.log('');
-  console.log('👥 GROUP DATA:');
   if (extractedData.groupData) {
-    console.log(`  • Total de membros: ${extractedData.groupData.totalMembers}`);
-    console.log(`  • Total de grupos: ${extractedData.groupData.totalGroups}`);
-    console.log(`  • Entradas: ${extractedData.groupData.entries}`);
-    console.log(`  • Saídas: ${extractedData.groupData.exits}`);
-    console.log(`  • Membros ativos: ${extractedData.groupData.activeMembers}`);
   } else {
-    console.log('  ❌ Dados dos grupos não disponíveis');
   }
-  
-  console.log('');
-  console.log('📋 LIVE INFO:');
   if (extractedData.liveInfo) {
-    console.log(`  • ID: ${extractedData.liveInfo.id}`);
-    console.log(`  • Nome: ${extractedData.liveInfo.name}`);
-    console.log(`  • Orçamento gasto: ${extractedData.liveInfo.orcamentoGasto ? `R$ ${extractedData.liveInfo.orcamentoGasto.toFixed(2)}` : 'Não definido'}`);
   } else {
-    console.log('  ❌ Informações da Live não disponíveis');
   }
-  console.log('==========================================');
 }
 
 // ============================================================================
@@ -510,7 +467,6 @@ export function extractAdSetDataFromInsights(
     const adSetId = insight.adset_id;
 
     if (!adSetId) {
-      console.warn(`⚠️ [extractAdSetDataFromInsights] Insight ${index} sem adset_id:`, insight);
       return;
     }
 

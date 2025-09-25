@@ -53,6 +53,17 @@ const TrafficAnalysis = () => {
       activeMembers: number;
     };
     cached_traffic_data?: {
+      dailyInsights: Array<{
+        date: string;
+        spend: number;
+        leads: number;
+        cplMeta: number;
+      }>;
+      campaigns: Array<{
+        id: string;
+        name: string;
+        status: string;
+      }>;
       groups: Array<{
         id: string;
         group_id: string;
@@ -62,18 +73,7 @@ const TrafficAnalysis = () => {
         created_at: string;
         updated_at: string;
       }>;
-      campaigns: Array<{
-        id: string;
-        campaign_id: string;
-        campaign_name: string;
-        account_id?: string;
-        account_name?: string;
-        objective?: string;
-        status: string;
-        daily_budget?: number;
-        lifetime_budget?: number;
-      }>;
-      campaignsWithInsights: Array<{
+      campaignsWithInsights?: Array<{
         campaign_id: string;
         insights: Array<{
           campaign_name?: string;
@@ -215,68 +215,50 @@ const TrafficAnalysis = () => {
   const loadDataFromDatabase = useCallback(async (isFromButton = false) => {
     if (!liveId) return;
     
-    console.log('[LOADING DO BOTÃO] 🚀 Iniciando loadDataFromDatabase para liveId:', liveId, 'isFromButton:', isFromButton);
     
     try {
-      console.log(`[LOADING DO BOTÃO] 📦 Carregando dados do banco para Live: ${liveId}`);
       const liveData = await getLiveDataFromDatabase(liveId);
       
       if (liveData) {
-        console.log(`[LOADING DO BOTÃO] ✅ Dados carregados do banco:`, liveData.name);
-        
         // Atualizar dados básicos da Live
         setLive({
           id: liveData.id,
           name: liveData.name,
           ad_budget: parseFloat(liveData.ad_budget),
-          cached_metrics: liveData.cached_metrics,
-          cached_group_data: liveData.cached_group_data,
-          cached_meta_data: liveData.cached_meta_data,
-          cached_traffic_data: liveData.cached_traffic_data,
-          cached_traffic_metrics: liveData.cached_traffic_metrics,
+          cached_metrics: liveData.cached_metrics || undefined,
+          cached_group_data: liveData.cached_group_data || undefined,
+          cached_traffic_data: liveData.cached_traffic_data || undefined,
+          cached_traffic_metrics: liveData.cached_traffic_metrics as any || undefined,
           traffic_last_synced_at: liveData.traffic_last_synced_at
         });
         
         // Carregar dados específicos de tráfego do cache
         if (liveData.cached_traffic_data) {
-          console.log('[LOADING DO BOTÃO] 📊 Carregando dados de tráfego do cache:', liveData.cached_traffic_data);
-          console.log('[LOADING DO BOTÃO] 🔍 Estrutura do cached_traffic_data:', {
-            hasGroups: !!liveData.cached_traffic_data.groups,
-            groupsLength: liveData.cached_traffic_data.groups?.length || 0,
-            hasCampaigns: !!liveData.cached_traffic_data.campaigns,
-            campaignsLength: liveData.cached_traffic_data.campaigns?.length || 0,
-            hasCampaignsWithInsights: !!liveData.cached_traffic_data.campaignsWithInsights,
-            campaignsWithInsightsLength: liveData.cached_traffic_data.campaignsWithInsights?.length || 0,
-            hasAdSetData: !!liveData.cached_traffic_data.adSetData,
-            adSetDataLength: liveData.cached_traffic_data.adSetData?.length || 0
-          });
-          
           // DEBUG: Verificar se campaignsWithInsights existe e tem dados
-          if (liveData.cached_traffic_data.campaignsWithInsights) {
-            console.log('[LOADING DO BOTÃO] 🔍 DEBUG campaignsWithInsights:', liveData.cached_traffic_data.campaignsWithInsights);
+          if ((liveData.cached_traffic_data as any).campaignsWithInsights) {
           } else {
-            console.log('[LOADING DO BOTÃO] ⚠️ campaignsWithInsights não existe no cache');
           }
           
           // Carregar grupos
           if (liveData.cached_traffic_data.groups) {
             setGroups(liveData.cached_traffic_data.groups);
-            console.log('[LOADING DO BOTÃO] ✅ Grupos carregados:', liveData.cached_traffic_data.groups.length);
           }
           
           // Carregar campanhas
           if (liveData.cached_traffic_data.campaigns) {
-            setCampaigns(liveData.cached_traffic_data.campaigns);
-            console.log('[LOADING DO BOTÃO] ✅ Campanhas carregadas:', liveData.cached_traffic_data.campaigns.length);
+            setCampaigns(liveData.cached_traffic_data.campaigns.map(campaign => ({
+              campaign_id: campaign.id,
+              campaign_name: campaign.name
+            })));
           }
           
           // Carregar campanhas com insights (dados para tabela)
-          if (liveData.cached_traffic_data.campaignsWithInsights) {
+          if ((liveData.cached_traffic_data as any).campaignsWithInsights) {
             // Formatar dados do cache para corresponder ao formato esperado pela calculateDailyData
-            const formattedCampaignsWithInsights = liveData.cached_traffic_data.campaignsWithInsights.map(campaign => ({
+            const formattedCampaignsWithInsights = (liveData.cached_traffic_data as any).campaignsWithInsights.map((campaign: any) => ({
               campaign_id: campaign.campaign_id,
               campaign_name: campaign.campaign_name || '',
-              insights: campaign.insights.map(insight => ({
+              insights: campaign.insights.map((insight: any) => ({
                 campaign_name: insight.campaign_name || '',
                 ad_name: insight.ad_name || '',
                 date_start: insight.date_start || '',
@@ -295,38 +277,25 @@ const TrafficAnalysis = () => {
             }));
 
             setCampaignsWithInsights(formattedCampaignsWithInsights);
-            console.log('[LOADING DO BOTÃO] ✅ Campanhas com insights carregadas e formatadas:', formattedCampaignsWithInsights.length);
-            console.log('[LOADING DO BOTÃO] 🔍 DEBUG: setCampaignsWithInsights formatado:', formattedCampaignsWithInsights);
           } else {
-            console.log('[LOADING DO BOTÃO] ⚠️ Nenhuma campanha com insights encontrada no cache');
           }
           
           // Carregar dados de ad sets
-          if (liveData.cached_traffic_data.adSetData) {
-            setAdSetData(liveData.cached_traffic_data.adSetData);
-            console.log('[LOADING DO BOTÃO] ✅ Dados de ad sets carregados:', liveData.cached_traffic_data.adSetData.length);
+          if ((liveData.cached_traffic_data as any).adSetData) {
+            setAdSetData((liveData.cached_traffic_data as any).adSetData);
           }
         } else {
-          console.log('[LOADING DO BOTÃO] ⚠️ Nenhum dado de tráfego encontrado no cache');
         }
-        
-        console.log('[LOADING DO BOTÃO] ✅ Dados básicos carregados');
-        console.log('[LOADING DO BOTÃO] ✅ Definindo setIsLoading(false) - dados carregados');
         setIsLoading(false);
         
       } else {
-        console.log(`[LOADING DO BOTÃO] ⚠️ Nenhum dado encontrado no banco`);
-        console.log('[LOADING DO BOTÃO] ✅ Definindo setIsLoading(false) - sem dados');
         setIsLoading(false);
       }
     } catch (error) {
-      console.error(`[LOADING DO BOTÃO] ❌ Erro ao carregar dados do banco:`, error);
-      console.log('[LOADING DO BOTÃO] ✅ Definindo setIsLoading(false) - erro');
       setIsLoading(false);
     } finally {
       // Só controla isButtonRefreshing se foi chamado pelo botão
       if (isFromButton) {
-        console.log('[LOADING DO BOTÃO] 🔄 Definindo setIsButtonRefreshing(false)');
         setIsButtonRefreshing(false);
       }
     }
@@ -335,14 +304,10 @@ const TrafficAnalysis = () => {
   // CACHE SYSTEM - Funções de cache
   const fetchTrafficDataWithCache = useCallback(async () => {
     if (!liveId) return;
-
-    console.log('🔍 [TrafficAnalysis Debug] fetchTrafficDataWithCache iniciado para liveId:', liveId);
     setCacheStatus(prev => ({ ...prev, isLoading: true }));
     setIsLoading(true);
     
     try {
-      console.log('🔄 [TrafficAnalysis Cache] Verificando cache para Live:', liveId);
-      
       // Verificar cache primeiro
       const { data: live, error } = await supabase
         .from('lives')
@@ -362,18 +327,6 @@ const TrafficAnalysis = () => {
       const lastSynced = live.traffic_last_synced_at ? new Date(live.traffic_last_synced_at) : null;
       const CACHE_DURATION_MINUTES = 30;
       const isCacheValid = lastSynced && (now.getTime() - lastSynced.getTime()) < CACHE_DURATION_MINUTES * 60 * 1000;
-      
-      console.log('🔍 [TrafficAnalysis Cache] Verificação de cache:', {
-        hasTrafficLastSynced: !!live.traffic_last_synced_at,
-        trafficLastSynced: live.traffic_last_synced_at,
-        lastSynced,
-        now: now.toISOString(),
-        isCacheValid,
-        cacheAge: lastSynced ? now.getTime() - lastSynced.getTime() : 'N/A',
-        cacheAgeMinutes: lastSynced ? Math.round((now.getTime() - lastSynced.getTime()) / (60 * 1000)) : 'N/A',
-        thirtyMinutes: CACHE_DURATION_MINUTES * 60 * 1000
-      });
-
       setCacheStatus({
         isLoading: false,
         fromCache: !!(isCacheValid && live.cached_traffic_data),
@@ -383,29 +336,11 @@ const TrafficAnalysis = () => {
 
       // Se tem cache válido, usar dados do cache
       if (isCacheValid && live.cached_traffic_data) {
-        console.log('✅ [TrafficAnalysis Cache] Usando dados do cache');
-        console.log('🔍 [TrafficAnalysis Cache] Cache válido:', {
-          isCacheValid,
-          hasCachedData: !!live.cached_traffic_data,
-          cachedDataKeys: live.cached_traffic_data ? Object.keys(live.cached_traffic_data) : [],
-          hasAdSetData: !!(live.cached_traffic_data?.adSetData),
-          adSetDataLength: live.cached_traffic_data?.adSetData?.length || 0
-        });
-        
         // Carregar dados básicos da live
         setLive(live);
         
         // Usar dados do cache
         if (live.cached_traffic_data) {
-          console.log('🔍 [TrafficAnalysis Debug] Cache encontrado:', {
-            hasGroups: !!(live.cached_traffic_data.groups),
-            groupsCount: live.cached_traffic_data.groups?.length || 0,
-            hasCampaigns: !!(live.cached_traffic_data.campaigns),
-            campaignsCount: live.cached_traffic_data.campaigns?.length || 0,
-            hasCampaignsWithInsights: !!(live.cached_traffic_data.campaignsWithInsights),
-            campaignsWithInsightsCount: live.cached_traffic_data.campaignsWithInsights?.length || 0
-          });
-          
           setGroups(live.cached_traffic_data.groups || []);
           setCampaigns(live.cached_traffic_data.campaigns || []);
           setCampaignsWithInsights(live.cached_traffic_data.campaignsWithInsights || []);
@@ -413,23 +348,15 @@ const TrafficAnalysis = () => {
           // CORRIGIDO: Carregar adSetData do cache se disponível
           if (live.cached_traffic_data.adSetData) {
             setAdSetData(live.cached_traffic_data.adSetData);
-            console.log('✅ [TrafficAnalysis Cache] AdSetData carregado do cache:', live.cached_traffic_data.adSetData.length, 'itens');
           }
         }
         
         // Preencher campos de data automaticamente baseado nos dados disponíveis
         if (live.cached_traffic_data?.dailyInsights && live.cached_traffic_data.dailyInsights.length > 0) {
           const insights = live.cached_traffic_data.dailyInsights;
-          const dates = insights.map(insight => insight.date).sort();
+          const dates = insights.map((insight: any) => insight.date).sort();
           const minDate = dates[0];
           const maxDate = dates[dates.length - 1];
-
-          console.log('[TrafficAnalysis] Preenchendo calendário automaticamente:', {
-            minDate,
-            maxDate,
-            totalDays: dates.length
-          });
-
           setTempStartDate(minDate);
           setTempEndDate(maxDate);
           setStartDate(minDate);
@@ -446,24 +373,7 @@ const TrafficAnalysis = () => {
       }
 
       // Cache vencido ou inexistente - buscar dados frescos
-      console.log('🔄 [TrafficAnalysis Cache] Cache vencido, buscando dados frescos');
-      
       const completeData = await fetchCompleteLiveData(liveId);
-      
-      console.log('🔍 [TrafficAnalysis Debug] Dados completos retornados:', {
-        hasLive: !!completeData.live,
-        hasMetaIntegration: !!completeData.metaIntegration,
-        metaIntegration: completeData.metaIntegration,
-        hasLiveCampaigns: !!completeData.liveCampaigns,
-        liveCampaignsLength: completeData.liveCampaigns?.length || 0,
-        hasCampaignInsights: !!completeData.campaignInsights,
-        campaignInsightsLength: completeData.campaignInsights?.length || 0,
-        campaignInsightsDetails: completeData.campaignInsights?.map(ci => ({
-          campaign_id: ci.campaign_id,
-          insightsCount: ci.insights?.length || 0
-        })) || []
-      });
-      
       // Atualizar estados com dados frescos
       setLive(completeData.live);
       setGroups((completeData.groups || []).map(group => ({
@@ -480,17 +390,12 @@ const TrafficAnalysis = () => {
         setStartDate(completeData.live.insights_date_since);
         setEndDate(completeData.live.insights_date_until);
       }
-      
-      console.log('✅ [TrafficAnalysis Cache] Dados frescos carregados, buscando adSetData...');
-      
       // Buscar dados de conjuntos de anúncios diretamente do Meta
       let adSetDataToCache: AdSetData[] = [];
       try {
         const accountId = completeData.metaAdAccount?.ad_account_id;
 
         if (accountId && completeData.metaIntegration?.access_token) {
-          console.log('🔄 [TrafficAnalysis Cache] Buscando adSetInsights do Meta...');
-          
           const adSetInsights = await fetchAdSetInsights(
             accountId,
             completeData.metaIntegration.access_token,
@@ -505,12 +410,9 @@ const TrafficAnalysis = () => {
           
           adSetDataToCache = extractAdSetDataFromInsights(adSetInsights);
           setAdSetData(adSetDataToCache);
-          console.log('✅ [TrafficAnalysis Cache] AdSetData carregado:', adSetDataToCache.length, 'itens');
         } else {
-          console.warn('⚠️ [TrafficAnalysis Cache] Não foi possível buscar adSetData - Meta integration não disponível');
         }
       } catch (error) {
-        console.warn('⚠️ [TrafficAnalysis Cache] Erro ao buscar adSetData:', error);
       }
       
       // Salvar dados no cache (incluindo adSetData)
@@ -525,7 +427,6 @@ const TrafficAnalysis = () => {
       });
       
     } catch (error) {
-      console.error('❌ [TrafficAnalysis Cache] Erro ao buscar dados:', error);
     } finally {
       setCacheStatus(prev => ({ ...prev, isLoading: false }));
       setIsLoading(false);
@@ -607,17 +508,13 @@ const TrafficAnalysis = () => {
       if (error) {
         throw error;
       }
-
-      console.log('✅ [TrafficAnalysis Cache] Cache atualizado com sucesso');
     } catch (error) {
-      console.error('❌ [TrafficAnalysis Cache] Erro ao atualizar cache:', error);
       throw error;
     }
   };
 
   // Função para iniciar o refresh (chamada pelo botão)
   const handleRefreshStart = () => {
-    console.log(`[TrafficAnalysis] 🔄 Iniciando refresh - ativando overlay`);
     setIsButtonRefreshing(true);
   };
 
@@ -628,8 +525,6 @@ const TrafficAnalysis = () => {
     setCacheStatus(prev => ({ ...prev, isLoading: true }));
     
     try {
-      console.log('🔄 [TrafficAnalysis Cache] Forçando refresh do cache');
-      
       // Limpar cache atual
       const { error } = await supabase
         .from('lives')
@@ -646,11 +541,7 @@ const TrafficAnalysis = () => {
       
       // Buscar dados frescos
       await fetchTrafficDataWithCache();
-      
-      console.log('✅ [TrafficAnalysis Cache] Refresh forçado concluído');
-      
     } catch (error) {
-      console.error('❌ [TrafficAnalysis Cache] Erro no refresh forçado:', error);
     } finally {
       setCacheStatus(prev => ({ ...prev, isLoading: false }));
     }
@@ -659,8 +550,6 @@ const TrafficAnalysis = () => {
   // Buscar dados com sistema de cache
   useEffect(() => {
     if (liveId) {
-      console.log('[LOADING DO BOTÃO] 🔄 useEffect executando - liveId:', liveId);
-      console.log('[LOADING DO BOTÃO] 🚀 Chamando loadDataFromDatabase (carregamento inicial)');
       loadDataFromDatabase(false); // Carregamento inicial, não do botão
     }
   }, [liveId, loadDataFromDatabase]); // Adicionado loadDataFromDatabase nas dependências
@@ -679,55 +568,26 @@ const TrafficAnalysis = () => {
   };
 
   // Debug: Log dos dados que serão exibidos nos cards
-  console.log('🎯 [TrafficAnalysis] Dados para os cards:', {
-    cplLiquido,
-    cplMeta,
-    retentionRate,
-    groupData,
-    fromCache: !!live?.cached_metrics,
-    cachedMetrics: live?.cached_metrics,
-    cachedGroupData: live?.cached_group_data
-  });
-
   // Debug: Log do timezone do servidor
-  console.log('🌍 [TrafficAnalysis] Timezone do servidor:', Intl.DateTimeFormat().resolvedOptions().timeZone);
-  
   // Calcular dados diários usando dailyInsights do cache
   const calculateDailyData = () => {
-    console.log('🔍 [TrafficAnalysis Debug] calculateDailyData usando dailyInsights do cache');
-
     // Verificar se temos dailyInsights do cache
     const dailyInsights = live?.cached_traffic_data?.dailyInsights;
 
     if (!dailyInsights || dailyInsights.length === 0) {
-      console.log('❌ [TrafficAnalysis Debug] Nenhum dailyInsights encontrado no cache');
       return [];
     }
-
-    console.log('✅ [TrafficAnalysis Debug] Usando dailyInsights do cache:', {
-      totalDays: dailyInsights.length,
-      dates: dailyInsights.map(day => day.date)
-    });
-
     // Converter dailyInsights para formato esperado pela tabela
     const result = dailyInsights.map(insight => ({
       date: insight.date,
       investment: insight.spend,
       cadastros: insight.leads,
-      group: insight.groupJoin || 0,
-      groupExit: insight.groupExit || 0,
+      group: (insight as any).groupJoin || 0,
+      groupExit: (insight as any).groupExit || 0,
       cplMeta: insight.cplMeta,
-      cplLiquido: insight.cplLiquido || 0,
-      retention: insight.retention || 0
+      cplLiquido: (insight as any).cplLiquido || 0,
+      retention: (insight as any).retention || 0
     })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    console.log('✅ [TrafficAnalysis Debug] calculateDailyData finalizado:', {
-      totalDays: result.length,
-      dates: result.map(day => day.date),
-      totalInvestment: result.reduce((sum, day) => sum + day.investment, 0),
-      totalCadastros: result.reduce((sum, day) => sum + day.cadastros, 0)
-    });
-
     return result;
   };
   
@@ -772,27 +632,9 @@ const TrafficAnalysis = () => {
   // Debug: Testar conversão de data
   if (tableData.length > 0) {
     const firstDate = tableData[0].date;
-    console.log('📅 [TrafficAnalysis] Teste de conversão de data:', {
-      original: firstDate,
-      newDate: new Date(firstDate),
-      toLocaleDateString: new Date(firstDate).toLocaleDateString('pt-BR'),
-      formatacaoDireta: firstDate.split('-').reverse().join('/').substring(0, 5)
-    });
   }
   
   // Debug: Verificar cálculos dos totais
-  console.log('🧮 [TrafficAnalysis] Debug dos totais:', {
-    tableDataLength: tableData.length,
-    totalsCalculados: totals,
-    primeirosDados: tableData.slice(0, 3).map(day => ({
-      date: day.date,
-      investment: day.investment,
-      cadastros: day.cadastros,
-      group: day.group,
-      groupExit: day.groupExit
-    }))
-  });
-  
   // TESTE: TABELA 2 - CONJUNTOS DE ANÚNCIOS: TEMPORARIAMENTE USANDO MÉDIA SIMPLES
   // Invertido para validação - antes era média ponderada
   const cplValues = adSetData.map(adSet => adSet.cpl).filter(val => val > 0);
@@ -883,11 +725,6 @@ const TrafficAnalysis = () => {
     
     try {
       setIsLoading(true);
-      console.log('🔄 [TrafficAnalysis] Aplicando filtros de data:', {
-        startDate: tempStartDate,
-        endDate: tempEndDate
-      });
-      
       // Atualizar as datas ativas
       setStartDate(tempStartDate);
       setEndDate(tempEndDate);
@@ -895,14 +732,6 @@ const TrafficAnalysis = () => {
       // Fazer nova requisição com o período filtrado
       if (liveId) {
         const completeData = await fetchCompleteLiveData(liveId, tempStartDate, tempEndDate);
-        
-        console.log('✅ [TrafficAnalysis] Dados filtrados obtidos:', {
-          live: completeData.live?.name,
-          groups: completeData.groups?.length,
-          campaigns: completeData.liveCampaigns?.length,
-          insights: completeData.campaignInsights?.length
-        });
-        
         // Atualizar dados com o novo período
         setGroups((completeData.groups || []).map(group => ({
           ...group,
@@ -944,8 +773,6 @@ const TrafficAnalysis = () => {
         setCampaignData(individualCampaignData);
         
         // CORRIGIDO: Buscar dados de conjuntos de anúncios diretamente do Meta
-        console.log('🔄 [TrafficAnalysis] Buscando dados de conjuntos de anúncios do Meta...');
-        
         const accountId = completeData.metaAdAccount?.ad_account_id;
 
         if (accountId && completeData.metaIntegration?.access_token) {
@@ -965,26 +792,15 @@ const TrafficAnalysis = () => {
             // Extrair dados individuais por conjunto de anúncios
             const individualAdSetData = extractAdSetDataFromInsights(adSetInsights);
             setAdSetData(individualAdSetData);
-            
-            console.log('✅ [TrafficAnalysis] Dados de conjuntos de anúncios carregados:', individualAdSetData.length, 'itens');
-            
           } catch (error) {
-            console.error('❌ [TrafficAnalysis] Erro ao buscar conjuntos de anúncios:', error);
             setAdSetData([]);
           }
         } else {
-          console.warn('⚠️ [TrafficAnalysis] Não foi possível buscar dados de conjuntos de anúncios:', {
-            hasAccountId: !!accountId,
-            hasAccessToken: !!completeData.metaIntegration?.access_token
-          });
           setAdSetData([]);
         }
-        
-        console.log('🎯 [TrafficAnalysis] Dados filtrados por campanha:', individualCampaignData);
       }
       
     } catch (err) {
-      console.error('❌ [TrafficAnalysis] Erro ao aplicar filtros:', err);
       setError(err instanceof Error ? err.message : 'Erro ao aplicar filtros');
     } finally {
       setIsLoading(false);

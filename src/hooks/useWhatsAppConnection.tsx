@@ -62,7 +62,7 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
         duration: 3000
       });
     } catch (err: unknown) {
-      console.error('Erro ao sincronizar:', err);
+
       const errorMessage = err instanceof Error ? err.message : 'Falha ao sincronizar com Evolution API';
       toast.error({
         title: "Erro na sincronização",
@@ -106,7 +106,7 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
         setQrCode(current.qr_code);
       }
     } catch (err) {
-      console.error('Erro ao carregar instâncias:', err);
+
       setError('Falha ao carregar instâncias WhatsApp');
     }
   }, [getUserId]);
@@ -260,7 +260,7 @@ export const useWhatsAppConnection = (): UseWhatsAppConnectionResult => {
         await refreshInstances();
       }
     } catch (err) {
-      console.error('Erro ao verificar status:', err);
+
     }
   }, [currentInstance, connectionState, refreshInstances, toast, getUserId]);
 

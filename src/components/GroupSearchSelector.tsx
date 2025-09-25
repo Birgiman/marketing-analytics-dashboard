@@ -60,7 +60,7 @@ export function GroupSearchSelector({
         // Grupos ainda não sincronizados
       }
     } catch (error) {
-      console.error('❌ [GroupSearch] Erro ao verificar grupos:', error);
+
     } finally {
       setIsLoadingGroups(false);
     }
@@ -138,7 +138,7 @@ export function GroupSearchSelector({
       setHasSearched(true);
 
     } catch (error) {
-      console.error('Error searching groups:', error);
+
     } finally {
       setIsSearching(false);
     }

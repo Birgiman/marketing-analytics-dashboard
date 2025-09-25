@@ -63,7 +63,7 @@ export const useAnalytics = (userId?: string) => {
         error: null
       });
     } catch (error: unknown) {
-      console.error('Error loading analytics data:', error);
+
       const errorMessage = error instanceof Error ? error.message : 'Erro ao carregar dados de analytics';
       setData(prev => ({
         ...prev,
@@ -103,7 +103,7 @@ export const useAnalytics = (userId?: string) => {
 
       return live;
     } catch (error: unknown) {
-      console.error('Error creating live:', error);
+
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({
         title: "Erro ao criar live",
@@ -132,7 +132,7 @@ export const useAnalytics = (userId?: string) => {
 
       return live;
     } catch (error: unknown) {
-      console.error('Error updating live:', error);
+
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({
         title: "Erro ao atualizar live",
@@ -162,7 +162,7 @@ export const useAnalytics = (userId?: string) => {
         description: "Live foi removida com sucesso",
       });
     } catch (error: unknown) {
-      console.error('Error deleting live:', error);
+
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({
         title: "Erro ao deletar live",

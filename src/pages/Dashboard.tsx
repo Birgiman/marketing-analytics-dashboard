@@ -43,12 +43,27 @@ const [lives, setLives] = useState<Live[]>([]);
     totalRevenue: 0,
   });
 
+  const [isSyncingGroups, setIsSyncingGroups] = useState(false);
+  const [hasSyncedGroups, setHasSyncedGroups] = useState(false);
+  const [lastSyncAttempt, setLastSyncAttempt] = useState<number>(0);
+
   // Função para sincronizar grupos WhatsApp em background
   const syncWhatsAppGroups = useCallback(async (userId: string, instanceName?: string) => {
-    if (!instanceName) {
-      console.log('🚫 [Dashboard] Sync de grupos cancelado: Nenhuma instância selecionada');
+    const now = Date.now();
+    const COOLDOWN_PERIOD = 5 * 60 * 1000; // 5 minutos em millisegundos
+    
+    if (!instanceName || isSyncingGroups || hasSyncedGroups) {
       return;
     }
+
+    // Verificar cooldown para evitar rate limiting
+    if (lastSyncAttempt && (now - lastSyncAttempt) < COOLDOWN_PERIOD) {
+      console.log(`⏳ [Dashboard] Aguardando cooldown de ${Math.round((COOLDOWN_PERIOD - (now - lastSyncAttempt)) / 1000)}s antes da próxima sincronização`);
+      return;
+    }
+
+    setIsSyncingGroups(true);
+    setLastSyncAttempt(now);
 
     try {
       // VERIFICAÇÃO INTERNA: Checar se instância está conectada antes da edge function
@@ -61,21 +76,19 @@ const [lives, setLives] = useState<Live[]>([]);
 
       // Não executar se instância não existe ou não está conectada
       if (!instanceData) {
-        console.log(`🚫 [Dashboard] Sync de grupos cancelado: Instância "${instanceName}" não encontrada no banco`);
+
         return;
       }
 
       if (instanceData.status !== 'connected') {
-        console.log(`🚫 [Dashboard] Sync de grupos cancelado: Instância "${instanceName}" está ${instanceData.status} (precisa estar "connected")`);
+
         return;
       }
 
       if (!instanceData.api_token) {
-        console.log(`🚫 [Dashboard] Sync de grupos cancelado: Instância "${instanceName}" sem token API`);
+
         return;
       }
-
-      console.log(`✅ [Dashboard] Iniciando sync de grupos: Instância "${instanceName}" está conectada`);
 
       // Só executa chunked se instância estiver conectada e com token
 
@@ -91,14 +104,21 @@ const [lives, setLives] = useState<Live[]>([]);
           userId: userId
         })
       }).catch((error) => {
-        console.log(`⚠️ [Dashboard] Erro ao executar edge function de sync: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+
       });
     } catch (error) {
-      console.log(`❌ [Dashboard] Erro ao verificar status da instância "${instanceName}": ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+
+    } finally {
+      setIsSyncingGroups(false);
+      setHasSyncedGroups(true);
     }
-  }, []);
+  }, [supabase, isSyncingGroups, hasSyncedGroups, lastSyncAttempt]);
+
+  const [hasLoadedStats, setHasLoadedStats] = useState(false);
 
   const loadStats = useCallback(async (userId: string) => {
+    if (hasLoadedStats) return; // Evitar carregamento duplicado
+    
     try {
       // Fetch user lives with groups
       const userLives = await fetchUserLives();
@@ -107,7 +127,7 @@ const [lives, setLives] = useState<Live[]>([]);
       const totalLives = userLives.length;
       
       // Calculate total participants from all groups in all lives
-      const totalParticipants = userLives.reduce((sum, live) => {
+      const totalParticipants = userLives.reduce((sum: number, live: any) => {
         const liveParticipants = live.live_groups?.reduce((groupSum: number, group: LiveGroup) => {
           return groupSum + (group.group_size || 0);
         }, 0) || 0;
@@ -125,11 +145,12 @@ const [lives, setLives] = useState<Live[]>([]);
         totalRevenue: mockRevenue,
       });
     } catch (error) {
-      console.error("Error loading stats:", error);
+
     } finally {
       setLoading(false);
+      setHasLoadedStats(true);
     }
-  }, [fetchUserLives]);
+  }, [fetchUserLives, hasLoadedStats]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -152,10 +173,15 @@ const [lives, setLives] = useState<Live[]>([]);
 
         await loadStats(session.user.id);
         
-        // Sincronizar grupos WhatsApp em background
-        syncWhatsAppGroups(session.user.id, currentInstance?.instance_name);
+        // Sincronizar grupos WhatsApp em background (FALLBACK - usar dados existentes se Evolution API falhar)
+        if (!isSyncingGroups && !hasSyncedGroups && currentInstance?.instance_name) {
+          // Tentar sincronização, mas não bloquear se falhar
+          syncWhatsAppGroups(session.user.id, currentInstance.instance_name).catch(() => {
+            // Silenciosamente falhar - dados existentes serão usados
+          });
+        }
       } catch (error) {
-        console.error("Error checking auth:", error);
+
         if (!DEMO_MODE) {
           navigate("/auth/signin");
         }
@@ -165,7 +191,7 @@ const [lives, setLives] = useState<Live[]>([]);
     };
 
     checkAuth();
-  }, [navigate, loadStats, syncWhatsAppGroups, currentInstance?.instance_name]);
+  }, [navigate, loadStats, syncWhatsAppGroups, currentInstance?.instance_name, isSyncingGroups, hasSyncedGroups]);
 
   const handleEditLive = (live: Live) => {
     setEditingLive(live);
@@ -188,7 +214,7 @@ const [lives, setLives] = useState<Live[]>([]);
         setShowDeleteModal(false);
         setLiveToDelete(null);
       } catch (error) {
-        console.error('Error deleting live:', error);
+
       }
     }
   };
@@ -387,7 +413,7 @@ const [lives, setLives] = useState<Live[]>([]);
                 await loadStats(session.user.id);
               }
             } catch (error) {
-              console.error("Error reloading stats:", error);
+
             }
           };
           checkAuth();
@@ -410,7 +436,7 @@ const [lives, setLives] = useState<Live[]>([]);
                 await loadStats(session.user.id);
               }
             } catch (error) {
-              console.error("Error reloading stats:", error);
+
             }
           };
           checkAuth();
@@ -431,7 +457,7 @@ const [lives, setLives] = useState<Live[]>([]);
                 await loadStats(session.user.id);
               }
             } catch (error) {
-              console.error("Error reloading stats:", error);
+
             }
           };
           checkAuth();

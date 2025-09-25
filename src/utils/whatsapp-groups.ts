@@ -63,13 +63,11 @@ export async function hasWhatsAppGroups(userId: string): Promise<boolean> {
       .limit(1);
 
     if (error) {
-      console.error('❌ [WhatsAppGroups] Erro ao verificar grupos:', error);
       return false;
     }
 
     return (data?.length || 0) > 0;
   } catch (error) {
-    console.error('❌ [WhatsAppGroups] Erro ao verificar grupos:', error);
     return false;
   }
 }
@@ -87,13 +85,11 @@ export async function countWhatsAppGroups(userId: string): Promise<number> {
       .eq('user_id', userId);
 
     if (error) {
-      console.error('❌ [WhatsAppGroups] Erro ao contar grupos:', error);
       return 0;
     }
 
     return count || 0;
   } catch (error) {
-    console.error('❌ [WhatsAppGroups] Erro ao contar grupos:', error);
     return 0;
   }
 }

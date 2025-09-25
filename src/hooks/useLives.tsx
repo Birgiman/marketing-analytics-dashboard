@@ -68,7 +68,6 @@ export function useLives() {
         .single()
 
       if (liveError) {
-        console.error('Error creating live:', liveError)
         throw new Error(`Erro ao criar live: ${liveError.message}`)
       }
 
@@ -88,7 +87,6 @@ export function useLives() {
           .insert(liveGroups)
 
         if (groupsError) {
-          console.error('Error creating live groups:', groupsError)
           // Optionally delete the created live if groups fail
           await supabase.from('lives').delete().eq('id', liveResult.id)
           throw new Error(`Erro ao vincular grupos: ${groupsError.message}`)
@@ -102,7 +100,6 @@ export function useLives() {
           index === self.findIndex(c => c.id === campaign.id)
         )
 
-        console.log(`[useLives] Criando ${uniqueCampaigns.length} campanhas para nova live`)
 
         const liveCampaigns = uniqueCampaigns.map(campaign => ({
           live_id: liveResult.id,
@@ -121,7 +118,6 @@ export function useLives() {
           .insert(liveCampaigns)
 
         if (campaignsError) {
-          console.error('Error creating live campaigns:', campaignsError)
           // Optionally delete the created live if campaigns fail
           await supabase.from('lives').delete().eq('id', liveResult.id)
           throw new Error(`Erro ao vincular campanhas: ${campaignsError.message}`)
@@ -139,7 +135,6 @@ export function useLives() {
       return { live: liveResult, groups, campaigns }
 
     } catch (error) {
-      console.error('Error in createLiveWithGroups:', error)
       toast({
         title: "❌ Erro ao criar live",
         description: error instanceof Error ? error.message : "Erro desconhecido",
@@ -151,59 +146,16 @@ export function useLives() {
     }
   }
 
-  const fetchUserLives = useCallback(async () => {
-    try {
-      const { data: session } = await supabase.auth.getSession()
-      if (!session.session?.user) return []
-
-      const { data, error } = await supabase
-        .from('lives')
-        .select(`
-          *,
-          live_groups (
-            id,
-            group_id,
-            group_name,
-            group_size,
-            monitoring
-          ),
-          live_campaigns (
-            id,
-            campaign_id,
-            campaign_name,
-            account_id,
-            account_name,
-            objective,
-            status,
-            daily_budget,
-            lifetime_budget
-          )
-        `)
-        .eq('user_id', session.session.user.id)
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('Error fetching lives:', error)
-        return []
-      }
-
-      return data || []
-    } catch (error) {
-      console.error('Error in fetchUserLives:', error)
-      return []
-    }
-  }, [])
-
   const updateLiveWithGroups = async (liveId: string, liveData: LiveData, groups: LiveGroupInput[], campaigns: LiveCampaign[] = []) => {
     try {
       setIsLoading(true)
 
       const { data: session } = await supabase.auth.getSession()
-      if (!session.session?.user) {
+      if (!session?.session?.user) {
         throw new Error('Usuário não autenticado')
       }
 
-      // 🔍 PRIMEIRO: Buscar dados atuais da live para comparação
+      // Buscar live atual para comparação
       const { data: currentLive, error: fetchError } = await supabase
         .from('lives')
         .select('*')
@@ -215,23 +167,9 @@ export function useLives() {
         throw new Error('Live não encontrada')
       }
 
-      // 🔍 SEGUNDO: Comparar dados e criar update parcial
-      const updateFields: Partial<LiveData> = {}
+      // Preparar campos para update
+      const updateFields: any = {}
       const changes: string[] = []
-
-      // 🔍 DEBUG: Log dos dados para investigação
-      console.log('🔍 [DEBUG] Dados atuais do banco:', {
-        sales_goal: currentLive.sales_goal,
-        ad_budget: currentLive.ad_budget,
-        leads_goal: currentLive.leads_goal,
-        campaign_search_term: currentLive.campaign_search_term
-      });
-      console.log('🔍 [DEBUG] Dados novos do formulário:', {
-        sales_goal: liveData.sales_goal,
-        ad_budget: liveData.ad_budget,
-        leads_goal: liveData.leads_goal,
-        campaign_search_term: liveData.campaign_search_term
-      });
 
       // Comparar cada campo e adicionar apenas os que mudaram
       if (currentLive.name !== liveData.name) {
@@ -299,7 +237,6 @@ export function useLives() {
 
       // 🔍 TERCEIRO: Fazer update apenas se houver mudanças
       if (Object.keys(updateFields).length > 0) {
-        console.log('🔄 [updateLiveWithGroups] Mudanças detectadas:', changes)
         
         const { error: liveError } = await supabase
           .from('lives')
@@ -308,13 +245,10 @@ export function useLives() {
           .eq('user_id', session.session.user.id)
 
         if (liveError) {
-          console.error('Error updating live:', liveError)
           throw new Error(`Erro ao atualizar live: ${liveError.message}`)
         }
 
-        console.log('✅ [updateLiveWithGroups] Live atualizada com sucesso')
       } else {
-        console.log('ℹ️ [updateLiveWithGroups] Nenhuma mudança detectada nos dados da live')
       }
 
       // Delete existing live_groups, then recreate them
@@ -324,7 +258,6 @@ export function useLives() {
         .eq('live_id', liveId)
 
       if (deleteGroupsError) {
-        console.error('Error deleting existing live groups:', deleteGroupsError)
         throw new Error(`Erro ao atualizar grupos: ${deleteGroupsError.message}`)
       }
 
@@ -344,7 +277,6 @@ export function useLives() {
           .insert(liveGroups)
 
         if (groupsError) {
-          console.error('Error creating updated live groups:', groupsError)
           throw new Error(`Erro ao atualizar grupos: ${groupsError.message}`)
         }
       }
@@ -358,7 +290,6 @@ export function useLives() {
           .eq('live_id', liveId)
 
         if (fetchError) {
-          console.error('Error fetching existing campaigns:', fetchError)
           throw new Error(`Erro ao verificar campanhas existentes: ${fetchError.message}`)
         }
 
@@ -370,7 +301,6 @@ export function useLives() {
           !existingCampaignIds.includes(campaign.id)
         )
 
-        console.log(`[useLives] Campanhas para adicionar: ${campaigns.length} total, ${existingCampaignIds.length} já existem, ${newCampaigns.length} novas`)
 
         // Only insert truly new campaigns
         if (newCampaigns.length > 0) {
@@ -391,7 +321,6 @@ export function useLives() {
             .insert(liveCampaigns)
 
           if (campaignsError) {
-            console.error('Error adding new live campaigns:', campaignsError)
             throw new Error(`Erro ao adicionar campanhas: ${campaignsError.message}`)
           }
         }
@@ -408,7 +337,6 @@ export function useLives() {
       return true
 
     } catch (error) {
-      console.error('Error in updateLiveWithGroups:', error)
       toast({
         title: "❌ Erro ao atualizar live",
         description: error instanceof Error ? error.message : "Erro desconhecido",
@@ -523,7 +451,6 @@ export function useLives() {
       return true
 
     } catch (error) {
-      console.error('Error in softDeleteLive:', error)
       toast({
         title: "❌ Erro ao excluir live",
         description: error instanceof Error ? error.message : "Erro desconhecido",
@@ -534,6 +461,24 @@ export function useLives() {
       setIsLoading(false)
     }
   }
+
+  const fetchUserLives = useCallback(async () => {
+    try {
+      const { data: session } = await supabase.auth.getSession()
+      if (!session?.session?.user) return []
+
+      const { data: lives, error } = await supabase
+        .from('lives')
+        .select('*')
+        .eq('user_id', session.session.user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return lives || []
+    } catch (error) {
+      return []
+    }
+  }, [supabase])
 
   return {
     createLiveWithGroups,

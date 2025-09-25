@@ -116,7 +116,7 @@ export function useMetaAds(): UseMetaAdsReturn {
           setUserId(session.user.id);
         }
       } catch (err) {
-        console.error('Error getting user:', err);
+
         setError('Erro ao buscar usuário');
       }
     };
@@ -159,7 +159,7 @@ export function useMetaAds(): UseMetaAdsReturn {
       await syncData();
       
     } catch (err: unknown) {
-      console.error('Error connecting Meta account:', err);
+
       const errorMessage = err instanceof Error ? err.message : 'Erro ao conectar conta Meta';
       setError(errorMessage);
     } finally {
@@ -186,7 +186,7 @@ export function useMetaAds(): UseMetaAdsReturn {
       }));
       
     } catch (err: unknown) {
-      console.error('Error disconnecting account:', err);
+
       setError('Erro ao desconectar conta');
     }
   }, [userId]);
@@ -205,11 +205,9 @@ export function useMetaAds(): UseMetaAdsReturn {
         insights: [],
         logs: []
       });
-      
-      console.info('[useMetaAds] Integration disconnected successfully');
-      
+
     } catch (err: unknown) {
-      console.error('[useMetaAds] Error disconnecting integration:', err);
+
       setError('Erro ao desconectar integração');
     }
   }, [userId]);
@@ -231,7 +229,7 @@ export function useMetaAds(): UseMetaAdsReturn {
       await refreshData();
       
     } catch (err: unknown) {
-      console.error('Error syncing Meta data:', err);
+
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
       setError('Erro na sincronização: ' + errorMessage);
     } finally {
@@ -257,7 +255,7 @@ export function useMetaAds(): UseMetaAdsReturn {
       setData(userData);
       
     } catch (err: unknown) {
-      console.error('Error refreshing data:', err);
+
       setError('Erro ao carregar dados');
     } finally {
       setIsLoading(false);

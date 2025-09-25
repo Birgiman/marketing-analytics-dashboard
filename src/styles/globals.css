@@ -31,3 +31,48 @@ body {
     text-wrap: balance;
   }
 }
+
+/* Custom scroll behavior for group names */
+.group-name-scroll {
+  direction: rtl;
+  text-align: right;
+}
+
+.group-name-scroll span {
+  direction: ltr;
+  text-align: right;
+  display: inline-block;
+}
+
+/* Custom scrollbar styles */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.group-hover\:scrollbar-show:hover {
+  scrollbar-width: thin;
+}
+
+.group-hover\:scrollbar-show:hover::-webkit-scrollbar {
+  display: block;
+  height: 6px;
+}
+
+.group-hover\:scrollbar-show:hover::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.group-hover\:scrollbar-show:hover::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.group-hover\:scrollbar-show:hover::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}

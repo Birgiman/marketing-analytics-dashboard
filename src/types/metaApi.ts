@@ -252,9 +252,7 @@ export function createCampaignNameFilter(
 ): MetaApiFilter {
   // Limpar e normalizar o termo de busca
   const cleanTerm = searchTerm.trim().toUpperCase();
-  
-  console.log('🔍 [createCampaignNameFilter] Criando filtro para termo:', cleanTerm);
-  
+
   return {
     field: 'campaign.name',
     operator: MetaFilterOperator.CONTAIN,

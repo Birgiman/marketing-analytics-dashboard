@@ -6,20 +6,20 @@
  */
 
 import {
-    calculateLiveMetricsV2,
-    formatCurrencyV2,
-    formatPercentageV2,
-    GroupData,
-    LiveMetricsV2,
-    logCalculationsV2,
-    MetaCampaignData
+  calculateLiveMetricsV2,
+  formatCurrencyV2,
+  formatPercentageV2,
+  GroupData,
+  LiveMetricsV2,
+  logCalculationsV2,
+  MetaCampaignData
 } from './calculations-v2';
 
 import {
-    ExtractedLiveData,
-    extractLiveDataForCalculations,
-    logExtractedData,
-    validateExtractedData
+  ExtractedLiveData,
+  extractLiveDataForCalculations,
+  logExtractedData,
+  validateExtractedData
 } from './data-extractors-v2';
 
 // ============================================================================
@@ -306,41 +306,3 @@ export function exportMetricsToCSV(result: LiveMetricsResult): string {
   return [headers.join(','), values.join(',')].join('\n');
 }
 
-// ============================================================================
-// EXEMPLO DE USO
-// ============================================================================
-
-/**
- * Exemplo de uso das funções
- * 
- * const liveData = {
- *   live: { id: '123', name: 'Live Teste', ad_budget: 10000 },
- *   groups: [
- *     { group_size: 500, group_name: 'Grupo 1' },
- *     { group_size: 350, group_name: 'Grupo 2' }
- *   ],
- *   campaignInsights: [
- *     {
- *       campaign_id: '123456',
- *       insights: [
- *         { spend: '5000', actions: [{ action_type: 'lead', value: '1000' }] }
- *       ]
- *     }
- *   ]
- * };
- * 
- * // Cálculo completo com logs e validação
- * const result = calculateCompleteLiveMetrics(liveData);
- * 
- * if (result.validation.isValid) {
- *   console.log('CPL Líquido:', result.summary.cplLiquidoFormatted);
- *   console.log('CPL Meta:', result.summary.cplMetaFormatted);
- *   console.log('Taxa de Retenção:', result.summary.retentionRateFormatted);
- * } else {
- *   console.error('Erros encontrados:', result.validation.errors);
- * }
- * 
- * // Cálculo simples (apenas métricas)
- * const simpleMetrics = calculateSimpleMetrics(liveData);
- * console.log('CPL Líquido:', simpleMetrics.cplLiquido);
- */

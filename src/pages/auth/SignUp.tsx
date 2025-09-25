@@ -78,7 +78,7 @@ export default function SignUp() {
           });
 
         if (profileError) {
-          console.error('Error creating profile:', profileError);
+
         }
 
         // Redirect to pending approval page

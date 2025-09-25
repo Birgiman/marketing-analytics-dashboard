@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
 import { supabase } from '@/integrations/supabase/client'
+import { useEffect, useState } from 'react'
 
 interface WhatsAppInstance {
   id: string
@@ -26,7 +26,6 @@ export function useWhatsAppInstances() {
         .order('created_at', { ascending: false })
 
       if (error) {
-        console.error('Error fetching instances:', error)
         return
       }
 
@@ -44,7 +43,6 @@ export function useWhatsAppInstances() {
       }
 
     } catch (error) {
-      console.error('Error in fetchInstances:', error)
     } finally {
       setIsLoading(false)
     }

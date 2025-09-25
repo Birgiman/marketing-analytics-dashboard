@@ -94,11 +94,8 @@ export async function fetchCompleteLiveData(
   customStartDate?: string, 
   customEndDate?: string
 ): Promise<LiveDataResponse> {
-  console.log(`[LiveDataFetcher] Iniciando busca completa para Live: ${liveId}`);
-  
   try {
     // 1. Buscar dados da Live
-    console.log('[LiveDataFetcher] 1. Buscando dados da Live...');
     const { data: live, error: liveError } = await supabase
       .from('lives')
       .select('*')
@@ -108,21 +105,14 @@ export async function fetchCompleteLiveData(
     if (liveError || !live) {
       throw new Error(`Live não encontrada: ${liveError?.message || 'ID inválido'}`);
     }
-
-    console.log(`[LiveDataFetcher] Live encontrada: ${live.name} (User: ${live.user_id})`);
-
     // 2. Buscar dados do usuário (usando dados básicos disponíveis)
-    console.log('[LiveDataFetcher] 2. Preparando dados do usuário...');
     const user = {
       user: {
         id: live.user_id,
         email: null // Email não disponível sem permissões admin
       }
     };
-    console.log(`[LiveDataFetcher] Usuário ID: ${live.user_id}`);
-
     // 3. Buscar grupos vinculados à Live
-    console.log('[LiveDataFetcher] 3. Buscando grupos vinculados à Live...');
     const { data: groups, error: groupsError } = await supabase
       .from('live_groups')
       .select('*')
@@ -130,14 +120,10 @@ export async function fetchCompleteLiveData(
       .order('created_at', { ascending: false });
 
     if (groupsError) {
-      console.warn('[LiveDataFetcher] Erro ao buscar grupos:', groupsError);
     }
 
     const liveGroups = groups || [];
-    console.log(`[LiveDataFetcher] ${liveGroups.length} grupos encontrados`);
-
     // 4. Buscar integração Meta do usuário
-    console.log('[LiveDataFetcher] 4. Buscando integração Meta...');
     const { data: metaIntegration, error: metaError } = await supabase
       .from('meta_integrations')
       .select('*')
@@ -146,20 +132,13 @@ export async function fetchCompleteLiveData(
       .single();
 
     if (metaError) {
-      console.warn('[LiveDataFetcher] Integração Meta não encontrada:', metaError.message);
     } else if (metaIntegration) {
-      console.log('[LiveDataFetcher] Integração Meta encontrada:', {
-        user_id: metaIntegration.user_id,
-        is_active: metaIntegration.is_active,
-        has_access_token: !!metaIntegration.access_token
-      });
     }
 
     let allUserCampaigns: MetaCampaign[] = [];
     let campaignInsights: Array<{ campaign_id: string; insights: MetaInsight[] }> = [];
 
     // 4.1. Buscar campanhas vinculadas à Live (para obter account_id selecionado)
-    console.log('[LiveDataFetcher] 4.1. Buscando campanhas vinculadas à Live (banco de dados)...');
     const { data: liveCampaignsList, error: liveCampaignsError } = await supabase
       .from('live_campaigns')
       .select('*')
@@ -167,20 +146,20 @@ export async function fetchCompleteLiveData(
       .order('created_at', { ascending: false });
 
     if (liveCampaignsError) {
-      console.warn('[LiveDataFetcher] Erro ao buscar campanhas vinculadas:', liveCampaignsError);
     }
 
     const liveCampaigns = liveCampaignsList || [];
-    console.log(`[LiveDataFetcher] ${liveCampaigns.length} campanhas vinculadas encontradas no banco`);
+    // DEBUG: Listar nomes das campanhas no banco
+    if (liveCampaigns.length > 0) {
+      liveCampaigns.forEach((camp, index) => {
+      });
+    }
 
     // 4.2. Obter account_id da Live (a conta selecionada na criação)
     const selectedAccountId = liveCampaigns.length > 0 ? liveCampaigns[0].account_id : null;
-    console.log(`[LiveDataFetcher] 4.2. Account ID selecionado para esta Live: ${selectedAccountId}`);
-
     // 4.3. Buscar dados completos da conta Meta selecionada
     let metaAdAccount = null;
     if (selectedAccountId) {
-      console.log('[LiveDataFetcher] 4.3. Buscando dados completos da conta Meta selecionada...');
       const { data: adAccountData, error: adAccountError } = await supabase
         .from('meta_ad_accounts')
         .select('ad_account_id, account_name, access_token')
@@ -189,27 +168,15 @@ export async function fetchCompleteLiveData(
         .single();
 
       if (adAccountError) {
-        console.warn('[LiveDataFetcher] Conta Meta selecionada não encontrada:', adAccountError.message);
       } else if (adAccountData) {
         metaAdAccount = adAccountData;
-        console.log('[LiveDataFetcher] Conta Meta selecionada encontrada:', {
-          ad_account_id: metaAdAccount.ad_account_id,
-          account_name: metaAdAccount.account_name,
-          has_access_token: !!metaAdAccount.access_token
-        });
       }
     } else {
-      console.warn('[LiveDataFetcher] Nenhuma campanha vinculada encontrada para obter account_id');
     }
 
     // 5. Se tem conta Meta com dados completos, buscar campanhas usando termo salvo na Live
     const accessToken = metaAdAccount?.access_token || metaIntegration?.access_token;
     if (accessToken && metaAdAccount?.ad_account_id) {
-      console.log('[LiveDataFetcher] 5. Buscando campanhas usando termo salvo na Live...');
-      console.log(`[LiveDataFetcher] Account ID usado: ${metaAdAccount.ad_account_id}`);
-      console.log(`[LiveDataFetcher] Access Token fonte: ${metaAdAccount.access_token ? 'meta_ad_accounts' : 'meta_integrations'}`);
-      console.log(`[LiveDataFetcher] Termo de busca: "${live.campaign_search_term || 'Não definido'}"`);
-
       try {
         // Validar dados obrigatórios - SEM FALLBACKS
         if (!live.insights_date_since || !live.insights_date_until) {
@@ -219,10 +186,6 @@ export async function fetchCompleteLiveData(
         if (!live.campaign_search_term || !live.campaign_search_term.trim()) {
           throw new Error(`[LiveDataFetcher] Termo de busca de campanha obrigatório não encontrado: "${live.campaign_search_term}"`);
         }
-
-        console.log(`[LiveDataFetcher] 🔍 Buscando insights com termo: "${live.campaign_search_term}"`);
-        console.log(`[LiveDataFetcher] 📅 Período: ${live.insights_date_since} até ${live.insights_date_until}`);
-
         // CORREÇÃO: Usar fetchMetaInsights com a conta e token corretos
         const insights = await fetchMetaInsights(
           metaAdAccount.ad_account_id, // Account ID da conta selecionada para esta Live
@@ -253,9 +216,6 @@ export async function fetchCompleteLiveData(
             ]
           }
         );
-
-        console.log(`[LiveDataFetcher] ✅ ${insights.length} insights encontrados com termo "${live.campaign_search_term}"`);
-
         // CORREÇÃO: Agrupar insights por campanha para evitar duplicação
         const insightsByCampaign = new Map();
 
@@ -270,9 +230,6 @@ export async function fetchCompleteLiveData(
           }
           insightsByCampaign.get(campaignId).insights.push(insight);
         });
-
-        console.log(`[LiveDataFetcher] 📊 ${insightsByCampaign.size} campanhas únicas encontradas (${insights.length} insights total)`);
-
         // Converter para array de campanhas
         allUserCampaigns = Array.from(insightsByCampaign.values()).map(campaign => ({
           id: campaign.id,
@@ -285,37 +242,38 @@ export async function fetchCompleteLiveData(
           updated_time: new Date().toISOString(),
           insights: campaign.insights // Manter insights agrupados
         }));
-
-        console.log(`[LiveDataFetcher] ${allUserCampaigns.length} campanhas encontradas no Meta${live.campaign_search_term ? ` com termo "${live.campaign_search_term}"` : ' (todas)'}`);
-
+        // DEBUG: Listar nomes das campanhas encontradas na Meta API
         if (allUserCampaigns.length > 0) {
-          console.log('[LiveDataFetcher] Primeiras campanhas encontradas:', allUserCampaigns.slice(0, 3).map(c => ({ id: c.id, name: c.name, status: c.status })));
+          allUserCampaigns.forEach((camp, index) => {
+          });
+
+          // DEBUG: Comparar com campanhas do banco
+          const bankCampaignIds = new Set(liveCampaigns.map(c => c.campaign_id));
+          const metaCampaignIds = new Set(allUserCampaigns.map(c => c.id));
+
+          const missingFromMeta = liveCampaigns.filter(c => !metaCampaignIds.has(c.campaign_id));
+          const extraInMeta = allUserCampaigns.filter(c => !bankCampaignIds.has(c.id));
+
+          if (missingFromMeta.length > 0) {
+            missingFromMeta.forEach((camp, index) => {
+            });
+          }
+
+          if (extraInMeta.length > 0) {
+            extraInMeta.forEach((camp, index) => {
+            });
+          }
         }
       } catch (error) {
-        console.warn('[LiveDataFetcher] Erro ao buscar campanhas do Meta:', error);
-        console.warn('[LiveDataFetcher] Erro detalhado:', (error as Error).message);
       }
     } else {
-      console.log('[LiveDataFetcher] 5. Pular busca de campanhas - Dados insuficientes');
-      console.log(`[LiveDataFetcher] Meta Integration: ${!!metaIntegration}`);
-      console.log(`[LiveDataFetcher] Meta Ad Account: ${!!metaAdAccount}`);
-      console.log(`[LiveDataFetcher] Access Token disponível: ${!!accessToken}`);
-      console.log(`[LiveDataFetcher] Account ID: ${metaAdAccount?.ad_account_id || 'undefined'}`);
-      console.log(`[LiveDataFetcher] Campanhas vinculadas: ${liveCampaigns.length}`);
     }
 
     // 6. NOVO: Usar campanhas encontradas pelo termo ao invés das salvas no banco
-    console.log('[LiveDataFetcher] 6. Usando campanhas encontradas pelo termo de busca...');
-    console.log(`[LiveDataFetcher] ${allUserCampaigns.length} campanhas para buscar insights`);
-
     // 7. Buscar insights das campanhas encontradas pelo termo
     if (metaIntegration?.access_token && allUserCampaigns.length > 0) {
-      console.log('[LiveDataFetcher] 7. Buscando insights das campanhas encontradas...');
-
       for (const campaign of allUserCampaigns) {
         try {
-          console.log(`[LiveDataFetcher] Buscando insights para campanha: ${campaign.name} (${campaign.id})`);
-          
           // Configurar opções de insights com campos necessários
           const insightsOptions: MetaInsightsOptions = {
             fields: [
@@ -331,13 +289,11 @@ export async function fetchCompleteLiveData(
               since: customStartDate,
               until: customEndDate
             };
-            console.log(`[LiveDataFetcher] Usando dateRange personalizado: ${customStartDate} até ${customEndDate}`);
           } else if (live.insights_date_since && live.insights_date_until) {
             insightsOptions.dateRange = {
               since: live.insights_date_since,
               until: live.insights_date_until
             };
-            console.log(`[LiveDataFetcher] Usando dateRange da Live: ${live.insights_date_since} até ${live.insights_date_until}`);
           } else {
             // Fallback para período padrão (Live sem período definido)
             const now = new Date();
@@ -347,7 +303,6 @@ export async function fetchCompleteLiveData(
               since: firstDayOfMonth.toISOString().split('T')[0],
               until: now.toISOString().split('T')[0]
             };
-            console.log('[LiveDataFetcher] Usando dateRange padrão (Live sem período definido)');
           }
 
           const insights = await fetchCampaignInsightsById(
@@ -361,15 +316,12 @@ export async function fetchCompleteLiveData(
             insights: insights
           });
 
-          console.log(`[LiveDataFetcher] ${insights.length} insights encontrados para ${campaign.name}`);
         } catch (error) {
-          console.warn(`[LiveDataFetcher] Erro ao buscar insights da campanha ${campaign.id}:`, error);
         }
       }
     }
 
     // 8. Calcular resumo
-    console.log('[LiveDataFetcher] 8. Calculando resumo...');
     const totalGroups = liveGroups.length;
     const totalGroupMembers = liveGroups.reduce((sum, group) => sum + group.group_size, 0);
 
@@ -378,11 +330,6 @@ export async function fetchCompleteLiveData(
     const activeCampaigns = allUserCampaigns.length > 0
       ? allUserCampaigns.filter(c => c.status === 'ACTIVE').length
       : liveCampaigns.filter(c => c.status === 'ACTIVE').length;
-
-    console.log(`[LiveDataFetcher] Campanhas para resumo: Meta API (${allUserCampaigns.length}) | Live vinculadas (${liveCampaigns.length})`);
-    console.log(`[LiveDataFetcher] Usando dados: ${allUserCampaigns.length > 0 ? 'Meta API' : 'Live vinculadas'}`);
-    console.log(`[LiveDataFetcher] Total campanhas: ${totalCampaigns}, Ativas: ${activeCampaigns}`);
-
     // Calcular métricas dos insights
     let totalSpend = 0;
     let totalImpressions = 0;
@@ -402,11 +349,7 @@ export async function fetchCompleteLiveData(
     let validCPPCount = 0;
     let validCostPerUniqueClickCount = 0;
     let validFrequencyCount = 0;
-
-    console.log(`[LiveDataFetcher] Processando ${campaignInsights.length} campanhas de insights...`);
-
     campaignInsights.forEach(({ campaign_id, insights }) => {
-      console.log(`[LiveDataFetcher] Campanha ${campaign_id}: ${insights.length} insights`);
 
       insights.forEach((insight, index) => {
         totalSpend += parseFloat(insight.spend || '0');
@@ -452,29 +395,7 @@ export async function fetchCompleteLiveData(
           });
         }
 
-        // Log dos primeiros insights para debug
-        if (index < 3) {
-          console.log(`[LiveDataFetcher] Insight ${index}:`, {
-            date: `${insight.date_start} - ${insight.date_stop}`,
-            spend: insight.spend,
-            impressions: insight.impressions,
-            clicks: insight.clicks,
-            cpm: insight.cpm,
-            ctr: insight.ctr,
-            frequency: insight.frequency,
-            actions: insight.actions?.length || 0
-          });
-        }
-
-        // Log do último insight para ver o range completo
-        if (index === insights.length - 1) {
-          console.log(`[LiveDataFetcher] Último Insight (${index}):`, {
-            date: `${insight.date_start} - ${insight.date_stop}`,
-            spend: insight.spend,
-            impressions: insight.impressions,
-            clicks: insight.clicks
-          });
-        }
+        // Processar insight silenciosamente
       });
     });
 
@@ -490,55 +411,7 @@ export async function fetchCompleteLiveData(
     const avgCPP = validCPPCount > 0 ? sumCPP / validCPPCount : 0;
     const avgCostPerUniqueClick = validCostPerUniqueClickCount > 0 ? sumCostPerUniqueClick / validCostPerUniqueClickCount : 0;
     const avgFrequency = validFrequencyCount > 0 ? sumFrequency / validFrequencyCount : 0;
-
-    console.log('[LiveDataFetcher] Métricas calculadas:', {
-      totalSpend: totalSpend.toFixed(2),
-      totalImpressions,
-      totalClicks,
-      totalActions,
-      totalInsights,
-      calculatedCPM: calculatedCPM.toFixed(4),
-      calculatedCTR: calculatedCTR.toFixed(4),
-      calculatedCPL: calculatedCPL.toFixed(4),
-      finalCPM: avgCPM.toFixed(4),
-      finalCTR: avgCTR.toFixed(4)
-    });
-
     // Log para comparação direta com Meta Dashboard
-    console.log('\n📊 [COMPARAÇÃO COM META DASHBOARD]');
-    console.log('==========================================');
-    console.log(`Período analisado: 1 set - 14 set 2025`);
-    console.log(`Campanha principal: ${liveCampaigns[0]?.campaign_name || 'N/A'}`);
-    console.log('');
-    console.log('💰 GASTOS:');
-    console.log(`  Nossa API: $${totalSpend.toFixed(2)} USD / R$${(totalSpend * 5.5).toFixed(2)} BRL (aprox.)`);
-    console.log(`  Meta Dashboard: R$ 74,38 (conforme informado)`);
-    console.log('');
-    console.log('👀 IMPRESSÕES:');
-    console.log(`  Nossa API: ${totalImpressions.toLocaleString()}`);
-    console.log(`  Meta Dashboard: 5.325 (conforme informado)`);
-    console.log('');
-    console.log('👆 CLIQUES:');
-    console.log(`  Nossa API: ${totalClicks.toLocaleString()}`);
-    console.log(`  Meta Dashboard: [verificar na planilha]`);
-    console.log('');
-    console.log('📈 MÉTRICAS CALCULADAS:');
-    console.log(`  CPM Médio: $${avgCPM.toFixed(2)} (${avgCPM.toFixed(4)} exato)`);
-    console.log(`  CTR Médio: ${avgCTR.toFixed(2)}% (${avgCTR.toFixed(4)}% exato)`);
-    console.log(`  Custo/Clique: $${avgCostPerUniqueClick.toFixed(2)}`);
-    console.log(`  Frequência: ${avgFrequency.toFixed(2)}`);
-    console.log('');
-    console.log('🎯 AÇÕES/RESULTADOS:');
-    console.log(`  Total de Ações: ${totalActions}`);
-    console.log(`  Meta Dashboard: 272 resultados (conforme informado)`);
-    console.log('');
-    console.log('⚠️  POSSÍVEIS DIFERENÇAS:');
-    console.log('  - Período: API pode estar usando 30 dias vs. 1-14 setembro');
-    console.log('  - Agregação: API soma todos os dias vs. totais do dashboard');
-    console.log('  - Moeda: API em USD vs. Dashboard em BRL');
-    console.log('  - Timezone: Possível diferença de fuso horário');
-    console.log('==========================================\n');
-
     const response: LiveDataResponse = {
       live: {
         id: live.id,
@@ -585,22 +458,9 @@ export async function fetchCompleteLiveData(
         }
       }
     };
-
-    console.log('[LiveDataFetcher] ✅ Busca completa finalizada com sucesso!');
-    console.log('[LiveDataFetcher] Resumo:', {
-      live: live.name,
-      grupos: totalGroups,
-      membros: totalGroupMembers,
-      campanhas: totalCampaigns,
-      campanha_ativas: activeCampaigns,
-      gasto_total: `$${totalSpend}`,
-      impressões: totalImpressions
-    });
-
     return response;
 
   } catch (error) {
-    console.error('[LiveDataFetcher] ❌ Erro na busca completa:', error);
     throw error;
   }
 }
@@ -610,32 +470,14 @@ export async function fetchCompleteLiveData(
  * Chame essa função no console do navegador para testar
  */
 export async function testLiveDataFetcher(liveId: string) {
-  console.log('🧪 [TESTE] Iniciando teste do LiveDataFetcher...');
-  
   try {
     const startTime = Date.now();
     const data = await fetchCompleteLiveData(liveId);
     const endTime = Date.now();
-    
-    console.log(`🧪 [TESTE] ✅ Teste concluído em ${endTime - startTime}ms`);
-    console.log('🧪 [TESTE] Dados retornados:', data);
-    
     // Mostrar resumo formatado
-    console.log('\n📊 [RESUMO DO TESTE]');
-    console.log('==================');
-    console.log(`Live: ${data.live.name}`);
-    console.log(`Usuário: ${data.user.email || data.user.id}`);
-    console.log(`Grupos: ${data.summary.totalGroups} (${data.summary.totalGroupMembers} membros)`);
-    console.log(`Meta Integration: ${data.metaIntegration ? '✅ Ativa' : '❌ Não encontrada'}`);
-    console.log(`Campanhas do usuário: ${data.summary.totalCampaigns} (${data.summary.activeCampaigns} ativas)`);
-    console.log(`Campanhas vinculadas à Live: ${data.liveCampaigns.length}`);
-    console.log(`Insights coletados: ${data.campaignInsights.length} campanhas`);
-    console.log(`Métricas: $${data.summary.totalSpend} gasto, ${data.summary.totalImpressions.toLocaleString()} impressões`);
-    
     return data;
     
   } catch (error) {
-    console.error('🧪 [TESTE] ❌ Erro no teste:', error);
     throw error;
   }
 }

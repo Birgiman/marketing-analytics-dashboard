@@ -22,7 +22,6 @@ export async function fetchPublicAudiences(liveId: string): Promise<PublicAudien
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('Erro ao buscar públicos:', error);
     throw new Error(`Erro ao buscar públicos: ${error.message}`);
   }
 
@@ -54,7 +53,6 @@ export async function createPublicAudience(
     .single();
 
   if (error) {
-    console.error('Erro ao criar público:', error);
     throw new Error(`Erro ao criar público: ${error.message}`);
   }
 
@@ -85,7 +83,6 @@ export async function updatePublicAudience(
     .single();
 
   if (error) {
-    console.error('Erro ao atualizar público:', error);
     throw new Error(`Erro ao atualizar público: ${error.message}`);
   }
 
@@ -108,7 +105,6 @@ export async function deletePublicAudience(audienceId: string): Promise<void> {
     .eq('user_id', session.user.id);
 
   if (error) {
-    console.error('Erro ao deletar público:', error);
     throw new Error(`Erro ao deletar público: ${error.message}`);
   }
 }
@@ -143,7 +139,6 @@ export async function fetchCorrelatedCampaigns(
 
     return campaigns;
   } catch (error) {
-    console.error('Erro ao buscar campanhas correlacionadas:', error);
     return [];
   }
 }
@@ -169,7 +164,6 @@ export async function fetchCorrelatedGroups(
       .ilike('group_name', `%${emoji}%`);
 
     if (error) {
-      console.error('Erro ao buscar grupos correlacionados:', error);
       return [];
     }
 
@@ -179,7 +173,6 @@ export async function fetchCorrelatedGroups(
       size: group.group_size
     }));
   } catch (error) {
-    console.error('Erro ao buscar grupos correlacionados:', error);
     return [];
   }
 }
@@ -232,7 +225,6 @@ export async function generateAudienceCorrelation(
       }
     };
   } catch (error) {
-    console.error('Erro ao gerar correlação do público:', error);
     throw error;
   }
 }

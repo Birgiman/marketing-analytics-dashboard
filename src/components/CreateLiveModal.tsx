@@ -103,26 +103,17 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error loading linked campaigns:', error);
         return;
       }
 
       setLinkedCampaigns(campaigns || []);
     } catch (error) {
-      console.error('Error loading linked campaigns:', error);
     }
   };
 
   // Populate form when editing
   useEffect(() => {
     if (editingLive && open) {
-      console.log('🔍 [CreateLiveModal] Carregando dados da live:', {
-        sales_goal: editingLive.sales_goal,
-        leads_goal: editingLive.leads_goal,
-        ad_budget: editingLive.ad_budget,
-        name: editingLive.name
-      });
-
       setFormData({
         liveName: editingLive.name || '',
         captureStart: editingLive.captacao_start ? new Date(editingLive.captacao_start).toISOString().slice(0, 16) : '',
@@ -132,13 +123,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         leadsTarget: editingLive.leads_goal?.toString() || '',
         adsBudget: editingLive.ad_budget ? (editingLive.ad_budget * 100).toString() : ''
       });
-
-      console.log('🔍 [CreateLiveModal] FormData atualizado:', {
-        salesTarget: editingLive.sales_goal?.toString() || '',
-        leadsTarget: editingLive.leads_goal?.toString() || '',
-        adsBudget: editingLive.ad_budget ? (editingLive.ad_budget * 100).toString() : ''
-      });
-
       // Carregar dateRange se existir
       if (editingLive.insights_date_since && editingLive.insights_date_until) {
         setDateRange({
@@ -201,7 +185,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
     setSelectedCampaigns(campaigns);
     if (searchTerm) {
       setCampaignSearchTerm(searchTerm);
-      console.log('🔍 [CreateLiveModal] Termo de busca capturado:', searchTerm);
     }
     setShowCampaignSelector(false);
   };
@@ -230,7 +213,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         .in('id', selectedCampaignsToDelete);
 
       if (error) {
-        console.error('Error deleting campaigns:', error);
         toast({
           title: "❌ Erro ao excluir campanhas",
           description: error.message,
@@ -248,7 +230,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         description: `${selectedCampaignsToDelete.length} campanha(s) removida(s) da Live com sucesso.`
       });
     } catch (error) {
-      console.error('Error deleting campaigns:', error);
       toast({
         title: "❌ Erro ao excluir campanhas",
         description: "Erro desconhecido",
@@ -298,7 +279,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
       onLiveCreated?.();
       handleClose();
     } catch (error) {
-      console.error('Error creating/updating live:', error);
     }
   };
 

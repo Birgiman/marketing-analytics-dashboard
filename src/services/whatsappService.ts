@@ -51,7 +51,7 @@ class WhatsAppService {
 
       return { instanceName, fullName };
     } catch (error) {
-      console.error('Erro ao gerar nome da instância:', error);
+
       throw error;
     }
   }
@@ -65,17 +65,15 @@ class WhatsAppService {
         body: requestBody
       });
 
-      console.log('Response error:', response.error);
-      console.log('Response data:', response.data);
 
       if (response.error) {
-        console.error('Edge Function retornou erro:', response.error);
+
         throw new Error(response.error.message || 'Erro na API WhatsApp');
       }
 
       return response.data;
     } catch (error) {
-      console.error('Erro ao chamar Evolution API:', error);
+
       throw error;
     }
   }
@@ -90,7 +88,7 @@ class WhatsAppService {
       
       return result.exists || false;
     } catch (error) {
-      console.error('Erro ao verificar existência da instância:', error);
+
       return false;
     }
   }
@@ -110,8 +108,8 @@ class WhatsAppService {
       
       if (instanceExistsInAPI) {
         // Instância existe na Evolution API - usar reconnect
-        console.log('4. Instância existe na API - fazendo reconnect...');
-        console.log('5. Aguardando 1s antes de reconectar...');
+
+
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         result = await this.callEvolutionAPI('reconnect_instance', {
@@ -121,7 +119,7 @@ class WhatsAppService {
         });
       } else {
         // Instância NÃO existe na Evolution API - criar nova
-        console.log('4. Instância NÃO existe na API - criando nova...');
+
         result = await this.callEvolutionAPI('create_instance', {
           instanceName,
           userId,
@@ -134,7 +132,7 @@ class WhatsAppService {
       }
 
       // PASSO 2: Verificar se já existe no banco local para update/insert
-      console.log('5. Verificando se instância existe no banco local...');
+
       const { data: existingInstance, error: queryError } = await supabase
         .from('whatsapp_instances')
         .select('*')
@@ -144,25 +142,19 @@ class WhatsAppService {
 
       // Log detalhado sobre instância existente
       if (existingInstance && !queryError) {
-        console.log('5.1. Instância encontrada no banco local:', {
-          id: existingInstance.id,
-          status: existingInstance.status,
-          has_token: !!existingInstance.api_token,
-          created_at: existingInstance.created_at,
-          updated_at: existingInstance.updated_at
-        });
-        console.log('5.2. Sobrescrevendo dados da instância existente...');
+
+
       } else if (queryError?.code === 'PGRST116') {
-        console.log('5.1. Nenhuma instância encontrada no banco local - criando nova');
+
       } else if (queryError) {
-        console.error('5.1. Erro ao consultar banco local:', queryError);
+
       }
 
       let instance, supabaseError;
       
       if (existingInstance && !queryError) {
         // Atualizar instância existente no banco (SEMPRE SOBRESCREVER)
-        console.log('6. Atualizando instância existente no banco...');
+
         const updateData: InstanceUpdateData = {
           instance_id: result.instance?.instanceId,
           status: result.qrCode ? 'pending-qr' : 'connecting',
@@ -173,16 +165,9 @@ class WhatsAppService {
         // SEMPRE atualizar o token se disponível (sobrescrevendo o anterior)
         if (result.token) {
           updateData.api_token = result.token;
-          console.log('6.1. Token atualizado na instância existente (sobrescrevendo anterior)');
+
         }
-        
-        console.log('6.2. Dados que serão atualizados:', {
-          instance_id: updateData.instance_id,
-          status: updateData.status,
-          has_qr: !!updateData.qr_code,
-          has_token: !!updateData.api_token
-        });
-        
+
         const { data, error } = await supabase
           .from('whatsapp_instances')
           .update(updateData)
@@ -195,7 +180,7 @@ class WhatsAppService {
         supabaseError = error;
       } else {
         // Criar nova instância no banco
-        console.log('6. Criando nova instância no banco...');
+
         const insertData: InstanceInsertData = {
           user_id: userId,
           instance_name: instanceName,
@@ -207,7 +192,7 @@ class WhatsAppService {
         // Adicionar token se disponível na resposta
         if (result.token) {
           insertData.api_token = result.token;
-          console.log('6.1. Token incluído na criação da nova instância');
+
         }
         
         const { data, error } = await supabase
@@ -221,12 +206,10 @@ class WhatsAppService {
       }
 
       if (supabaseError) {
-        console.error('Erro ao salvar instância no Supabase:', supabaseError);
+
         throw new Error('Falha ao salvar instância no banco de dados');
       }
 
-      console.log('7. Instância processada com sucesso');
-      console.log('8. QR Code presente:', !!result.qrCode);
 
       return {
         success: true,
@@ -234,7 +217,7 @@ class WhatsAppService {
         qr_code: result.qrCode
       };
     } catch (error) {
-      console.error('Erro ao criar instância WhatsApp:', error);
+
       throw error;
     }
   }
@@ -249,7 +232,7 @@ class WhatsAppService {
 
       return result.qrCode || '';
     } catch (error) {
-      console.error('Erro ao obter QR code:', error);
+
       throw error;
     }
   }
@@ -267,7 +250,7 @@ class WhatsAppService {
         connected: result.connected || false
       };
     } catch (error) {
-      console.error('Erro ao verificar status:', error);
+
       throw error;
     }
   }
@@ -289,7 +272,7 @@ class WhatsAppService {
 
       return true;
     } catch (error) {
-      console.error('Erro ao desconectar instância:', error);
+
       throw error;
     }
   }
@@ -314,7 +297,7 @@ class WhatsAppService {
 
       return true;
     } catch (error) {
-      console.error('Erro ao deletar instância:', error);
+
       throw error;
     }
   }
@@ -329,7 +312,7 @@ class WhatsAppService {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Erro ao buscar instâncias:', error);
+
         throw error;
       }
 
@@ -342,7 +325,7 @@ class WhatsAppService {
         status: item.status as WhatsAppStatus
       })) || [];
     } catch (error) {
-      console.error('Erro ao buscar instâncias do usuário:', error);
+
       throw error;
     }
   }
@@ -358,12 +341,12 @@ class WhatsAppService {
         .eq('user_id', userId);
 
       if (error) {
-        console.error('Erro ao buscar instâncias locais:', error);
+
         return;
       }
 
       if (!localInstances || localInstances.length === 0) {
-        console.log('Nenhuma instância local encontrada');
+
         return;
       }
 
@@ -376,7 +359,7 @@ class WhatsAppService {
           
           if (!existsInAPI) {
             // Instância não existe mais na API - marcar como desconectada
-            console.log(`Instância ${localInstance.instance_name} não existe mais na API`);
+
             await this.updateInstanceStatus(localInstance.instance_name, 'disconnected');
             continue;
           }
@@ -388,12 +371,12 @@ class WhatsAppService {
           
           // Se status mudou, atualizar no banco
           if (apiStatus !== localInstance.status) {
-            console.log(`Atualizando status de ${localInstance.status} para ${apiStatus}`);
+
             await this.updateInstanceStatus(localInstance.instance_name, apiStatus);
           }
           
         } catch (instanceError) {
-          console.error(`Erro ao verificar instância ${localInstance.instance_name}:`, instanceError);
+
           // Em caso de erro, assumir desconectado
           if (localInstance.status !== 'disconnected') {
             await this.updateInstanceStatus(localInstance.instance_name, 'disconnected');
@@ -402,7 +385,7 @@ class WhatsAppService {
       }
       
     } catch (error) {
-      console.error('Erro na sincronização de status:', error);
+
       throw error;
     }
   }
@@ -418,7 +401,7 @@ class WhatsAppService {
         .update(updateData)
         .eq('instance_name', instanceName);
     } catch (error) {
-      console.error('Erro ao atualizar status:', error);
+
       throw error;
     }
   }

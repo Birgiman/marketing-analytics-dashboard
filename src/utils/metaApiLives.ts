@@ -62,13 +62,13 @@ export async function getUserMetaToken(userId: string): Promise<string | null> {
       .single();
 
     if (error || !data) {
-      console.log('No Meta integration found for user:', userId);
+
       return null;
     }
 
     return data.access_token;
   } catch (error) {
-    console.error('Error fetching user Meta token:', error);
+
     return null;
   }
 }
@@ -89,14 +89,14 @@ export async function fetchLiveCampaignData(
     // 1. Buscar token do usuário
     const accessToken = await getUserMetaToken(userId);
     if (!accessToken) {
-      console.log('No Meta token found for user, returning empty data');
+
       return [];
     }
 
     // 2. Buscar contas do usuário
     const adAccounts = await fetchAdAccounts(accessToken);
     if (adAccounts.length === 0) {
-      console.log('No ad accounts found for user');
+
       return [];
     }
 
@@ -165,19 +165,18 @@ export async function fetchLiveCampaignData(
               }
             }
           } catch (campaignError) {
-            console.warn(`Error processing campaign ${campaign.id}:`, campaignError);
+
           }
         }
       } catch (accountError) {
-        console.warn(`Error processing account ${account.id}:`, accountError);
+
       }
     }
 
-    console.log(`Fetched ${liveData.length} campaign records for user ${userId}`);
     return liveData;
 
   } catch (error) {
-    console.error('Error in fetchLiveCampaignData:', error);
+
     return [];
   }
 }
@@ -283,7 +282,7 @@ export async function fetchAdInsights(
   const response = await fetch(`${BASE_URL}/${adId}/insights?${params}`);
 
   if (!response.ok) {
-    console.warn(`Error fetching insights for ad ${adId}: ${response.statusText}`);
+
     return [];
   }
 

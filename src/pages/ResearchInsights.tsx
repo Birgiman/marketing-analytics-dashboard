@@ -46,14 +46,12 @@ const ResearchInsights = () => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Erro ao buscar dados de pesquisa:', error);
         // Se não houver dados reais, usar dados demo
         setSurveyData(generateDemoSurveyData());
       } else {
         setSurveyData(data || []);
       }
     } catch (error) {
-      console.error('Erro na requisição:', error);
       setSurveyData(generateDemoSurveyData());
     } finally {
       setIsLoading(false);

@@ -225,23 +225,19 @@ function processMetaInsightsData(insights: any[], campaignCount: number): {
         if (resultValue && resultValue.value) {
           const leadsFromResults = parseInt(resultValue.value) || 0;
           totalLeads += leadsFromResults;
-          console.log(`📊 [META-CPL] Leads do results: ${leadsFromResults} (${insight.results[0].indicator})`);
         }
       }
       // Formato alternativo: insight.results[0].value (fallback)
       else if (insight.results[0] && insight.results[0].value) {
         const leadsFromResults = parseInt(insight.results[0].value) || 0;
         totalLeads += leadsFromResults;
-        console.log(`📊 [META-CPL] Leads do results (formato alternativo): ${leadsFromResults}`);
       }
       // Formato numérico direto (fallback)
       else if (typeof insight.results === 'number') {
         totalLeads += insight.results;
-        console.log(`📊 [META-CPL] Leads do results (numérico): ${insight.results}`);
       }
     } else {
       // Fallback: calcular manualmente usando actions
-      console.log(`⚠️ [META-CPL] Results vazio, usando actions como fallback`);
       if (insight.actions && Array.isArray(insight.actions)) {
         let leadsFromActions = 0;
         insight.actions.forEach((action: any) => {
@@ -250,7 +246,6 @@ function processMetaInsightsData(insights: any[], campaignCount: number): {
           }
         });
         totalLeads += leadsFromActions;
-        console.log(`📊 [META-CPL] Leads do actions: ${leadsFromActions}`);
       }
     }
   });

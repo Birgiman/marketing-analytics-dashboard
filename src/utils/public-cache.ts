@@ -36,8 +36,6 @@ export async function fetchPublicDataWithCache(liveId: string): Promise<{
   needsRefresh: boolean;
 }> {
   try {
-    console.log('🔄 [Public Cache] Verificando cache para Live:', liveId);
-    
     // Buscar dados básicos das tabelas existentes
     const [liveResult, groupsResult, campaignsResult] = await Promise.all([
       supabase.from('lives').select('*').eq('id', liveId).single(),
@@ -61,7 +59,6 @@ export async function fetchPublicDataWithCache(liveId: string): Promise<{
     const cacheValid = live.last_synced_at ? isCacheValid(live.last_synced_at) : false;
     
     if (cacheValid && live.cached_public_metrics) {
-      console.log('✅ [Public Cache] Usando dados do cache');
       return {
         data: {
           live,
@@ -76,15 +73,11 @@ export async function fetchPublicDataWithCache(liveId: string): Promise<{
     }
 
     // Cache inválido - calcular métricas
-    console.log('🔄 [Public Cache] Cache vencido, calculando métricas...');
     const metrics = calculatePublicMetrics(groups, campaigns);
     const insights = { lastMetaFetch: Date.now(), insightsCount: campaigns.length };
     
     // Salvar no cache
     await updatePublicCache(liveId, metrics, insights);
-    
-    console.log('✅ [Public Cache] Métricas calculadas e cache atualizado');
-    
     return {
       data: { live, groups, campaigns, metrics, insights },
       fromCache: false,
@@ -92,7 +85,6 @@ export async function fetchPublicDataWithCache(liveId: string): Promise<{
     };
 
   } catch (error) {
-    console.error('❌ [Public Cache] Erro ao buscar dados:', error);
     throw error;
   }
 }
@@ -106,15 +98,6 @@ function calculatePublicMetrics(groups: any[], campaigns: any[]): any {
   
   // Cálculos básicos - serão expandidos com dados do Meta
   const cplLiquido = totalGroupMembers > 0 ? totalSpent / totalGroupMembers : 0;
-  
-  console.log('📊 [Public Cache] Métricas calculadas:', {
-    totalGroupMembers,
-    totalSpent,
-    cplLiquido: `R$ ${cplLiquido.toFixed(2)}`,
-    groupsCount: groups.length,
-    campaignsCount: campaigns.length
-  });
-  
   return {
     cplLiquido,
     cplMeta: 0, // Será calculado com dados do Meta
@@ -140,14 +123,9 @@ export async function updatePublicCache(liveId: string, metrics: any, insights: 
       .eq('id', liveId);
 
     if (error) {
-      console.error('❌ [Public Cache] Erro ao atualizar cache:', error);
       throw error;
     }
-
-    console.log('✅ [Public Cache] Cache atualizado com sucesso para live:', liveId);
-
   } catch (error) {
-    console.error('❌ [Public Cache] Erro ao atualizar cache:', error);
     throw error;
   }
 }
@@ -166,14 +144,9 @@ export async function clearPublicCache(liveId: string): Promise<void> {
       .eq('id', liveId);
 
     if (error) {
-      console.error('❌ [Public Cache] Erro ao limpar cache:', error);
       throw error;
     }
-
-    console.log('✅ [Public Cache] Cache limpo para live:', liveId);
-
   } catch (error) {
-    console.error('❌ [Public Cache] Erro ao limpar cache:', error);
     throw error;
   }
 }

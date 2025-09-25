@@ -268,18 +268,6 @@ export function logCalculationsV2(
   metaData: MetaCampaignData,
   metrics: LiveMetricsV2
 ): void {
-  console.log('🧮 [CALCULATIONS-V2] Cálculos detalhados:');
-  console.log('==========================================');
-  console.log('📊 DADOS DE ENTRADA:');
-  console.log(`  • Total de membros no grupo: ${formatNumberV2(groupData.totalMembers)}`);
-  console.log(`  • Gasto total (Meta): ${formatCurrencyV2(metaData.spend)}`);
-  console.log(`  • Leads do Meta: ${formatNumberV2(metaData.results)}`);
-  console.log('');
-  console.log('🧮 CÁLCULOS:');
-  console.log(`  • CPL Líquido: ${formatCurrencyV2(metaData.spend)} ÷ ${formatNumberV2(groupData.totalMembers)} = ${formatCurrencyV2(metrics.cplLiquido)}`);
-  console.log(`  • CPL Meta: ${formatCurrencyV2(metaData.spend)} ÷ ${formatNumberV2(metaData.results)} = ${formatCurrencyV2(metrics.cplMeta)}`);
-  console.log(`  • Taxa de Retenção: ${formatNumberV2(groupData.totalMembers)} ÷ ${formatNumberV2(metaData.results)} × 100 = ${formatPercentageV2(metrics.retentionRate)}`);
-  console.log('==========================================');
 }
 
 // ============================================================================
@@ -304,7 +292,7 @@ export function logCalculationsV2(
  * 
  * const metrics = calculateLiveMetricsV2(groupData, metaData);
  * 
- * console.log('CPL Líquido:', formatCurrencyV2(metrics.cplLiquido)); // R$ 5,88
- * console.log('CPL Meta:', formatCurrencyV2(metrics.cplMeta)); // R$ 5,00
- * console.log('Taxa de Retenção:', formatPercentageV2(metrics.retentionRate)); // 85,0%
+ * // CPL Líquido: R$ 5,88
+ * // CPL Meta: R$ 5,00  
+ * // Taxa de Retenção: 85,0%
  */

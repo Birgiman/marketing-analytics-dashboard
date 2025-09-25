@@ -95,7 +95,6 @@ export default function Calculator() {
       setCurrentUser(session.user);
       await loadSavedCalculations();
     } catch (error) {
-      console.error('Error checking authentication:', error);
       navigate('/auth/signin');
     }
   };
@@ -109,7 +108,6 @@ export default function Calculator() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error loading saved calculations:', error);
         toast({
           title: "Erro ao carregar cálculos",
           description: `Não foi possível carregar os cálculos salvos: ${error.message}`,
@@ -121,7 +119,6 @@ export default function Calculator() {
 
       setSavedCalculations(data || []);
     } catch (error) {
-      console.error('Error loading saved calculations:', error);
       toast({
         title: "Erro ao carregar cálculos",
         description: "Erro inesperado ao carregar cálculos salvos.",
@@ -198,7 +195,6 @@ export default function Calculator() {
       });
 
     } catch (error) {
-      console.error('Error calculating:', error);
       toast({
         title: "Erro",
         description: "Não foi possível realizar o cálculo.",
@@ -237,7 +233,6 @@ export default function Calculator() {
         .single();
 
       if (error) {
-        console.error('Error saving calculation:', error);
         throw error;
       }
 
@@ -245,7 +240,6 @@ export default function Calculator() {
       await loadSavedCalculations();
       return data;
     } catch (error) {
-      console.error('Error saving calculation:', error);
       throw error;
     }
   };
@@ -270,7 +264,6 @@ export default function Calculator() {
         description: "O cálculo foi removido com sucesso.",
       });
     } catch (error) {
-      console.error('Error deleting calculation:', error);
       toast({
         title: "Erro",
         description: "Não foi possível remover o cálculo.",
@@ -327,7 +320,6 @@ export default function Calculator() {
       });
 
     } catch (error: unknown) {
-      console.error('Error saving calculation:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({
         title: "Erro",
@@ -385,7 +377,6 @@ export default function Calculator() {
       });
 
     } catch (error: unknown) {
-      console.error('Error saving calculation:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({
         title: "Erro",
@@ -438,7 +429,6 @@ export default function Calculator() {
       });
 
     } catch (error: unknown) {
-      console.error('Error editing calculation:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({
         title: "Erro",
@@ -719,7 +709,7 @@ export default function Calculator() {
                       {formatNumber(currentResults.vendasPrevistas)}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Participantes × Conversão
+                      Total de Leads × Conversão
                     </p>
                   </div>
 

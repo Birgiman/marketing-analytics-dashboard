@@ -89,7 +89,7 @@ class MetaAdsService {
           });
         
         if (error) {
-          console.error('Error saving ad account:', error);
+
           throw error;
         }
         
@@ -99,7 +99,7 @@ class MetaAdsService {
       return adAccounts;
       
     } catch (error) {
-      console.error('Error validating Meta token:', error);
+
       throw error;
     }
   }
@@ -151,7 +151,7 @@ class MetaAdsService {
           });
         
         if (error) {
-          console.error('Error saving campaign:', error);
+
           continue;
         }
         
@@ -163,7 +163,7 @@ class MetaAdsService {
       return campaigns;
       
     } catch (error) {
-      console.error('Error fetching campaigns:', error);
+
       await this.logSync(userId, adAccountId, 'campaigns', 'error', 0, error instanceof Error ? error.message : String(error));
       throw error;
     }
@@ -200,7 +200,7 @@ class MetaAdsService {
         const response = await fetch(`${url}?${params}`);
         
         if (!response.ok) {
-          console.error(`Error fetching insights for campaign ${campaignId}:`, response.statusText);
+
           continue;
         }
         
@@ -239,7 +239,7 @@ class MetaAdsService {
             });
           
           if (error) {
-            console.error('Error saving insights:', error);
+
             continue;
           }
           
@@ -252,7 +252,7 @@ class MetaAdsService {
       return insights;
       
     } catch (error) {
-      console.error('Error fetching insights:', error);
+
       await this.logSync(userId, null, 'insights', 'error', 0, error instanceof Error ? error.message : String(error));
       throw error;
     }
@@ -324,7 +324,7 @@ class MetaAdsService {
       }
       
     } catch (error) {
-      console.error('Error in full sync:', error);
+
       throw error;
     }
   }
@@ -389,7 +389,7 @@ class MetaAdsService {
       };
       
     } catch (error) {
-      console.error('[MetaAdsService] Error fetching user data:', error);
+
       throw error;
     }
   }
@@ -406,7 +406,7 @@ class MetaAdsService {
         .eq('user_id', userId);
       
       if (integrationError) {
-        console.error('Error deactivating integration:', integrationError);
+
         throw integrationError;
       }
       
@@ -417,14 +417,12 @@ class MetaAdsService {
         .eq('user_id', userId);
       
       if (accountsError) {
-        console.error('Error deactivating ad accounts:', accountsError);
+
         throw accountsError;
       }
-      
-      console.info('[MetaAdsService] Integration disconnected successfully');
-      
+
     } catch (error) {
-      console.error('[MetaAdsService] Error disconnecting integration:', error);
+
       throw error;
     }
   }
@@ -474,7 +472,7 @@ class MetaAdsService {
           completed_at: new Date().toISOString()
         });
     } catch (error) {
-      console.error('Error logging sync:', error);
+
     }
   }
 }

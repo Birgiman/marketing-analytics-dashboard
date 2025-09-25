@@ -67,7 +67,7 @@ export const CreateTestUser = () => {
         });
 
       if (profileError) {
-        console.error('Erro ao criar perfil:', profileError);
+
         // Não vou fazer throw aqui pois o usuário foi criado com sucesso
       }
 
@@ -104,7 +104,7 @@ export const CreateTestUser = () => {
       });
 
     } catch (error: unknown) {
-      console.error('Erro ao criar usuário:', error);
+
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({
         title: "Erro ao criar usuário",

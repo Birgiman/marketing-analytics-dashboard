@@ -19,7 +19,7 @@ export const AddressModal = ({ open, onOpenChange }: AddressModalProps) => {
 
   const handleSave = () => {
     // Save address logic here
-    console.log("Saving address:", address);
+
     onOpenChange(false);
   };
 

@@ -22,8 +22,6 @@ export async function fetchMetaCampaigns(
   searchTerm: string
 ): Promise<MetaCampaign[]> {
   try {
-    console.log('🔍 [MetaCampaignsService] Buscando campanhas do Meta:', { accountId, searchTerm });
-
     const url = `https://graph.facebook.com/v23.0/${accountId}/campaigns`;
     const params = new URLSearchParams({
       fields: 'id,name',
@@ -49,12 +47,8 @@ export async function fetchMetaCampaigns(
     }
 
     const data: MetaCampaignsResponse = await response.json();
-    
-    console.log('✅ [MetaCampaignsService] Campanhas encontradas:', data.data.length);
-    
     return data.data || [];
   } catch (error) {
-    console.error('❌ [MetaCampaignsService] Erro ao buscar campanhas:', error);
     throw error;
   }
 }
@@ -113,7 +107,6 @@ export async function fetchMetaCampaignsForLive(
       liveData.campaign_search_term
     );
   } catch (error) {
-    console.error('❌ [MetaCampaignsService] Erro ao buscar campanhas para Live:', error);
     throw error;
   }
 }

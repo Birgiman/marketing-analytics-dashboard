@@ -38,7 +38,7 @@ export const GruposDataComponent: React.FC<GruposDataProps> = ({ className = '' 
         .order('created_at', { ascending: false });
 
       if (fetchError) {
-        console.error('Error fetching groups data:', fetchError);
+
         // Generate demo data if real data fails
         setGroupsData(generateDemoData());
       } else {
@@ -52,7 +52,7 @@ export const GruposDataComponent: React.FC<GruposDataProps> = ({ className = '' 
         setGroupsData(transformedData);
       }
     } catch (err) {
-      console.error('Error in fetchGroupsData:', err);
+
       setError('Erro ao carregar dados dos grupos');
       setGroupsData(generateDemoData());
     } finally {

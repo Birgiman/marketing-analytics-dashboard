@@ -113,7 +113,7 @@ export function useLiveMetrics({
                 }
               });
             } catch (error) {
-              console.error('Erro ao buscar insights da campanha:', campaign.campaign_id, error);
+
             }
           }
         }
@@ -154,7 +154,7 @@ export function useLiveMetrics({
       setMetrics(calculatedMetrics);
 
     } catch (err: unknown) {
-      console.error('❌ [useLiveMetrics] Erro:', err);
+
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar métricas';
       setError(errorMessage);
     } finally {

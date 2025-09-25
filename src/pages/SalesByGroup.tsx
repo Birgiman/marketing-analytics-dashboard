@@ -26,7 +26,9 @@ import {
   fetchPublicAudiences,
   generateAudienceCorrelation
 } from "@/utils/audienceService";
-import { fetchMetaCampaignsForLive, MetaCampaign } from "@/utils/metaCampaignsService";
+import { getLiveData, getLiveDataFromDatabase } from '@/utils/LiveData/getLiveData';
+import { MetaCampaign } from '@/utils/metaApi';
+import { fetchMetaCampaignsForLive } from '@/utils/metaCampaignsService';
 // Public cache removed - functionality integrated into other services
 import { getWhatsAppGroupsLogData } from "@/utils/whatsappGroupsLog";
 import EmojiPicker from 'emoji-picker-react';
@@ -57,7 +59,7 @@ const SalesByGroup = () => {
     needsRefresh: boolean;
     lastSynced?: string;
   }>({
-    isLoading: true,
+    isLoading: false, // ✅ FORÇADO PARA FALSE
     fromCache: false,
     needsRefresh: false
   });
@@ -94,9 +96,22 @@ const SalesByGroup = () => {
     cplLiquido: number;
     cplMeta: number;
     retentionRate: number;
-    totalSpent: number;
-    totalLeads: number;
-    totalGroupMembers: number;
+    cplLiquidoPlanejamento: number;
+  } | null>(null);
+
+  const [extractedData, setExtractedData] = useState<{
+    metaData: {
+      totalSpend: number;
+      totalResults: number;
+      campaignCount: number;
+    };
+    groupData: {
+      totalGroups: number;
+      totalMembers: number;
+      entries: number;
+      exits: number;
+      activeMembers: number;
+    };
   } | null>(null);
 
   // Estado para integração Meta
@@ -107,13 +122,27 @@ const SalesByGroup = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [publicoFilter, setPublicoFilter] = useState("all");
-  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<string | null>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isLoading, setIsLoading] = useState(true);
+  const [isButtonRefreshing, setIsButtonRefreshing] = useState(false);
+
+  // Monitorar mudanças no estado cacheStatus.isLoading
+  useEffect(() => {
+  }, [cacheStatus.isLoading]);
+
+  // Monitorar mudanças no estado isLoading
+  useEffect(() => {
+  }, [isLoading]);
+
+  // Monitorar mudanças no estado isButtonRefreshing
 
   // Data states for Live-specific groups
   const [liveGroups, setLiveGroups] = useState<LiveGroupType[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  
+  // Loading state for correlations
+  const [isLoadingCorrelations, setIsLoadingCorrelations] = useState(false);
   
   // Sales data upload
   const [salesData, setSalesData] = useState<SalesData[]>([]);
@@ -155,6 +184,91 @@ const SalesByGroup = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiSearchTerm, setEmojiSearchTerm] = useState("");
 
+  // Função para carregar dados do banco
+  const loadDataFromDatabase = useCallback(async (isFromButton = false) => {
+    if (!liveId) return;
+    try {
+      // Obter userId da sessão se não estiver definido
+      if (!userId) {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (session?.user) {
+          setUserId(session.user.id);
+        } else {
+          navigate('/auth/signin');
+          return;
+        }
+      }
+      const liveData = await getLiveDataFromDatabase(liveId);
+      
+      if (liveData) {
+        // Atualizar dados básicos da Live
+        setLive({
+          id: liveData.id,
+          name: liveData.name,
+          user_id: liveData.user_id,
+          live_date: liveData.live_date,
+          insights_date_since: liveData.insights_date_since,
+          insights_date_until: liveData.insights_date_until,
+          campaign_search_term: liveData.campaign_search_term,
+          ad_budget: parseFloat(liveData.ad_budget),
+          sales_goal: liveData.sales_goal,
+          leads_goal: liveData.leads_goal,
+          created_at: liveData.created_at,
+          updated_at: liveData.updated_at,
+          last_synced_at: liveData.last_synced_at
+        });
+        
+        // Extrair dados do cache JSONB
+        if (liveData.cached_metrics) {
+          const cachedMetrics = liveData.cached_metrics;
+          setMetrics({
+            cplMeta: cachedMetrics.cplMeta || 0,
+            cplLiquido: cachedMetrics.cplLiquido || 0,
+            retentionRate: cachedMetrics.retentionRate || 0,
+            cplLiquidoPlanejamento: cachedMetrics.cplLiquidoPlanejamento || 0
+          });
+        }
+        
+        if (liveData.cached_group_data) {
+          const cachedGroupData = liveData.cached_group_data;
+          if (liveData.cached_meta_data) {
+            const cachedMetaData = liveData.cached_meta_data;
+            setExtractedData({
+              metaData: {
+                totalSpend: cachedMetaData.totalSpend || 0,
+                totalResults: cachedMetaData.totalResults || 0,
+                campaignCount: cachedMetaData.campaignCount || 0
+              },
+              groupData: {
+                totalGroups: cachedGroupData.totalGroups || 0,
+                totalMembers: cachedGroupData.totalMembers || 0,
+                entries: cachedGroupData.entries || 0,
+                exits: cachedGroupData.exits || 0,
+                activeMembers: cachedGroupData.activeMembers || 0
+              }
+            });
+          }
+        }
+        // Carregar dados complementares após carregar dados básicos
+        await fetchMetaIntegration();
+        await fetchMetaCampaignsData();
+        await fetchWhatsappGroupsData();
+        await fetchPublicAudiencesData();
+        // NÃO definir setIsLoading(false) aqui - será definido pela tabela de correlações
+        
+      } else {
+        setIsLoading(false);
+      }
+    } catch (error) {
+      setIsLoading(false);
+    } finally {
+      // Só controla isButtonRefreshing se foi chamado pelo botão
+      if (isFromButton) {
+        setIsButtonRefreshing(false);
+      }
+    }
+  }, [liveId, userId]);
+
   // Buscar dados com sistema de cache
   const fetchDataWithCache = async () => {
     if (!liveId) return;
@@ -163,15 +277,11 @@ const SalesByGroup = () => {
     setIsLoading(true);
     
     try {
-      console.log('🔄 [SalesByGroup Cache] Verificando cache para Live:', liveId);
-      
       // Obter userId da sessão
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setUserId(session.user.id);
-        console.log('✅ [SalesByGroup Cache] UserId definido:', session.user.id);
       } else {
-        console.warn('⚠️ [SalesByGroup Cache] Usuário não autenticado');
         navigate('/auth/signin');
         return;
       }
@@ -205,21 +315,15 @@ const SalesByGroup = () => {
       if (groupsData) {
         setGroups(groupsData);
         setLiveGroups(groupsData);
+      } else {
       }
 
       // Buscar dados complementares
-      console.log('🔄 [SalesByGroup Cache] Buscando dados complementares...');
       await fetchMetaIntegration();
-      console.log('🔄 [SalesByGroup Cache] Chamando fetchMetaCampaignsData...');
       await fetchMetaCampaignsData();
-      console.log('🔄 [SalesByGroup Cache] Chamando fetchWhatsappGroupsData...');
       await fetchWhatsappGroupsData();
-      console.log('🔄 [SalesByGroup Cache] Chamando fetchPublicAudiencesData...');
       await fetchPublicAudiencesData();
-      console.log('✅ [SalesByGroup Cache] Dados complementares carregados');
-      
     } catch (error) {
-      console.error('❌ [SalesByGroup Cache] Erro ao buscar dados:', error);
       navigate('/lives');
     } finally {
       setCacheStatus(prev => ({ ...prev, isLoading: false }));
@@ -227,36 +331,35 @@ const SalesByGroup = () => {
     }
   };
 
+  // Função para iniciar o refresh (chamada pelo botão)
+  const handleRefreshStart = () => {
+    setIsButtonRefreshing(true);
+  };
+
   // Função para forçar refresh do cache
   const handleForceRefresh = async () => {
     if (!liveId) return;
-    
     setCacheStatus(prev => ({ ...prev, isLoading: true }));
     
     try {
-      console.log('🔄 [SalesByGroup Cache] Forçando refresh do cache');
-      
-      // Force fresh data fetch
-      await fetchDataWithCache();
-      
-      console.log('✅ [SalesByGroup Cache] Refresh forçado concluído');
-      
+      // Usar getLiveData para buscar dados atualizados
+      const result = await getLiveData(liveId, true); // force = true
+      // Recarregar dados do banco após atualização
+      await loadDataFromDatabase();
     } catch (error) {
-      console.error('❌ [SalesByGroup Cache] Erro no refresh forçado:', error);
     } finally {
       setCacheStatus(prev => ({ ...prev, isLoading: false }));
+      setIsButtonRefreshing(false);
     }
   };
 
   // Buscar integração Meta
   const fetchMetaIntegration = async () => {
     if (!userId) {
-      console.log('⚠️ [SalesByGroup] userId não disponível para buscar Meta integration');
       return;
     }
 
     try {
-      console.log('🔍 [SalesByGroup] Buscando Meta integration para userId:', userId);
       const { data: metaIntegrationData, error } = await supabase
         .from('meta_integrations')
         .select('access_token')
@@ -265,12 +368,8 @@ const SalesByGroup = () => {
         .single();
 
       if (error || !metaIntegrationData?.access_token) {
-        console.warn('⚠️ [SalesByGroup] Meta integration não encontrada:', error);
         return;
       }
-
-      console.log('✅ [SalesByGroup] Meta integration encontrada, buscando account_id...');
-
       // Buscar account_id das campanhas da Live
       const { data: liveCampaigns } = await supabase
         .from('live_campaigns')
@@ -283,51 +382,39 @@ const SalesByGroup = () => {
           account_id: liveCampaigns[0].account_id || '',
           access_token: metaIntegrationData.access_token
         };
-        console.log('✅ [SalesByGroup] Meta integration configurada:', integration);
         setMetaIntegration(integration);
       } else {
-        console.warn('⚠️ [SalesByGroup] Account ID não encontrado para Live:', liveId);
       }
     } catch (error) {
-      console.error('❌ [SalesByGroup] Erro ao buscar integração Meta:', error);
     }
   };
 
   // Buscar públicos da Live
   const fetchPublicAudiencesData = async () => {
-    if (!liveId) return;
+    if (!liveId) {
+      return;
+    }
 
     try {
-      console.log('🔍 [SalesByGroup] Buscando públicos para Live:', liveId);
       const audiences = await fetchPublicAudiences(liveId);
-      console.log('✅ [SalesByGroup] Públicos encontrados:', audiences.length, audiences);
       setPublicAudiences(audiences);
       
       // Gerar correlações para cada público
       if (audiences.length > 0 && metaIntegration) {
-        console.log('🔄 [SalesByGroup] Gerando correlações para', audiences.length, 'públicos');
         await generateAllCorrelations(audiences);
       } else {
-        console.log('⚠️ [SalesByGroup] Não foi possível gerar correlações:', {
-          audiencesLength: audiences.length,
-          hasMetaIntegration: !!metaIntegration,
-          metaIntegration: metaIntegration
-        });
       }
     } catch (error) {
-      console.error('❌ [SalesByGroup] Erro ao buscar públicos:', error);
     }
   };
 
   // Gerar correlações para todos os públicos
   const generateAllCorrelations = useCallback(async (audiences: PublicAudience[]) => {
     if (!metaIntegration?.account_id || !metaIntegration?.access_token) {
-      console.warn('Meta integration não disponível para gerar correlações');
       return;
     }
 
     try {
-      console.log('🔄 [SalesByGroup] Iniciando geração de correlações para', audiences.length, 'públicos');
       const correlations = await Promise.all(
         audiences.map(audience => 
           generateAudienceCorrelation(
@@ -341,64 +428,59 @@ const SalesByGroup = () => {
           )
         )
       );
-      
-      console.log('✅ [SalesByGroup] Correlações geradas:', correlations.length, correlations);
       setAudienceCorrelations(correlations);
     } catch (error) {
-      console.error('❌ [SalesByGroup] Erro ao gerar correlações:', error);
+    } finally {
+      setIsLoadingCorrelations(false);
+      // Definir isLoading como false quando as correlações terminarem
+      setIsLoading(false);
     }
   }, [metaIntegration, live]);
 
   // Buscar campanhas do Meta para dropdown
   const fetchMetaCampaignsData = async () => {
     if (!liveId || !userId) {
-      console.log('⚠️ [SalesByGroup] liveId ou userId não disponível:', { liveId, userId });
       return;
     }
-
-    console.log('🔍 [SalesByGroup] Buscando campanhas para Live:', liveId);
     setIsLoadingCampaigns(true);
     
     try {
       // Primeiro, tentar buscar campanhas já vinculadas à Live
-      console.log('🔍 [SalesByGroup] Fazendo query na tabela live_campaigns...');
       const { data: liveCampaigns, error: liveCampaignsError } = await supabase
         .from('live_campaigns')
         .select('campaign_id, campaign_name')
         .eq('live_id', liveId);
-
-      console.log('📊 [SalesByGroup] Resultado da query live_campaigns:', {
-        data: liveCampaigns,
-        error: liveCampaignsError,
-        count: liveCampaigns?.length || 0
-      });
-
       if (liveCampaignsError) {
-        console.error('❌ [SalesByGroup] Erro ao buscar campanhas vinculadas:', liveCampaignsError);
       }
 
       if (liveCampaigns && liveCampaigns.length > 0) {
         // Usar campanhas já vinculadas
         const campaigns = liveCampaigns.map(campaign => ({
           id: campaign.campaign_id,
-          name: campaign.campaign_name
+          name: campaign.campaign_name,
+          status: 'ACTIVE', // Valor padrão
+          objective: 'LEAD_GENERATION', // Valor padrão
+          created_time: new Date().toISOString(),
+          updated_time: new Date().toISOString()
         }));
         setMetaCampaigns(campaigns);
-        console.log('✅ [SalesByGroup] Campanhas vinculadas carregadas para dropdown:', campaigns.length, campaigns);
       } else {
-        console.log('⚠️ [SalesByGroup] Nenhuma campanha vinculada encontrada, tentando buscar do Meta...');
         // Se não há campanhas vinculadas, buscar do Meta usando o termo de busca
         try {
           const campaigns = await fetchMetaCampaignsForLive(liveId, userId);
-          setMetaCampaigns(campaigns);
-          console.log('✅ [SalesByGroup] Campanhas do Meta carregadas para dropdown:', campaigns.length);
+          setMetaCampaigns(campaigns.map(campaign => ({
+            id: campaign.id,
+            name: campaign.name,
+            status: 'ACTIVE', // Valor padrão
+            objective: 'LEAD_GENERATION', // Valor padrão
+            created_time: new Date().toISOString(),
+            updated_time: new Date().toISOString()
+          })));
         } catch (metaError) {
-          console.warn('⚠️ [SalesByGroup] Erro ao buscar campanhas do Meta:', metaError);
           setMetaCampaigns([]);
         }
       }
     } catch (error) {
-      console.error('❌ [SalesByGroup] Erro ao buscar campanhas:', error);
       setMetaCampaigns([]);
     } finally {
       setIsLoadingCampaigns(false);
@@ -411,29 +493,25 @@ const SalesByGroup = () => {
 
     setIsLoadingGroups(true);
     try {
-      // Usar os grupos já carregados do cache
-      if (liveGroups && liveGroups.length > 0) {
-        setWhatsappGroups(liveGroups);
-        console.log('✅ [SalesByGroup] Grupos carregados para dropdown:', liveGroups.length);
-      } else {
-        // Fallback: buscar diretamente do Supabase
-        const { data: groupsResult, error: groupsError } = await supabase
-          .from('live_groups')
-          .select('*')
-          .eq('live_id', liveId)
-          .order('created_at', { ascending: false });
+      // Buscar grupos diretamente do Supabase
+      const { data: groupsResult, error: groupsError } = await supabase
+        .from('live_groups')
+        .select('*')
+        .eq('live_id', liveId)
+        .order('created_at', { ascending: false });
 
-        if (groupsError) {
-          console.error('❌ [SalesByGroup] Erro ao buscar grupos:', groupsError);
-          setWhatsappGroups([]);
-        } else {
-          setWhatsappGroups(groupsResult || []);
-          console.log('✅ [SalesByGroup] Grupos carregados para dropdown (fallback):', groupsResult?.length || 0);
-        }
+      if (groupsError) {
+        setWhatsappGroups([]);
+        setLiveGroups([]);
+      } else {
+        const groups = groupsResult || [];
+        // Atualizar ambos os estados
+        setWhatsappGroups(groups);
+        setLiveGroups(groups);
       }
     } catch (error) {
-      console.error('❌ [SalesByGroup] Erro ao buscar grupos:', error);
       setWhatsappGroups([]);
+      setLiveGroups([]);
     } finally {
       setIsLoadingGroups(false);
     }
@@ -441,37 +519,25 @@ const SalesByGroup = () => {
 
   useEffect(() => {
     if (liveId) {
-      fetchDataWithCache();
+      loadDataFromDatabase(false); // Carregamento inicial, não do botão
+    } else {
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveId, userId]);
+  }, [liveId, loadDataFromDatabase]); // Adicionado loadDataFromDatabase nas dependências
 
   // Função para atualizar dados dos grupos com informações reais do WhatsApp Groups Log
   const updateGroupsWithRealData = useCallback(async () => {
     if (!live?.insights_date_since || !live?.insights_date_until || !userId) {
-      console.log('📱 [SalesByGroup] Dados insuficientes para consulta real, usando dados simulados');
       return;
     }
 
     try {
       const groupIds = liveGroups.map(group => group.group_id);
-      
-      console.log('📱 [SalesByGroup] Consultando dados reais dos grupos:', {
-        groupIds: groupIds.length,
-        dateFrom: live.insights_date_since,
-        dateTo: live.insights_date_until,
-        userId
-      });
-
       const groupLogData = await getWhatsAppGroupsLogData(
         groupIds,
         live.insights_date_since,
         live.insights_date_until,
         userId
       );
-
-      console.log('📱 [SalesByGroup] Dados reais dos grupos obtidos:', groupLogData);
-
       // Atualizar dados dos grupos com informações reais
       setProcessedGroups(prevGroups => 
         prevGroups.map((group) => {
@@ -501,39 +567,35 @@ const SalesByGroup = () => {
       );
 
     } catch (error) {
-      console.warn('⚠️ [SalesByGroup] Erro ao consultar dados reais dos grupos:', error);
     }
   }, [live, userId, liveGroups, audienceCorrelations]);
 
   // Atualizar grupos quando cache mudar
-  useEffect(() => {
-    if (groups && groups.length > 0) {
-      setLiveGroups(groups);
-    }
-  }, [groups]);
+  // useEffect(() => {
+  //   if (groups && groups.length > 0) {
+  //     setLiveGroups(groups);
+  //   }
+  // }, [groups]);
 
   // Update groups with real data when liveData is available
-  useEffect(() => {
-    if (live && liveGroups.length > 0) {
-      console.log('📱 [SalesByGroup] Atualizando dados dos grupos com informações reais');
-      updateGroupsWithRealData();
-    }
-  }, [live, liveGroups, updateGroupsWithRealData]);
+  // useEffect(() => {
+  //   if (live && liveGroups.length > 0) {
+  //     updateGroupsWithRealData();
+  //   }
+  // }, [live, liveGroups, updateGroupsWithRealData]);
 
   // Update groups data when correlations change
-  useEffect(() => {
-    if (audienceCorrelations.length > 0 && liveGroups.length > 0) {
-      console.log('🔄 [SalesByGroup] Atualizando dados dos grupos com correlações de públicos');
-      updateGroupsWithRealData();
-    }
-  }, [audienceCorrelations, liveGroups.length, updateGroupsWithRealData]);
+  // useEffect(() => {
+  //   if (audienceCorrelations.length > 0 && liveGroups.length > 0) {
+  //     updateGroupsWithRealData();
+  //   }
+  // }, [audienceCorrelations, liveGroups.length, updateGroupsWithRealData]);
 
   // Função para detectar e processar emoji colado
   const handleEmojiPaste = useCallback((event: ClipboardEvent) => {
     const pastedText = event.clipboardData?.getData('text');
     if (pastedText && isEmoji(pastedText)) {
       event.preventDefault();
-      console.log('🍤 [EmojiPaste] Emoji detectado:', pastedText);
       setNewAudience(prev => ({ ...prev, emoji: pastedText }));
       setShowEmojiPicker(false);
     }
@@ -585,9 +647,13 @@ const SalesByGroup = () => {
 
   // Gerar correlações quando metaIntegration estiver disponível
   useEffect(() => {
+    // Gerar correlações se temos integração Meta e públicos, mas não temos correlações
     if (metaIntegration && publicAudiences.length > 0 && audienceCorrelations.length === 0) {
-      console.log('🔄 [SalesByGroup] Meta integration disponível, gerando correlações...');
+      setIsLoadingCorrelations(true);
       generateAllCorrelations(publicAudiences);
+    } else if (metaIntegration && publicAudiences.length === 0) {
+      // Se não há públicos para gerar correlações, definir loading como false
+      setIsLoading(false);
     }
   }, [metaIntegration, publicAudiences, audienceCorrelations.length, generateAllCorrelations]);
 
@@ -632,7 +698,7 @@ const SalesByGroup = () => {
 
   const filteredAndSortedData = processedGroupsData.filter(group => {
     const matchesSearch = group.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesPublico = publicoFilter === "all" || group.campaign.toLowerCase().includes(publicoFilter.toLowerCase());
+    const matchesPublico = publicoFilter === "all" || audienceCorrelations.some(correlation => correlation.title.toLowerCase() === publicoFilter.toLowerCase() && correlation.groups.some(g => g.name === group.name));
     return matchesSearch && matchesPublico;
   }).sort((a, b) => {
     if (!sortField) return 0;
@@ -678,7 +744,6 @@ const SalesByGroup = () => {
         setAudienceCorrelations(prev => [correlation, ...prev]);
       }
     } catch (error) {
-      console.error('Erro ao criar público:', error);
     } finally {
       setIsCreatingAudience(false);
     }
@@ -690,7 +755,6 @@ const SalesByGroup = () => {
       setPublicAudiences(prev => prev.filter(a => a.id !== audienceId));
       setAudienceCorrelations(prev => prev.filter(c => c.id !== audienceId));
     } catch (error) {
-      console.error('Erro ao deletar público:', error);
     }
   };
 
@@ -706,13 +770,13 @@ const SalesByGroup = () => {
       campaignTerm: correlation.campaign_term,
       campaignTermDisplay,
       groupEmoji: correlation.emoji,
-      trafficLeads: correlation.metrics.totalLeads,
-      trafficInvestment: correlation.metrics.totalSpend,
-      trafficCPL: correlation.metrics.cplMeta,
-      trafficCPLLiquido: correlation.metrics.cplLiquido,
-      groupEntradas: correlation.metrics.groupEntradas,
-      groupSaidas: correlation.metrics.groupSaidas,
-      groupAtivos: correlation.metrics.groupAtivos
+      trafficLeads: extractedData?.metaData?.totalResults || 0,
+      trafficInvestment: extractedData?.metaData?.totalSpend || 0,
+      trafficCPL: metrics?.cplMeta || 0,
+      trafficCPLLiquido: metrics?.cplLiquido || 0,
+      groupEntradas: extractedData?.groupData?.entries || 0,
+      groupSaidas: extractedData?.groupData?.exits || 0,
+      groupAtivos: extractedData?.groupData?.activeMembers || 0
     };
   });
 
@@ -801,22 +865,12 @@ const SalesByGroup = () => {
 
   if (isLoading || cacheStatus.isLoading) {
     return (
-      <div>
-        <Header />
-        <div className="container mx-auto p-6">
-          <div className="space-y-6">
-            <div className="text-center">Carregando dados da Live...</div>
-            {[1, 2, 3].map(i => (
-              <Card key={i}>
-                <CardHeader>
-                  <div className="h-6 bg-muted animate-pulse rounded"></div>
-                  <div className="h-4 bg-muted animate-pulse rounded w-2/3"></div>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-32 bg-muted animate-pulse rounded"></div>
-                </CardContent>
-              </Card>
-            ))}
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="text-xl">Carregando públicos da live...</div>
+          <div className="text-sm text-gray-600 flex items-center justify-center gap-2">
+            <div className="h-4 w-4 animate-spin border-2 border-blue-600 border-t-transparent rounded-full"></div>
+            Buscando dados do Meta Ads...
           </div>
         </div>
       </div>
@@ -824,8 +878,6 @@ const SalesByGroup = () => {
   }
 
   // Debug info
-  console.log('SalesByGroup Debug:', { liveId, live, liveGroups, totalGroupMembers, isLoading });
-
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
@@ -833,18 +885,34 @@ const SalesByGroup = () => {
       {/* Navegação interna */}
       <ScreenNavigatorLives 
         liveId={liveId} 
-        onRefresh={handleForceRefresh}
-        isRefreshing={cacheStatus.isLoading}
+        onRefresh={() => {}}
+        isRefreshing={false}
+        onRefreshStart={handleRefreshStart}
+        onDataUpdated={() => loadDataFromDatabase(true)}
         showRefreshButton={true}
       />
       
-      <div className="container mx-auto p-6 space-y-8">
+      <div className="container mx-auto p-6 space-y-8 relative">
+        {/* Overlay de loading quando está atualizando */}
+        {(cacheStatus.isLoading || isButtonRefreshing || isLoading) && (
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <div className="text-xl font-semibold">
+                {isLoadingCorrelations ? 'Carregando correlações de públicos...' : 'Carregando dados...'}
+              </div>
+              <div className="text-sm text-gray-600 flex items-center justify-center gap-2">
+                <div className="h-4 w-4 animate-spin border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                {isLoadingCorrelations ? 'Gerando correlações...' : 'Buscando dados do Meta Ads...'}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Overview Geral */}
         <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
           <MetricCard
             title="Entrou no Grupo"
-            value={totalGroupMembers}
+            value={extractedData?.groupData?.entries || 0}
             icon={UserPlus}
             type="integer"
             isLoading={isLoading || cacheStatus.isLoading}
@@ -852,7 +920,7 @@ const SalesByGroup = () => {
 
           <MetricCard
             title="Saiu do Grupo"
-            value={0}
+            value={extractedData?.groupData?.exits || 0}
             icon={UserMinus}
             type="integer"
             isLoading={isLoading || cacheStatus.isLoading}
@@ -860,7 +928,7 @@ const SalesByGroup = () => {
 
           <MetricCard
             title="Leads Ativos"
-            value={totalGroupMembers}
+            value={extractedData?.groupData?.activeMembers || 0}
             icon={Users}
             type="integer"
             isLoading={isLoading || cacheStatus.isLoading}
@@ -1140,8 +1208,11 @@ const SalesByGroup = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os públicos</SelectItem>
-                  <SelectItem value="quente">Público Quente</SelectItem>
-                  <SelectItem value="frio">Público Frio</SelectItem>
+                  {publicAudiences.map(audience => (
+                    <SelectItem key={audience.id} value={audience.title}>
+                      {audience.emoji} {audience.title}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -1267,10 +1338,14 @@ const SalesByGroup = () => {
                   {filteredAndSortedData.map((group) => (
                     <tr key={group.id} className="border-b hover:bg-muted/50">
                       <td className="p-3 font-medium">
-                        <div className="max-w-[200px] overflow-hidden group">
-                          <div className="whitespace-nowrap overflow-x-auto scrollbar-hide group-hover:scrollbar-show transition-all duration-200">
-                            {group.name}
+                        <div className="max-w-[300px] overflow-hidden group relative">
+                          <div className="whitespace-nowrap overflow-hidden cursor-pointer group-name-tooltip text-right" 
+                               title={group.name}
+                               style={{ direction: 'rtl', textAlign: 'right' }}>
+                            <span className="inline-block" style={{ direction: 'ltr', textAlign: 'right' }}>{group.name}</span>
                           </div>
+                          {/* Indicador visual de conteúdo escondido - agora na esquerda */}
+                          <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-white to-transparent pointer-events-none"></div>
                         </div>
                       </td>
                       <td className="p-3">

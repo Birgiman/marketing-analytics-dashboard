@@ -60,19 +60,15 @@ export const MetaAdsConnection = ({ isOpen, onClose, onConnectionSuccess }: Meta
         onConnectionSuccess();
       }
     } catch (err) {
-      console.error('Connection error:', err);
     }
   };
 
   const handleFacebookOAuth = async () => {
     // Use the existing setIsValidating and clearError from the hook
     try {
-      console.log('🔄 Starting Facebook OAuth...');
-      
       const result = await facebookOAuthService.startOAuthFlow();
 
       if (result.success && result.accessToken) {
-        console.log('✅ Facebook OAuth successful, connecting with token...');
         await connectWithToken(result.accessToken);
         
         // Notificar sucesso
@@ -81,10 +77,8 @@ export const MetaAdsConnection = ({ isOpen, onClose, onConnectionSuccess }: Meta
         }
       } else {
         // Error will be handled by the hook
-        console.error('Facebook OAuth failed:', result.error);
       }
     } catch (err: unknown) {
-      console.error('❌ Facebook OAuth error:', err);
     }
   };
   

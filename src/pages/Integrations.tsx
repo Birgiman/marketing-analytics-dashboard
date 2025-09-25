@@ -55,7 +55,7 @@ export default function Integrations() {
           return;
         }
       } catch (error) {
-        console.error('Error checking auth:', error);
+
         if (!DEMO_MODE) {
           navigate('/auth/signin');
         }
@@ -101,7 +101,7 @@ export default function Integrations() {
       setShowQRModal(true);
       setQrAttempts(prev => prev + 1);
     } catch (error) {
-      console.error('Error connecting WhatsApp:', error);
+
     }
   };
 
@@ -111,7 +111,7 @@ export default function Integrations() {
       setQrAttempts(prev => prev + 1);
       setQrCountdown(50);
     } catch (error) {
-      console.error('Error refreshing QR:', error);
+
     }
   };
 
@@ -124,7 +124,7 @@ export default function Integrations() {
     try {
       await disconnect();
     } catch (error) {
-      console.error('Error disconnecting WhatsApp:', error);
+
     }
   };
 
@@ -138,7 +138,7 @@ export default function Integrations() {
     if (!currentInstance?.instance_name) return;
     
     try {
-      console.log('🔄 Pre-loading groups in background...');
+
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) return;
 
@@ -154,10 +154,9 @@ export default function Integrations() {
           userId: session.session.user.id
         })
       });
-      
-      console.log('✅ Groups pre-loaded successfully');
+
     } catch (error) {
-      console.error('❌ Error pre-loading groups:', error);
+
     }
   };
 

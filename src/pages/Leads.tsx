@@ -63,7 +63,7 @@ export default function Leads() {
         setLeads(mockLeads);
         setLoading(false);
       } catch (error) {
-        console.error('Error checking auth:', error);
+
         if (!DEMO_MODE) {
           navigate('/auth/signin');
         }

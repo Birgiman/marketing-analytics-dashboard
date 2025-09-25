@@ -90,7 +90,7 @@ export default function Groups() {
         }
 
       } catch (error) {
-        console.error('Error initializing page:', error);
+
         navigate('/auth/signin');
       } finally {
         setLoading(false);

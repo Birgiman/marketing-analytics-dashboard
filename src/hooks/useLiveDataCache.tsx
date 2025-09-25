@@ -36,7 +36,6 @@ export function useLiveDataCache({
     setError(null);
 
     try {
-      console.log('🔄 [useLiveDataCache] Buscando dados da Live:', liveId);
 
       // Buscar dados da Live
       const { data: live, error: liveError } = await supabase
@@ -72,10 +71,9 @@ export function useLiveDataCache({
       };
 
       setCache(newCache);
-      console.log('✅ [useLiveDataCache] Dados carregados e cacheados');
 
     } catch (err: unknown) {
-      console.error('❌ [useLiveDataCache] Erro:', err);
+
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar dados da Live';
       setError(errorMessage);
     } finally {
@@ -106,7 +104,7 @@ export function useLiveDataCache({
     if (!cache || !isCacheValid(cache)) {
       fetchLiveData();
     } else {
-      console.log('📦 [useLiveDataCache] Usando dados do cache');
+
     }
   }, [liveId, cache, isCacheValid, fetchLiveData]);
 

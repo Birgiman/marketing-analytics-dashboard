@@ -178,7 +178,6 @@ function processMetaSpendData(insights: any[]): {
     
     // Debug: mostrar campaign_id se disponível
     if (insight.campaign_id) {
-      console.log(`💰 [META-TOTAL-SPEND] Campaign ID encontrado: ${insight.campaign_id}`);
     }
   });
   

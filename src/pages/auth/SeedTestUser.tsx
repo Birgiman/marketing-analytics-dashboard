@@ -59,7 +59,7 @@ export default function SeedTestUser() {
         });
 
       if (profileError) {
-        console.error('Erro ao criar perfil:', profileError);
+
       }
 
       // 3. Criar dados de teste
@@ -132,7 +132,7 @@ export default function SeedTestUser() {
       ]);
 
     } catch (error) {
-      console.error('Erro ao criar dados de teste:', error);
+
     }
   };
 

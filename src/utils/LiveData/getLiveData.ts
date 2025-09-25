@@ -197,17 +197,12 @@ export interface LiveDataResult {
 }
 
 export async function getLiveData(liveId: string, force: boolean = false): Promise<LiveDataResult> {
-  console.log(`[getLiveData] 🚀 Iniciando busca completa para Live: ${liveId}${force ? ' (FORÇADO)' : ''}`);
-  
   // Se não forçar, verificar cache primeiro
   if (!force) {
     const cacheValid = await isCacheValid(liveId);
     if (cacheValid) {
-      console.log(`[getLiveData] 📦 Cache válido encontrado, usando dados salvos`);
       const cachedData = await getCachedLiveData(liveId);
       if (cachedData) {
-        console.log(`[getLiveData] 🔄 Convertendo dados do cache para formato LiveDataResult...`);
-        
         // Converter dados do cache para o formato LiveDataResult
         const result = {
           campaigns: {
@@ -235,20 +230,13 @@ export async function getLiveData(liveId: string, force: boolean = false): Promi
             activeMembers: cachedData.cached_group_data?.activeMembers || 0
           }
         };
-        
-        console.log(`[getLiveData] ✅ Dados convertidos do cache:`, result);
-        
         // Salvar dados convertidos no banco para manter consistência
-        console.log(`[getLiveData] 💾 Salvando dados convertidos no banco...`);
         await updateLiveCache(liveId, result);
         
         return result;
       }
     }
   }
-  
-  console.log(`[getLiveData] 🔄 ${force ? 'Forçando' : 'Cache expirado, fazendo'} busca de dados novos`);
-  
   // ETAPA 1: Buscar dados da Live no banco
   const { data: live, error: liveError } = await supabase
     .from('lives')
@@ -259,23 +247,12 @@ export async function getLiveData(liveId: string, force: boolean = false): Promi
   if (liveError || !live) {
     throw new Error(`Live não encontrada: ${liveError?.message}`);
   }
-  
-  console.log(`[getLiveData] 📋 Live encontrada: ${live.name}`);
-  console.log(`[getLiveData] 🔍 Termo de busca: "${live.campaign_search_term}"`);
-  console.log(`[getLiveData] 📅 Período: ${live.insights_date_since} até ${live.insights_date_until}`);
-  
   // ETAPA 2: Buscar campanhas do Meta
   const campaigns = await fetchCampaignsFromMeta(live);
-  console.log('[getLiveData] 📋 Campanhas encontradas: ', campaigns);
-  
   // ETAPA 3: Buscar insights agregados
   const aggregatedInsights = await fetchAggregatedInsights(live);
-  console.log('[getLiveData] 📋 Insights agregados: ', aggregatedInsights);
-  
   // ETAPA 4: Buscar insights diários (para Traffic Analysis)
   const dailyInsights = await fetchDailyInsights(live);
-  console.log('[getLiveData] 📋 Insights diários: ', dailyInsights);
-
   // ETAPA 4.1: Enriquecer insights diários com dados dos grupos
   const enrichedDailyInsights = await enrichDailyInsightsWithGroupData(
     dailyInsights,
@@ -284,8 +261,6 @@ export async function getLiveData(liveId: string, force: boolean = false): Promi
     live.insights_date_since,
     live.insights_date_until
   );
-  console.log('[getLiveData] 📋 Insights diários enriquecidos: ', enrichedDailyInsights);
-
   // ETAPA 5: Buscar dados dos grupos e calcular métricas
   const groupData = await fetchGroupDataForCalculations(
     liveId,
@@ -293,32 +268,12 @@ export async function getLiveData(liveId: string, force: boolean = false): Promi
     live.insights_date_since,
     live.insights_date_until
   );
-
-  console.log(`[getLiveData] 🔍 DEBUG - Dados dos grupos para cálculo de métricas:`, {
-    totalMembers: groupData.totalMembers,
-    entries: groupData.entries,
-    exits: groupData.exits,
-    activeMembers: groupData.activeMembers
-  });
-
   const metrics = calculateSimpleMetrics(
     aggregatedInsights.totalSpend,
     aggregatedInsights.totalLeads,
     groupData.totalMembers,
     live.ad_budget || 0
   );
-
-  console.log(`[getLiveData] 🔍 DEBUG - Métricas calculadas:`, {
-    cplMeta: metrics.cplMeta,
-    cplLiquido: metrics.cplLiquido,
-    retentionRate: metrics.retentionRate,
-    basedOn: {
-      totalSpend: aggregatedInsights.totalSpend,
-      totalLeads: aggregatedInsights.totalLeads,
-      totalMembers: groupData.totalMembers
-    }
-  });
-
   const result = {
     campaigns,
     aggregatedInsights,
@@ -328,35 +283,9 @@ export async function getLiveData(liveId: string, force: boolean = false): Promi
   };
 
   // Sempre salvar no cache quando buscar dados novos
-  console.log(`[getLiveData] 💾 Salvando dados no cache...`);
   await updateLiveCache(liveId, result);
 
   // DEBUG FINAL: Resumo completo dos dados
-  console.log(`[getLiveData] 🎯 RESUMO FINAL DOS DADOS:`, {
-    campaigns: {
-      total: result.campaigns.total,
-      list: result.campaigns.list.map(c => c.name)
-    },
-    aggregatedInsights: {
-      totalSpend: result.aggregatedInsights.totalSpend,
-      totalLeads: result.aggregatedInsights.totalLeads,
-      cplMeta: result.aggregatedInsights.cplMeta
-    },
-    dailyInsights: {
-      totalDays: result.dailyInsights.length,
-      withGroupData: result.dailyInsights.filter((d: any) => d.groupJoin > 0).length,
-      sampleDay: result.dailyInsights[0] ? {
-        date: result.dailyInsights[0].date,
-        spend: result.dailyInsights[0].spend,
-        leads: result.dailyInsights[0].leads,
-        groupJoin: (result.dailyInsights[0] as any).groupJoin,
-        groupExit: (result.dailyInsights[0] as any).groupExit
-      } : null
-    },
-    metrics: result.metrics,
-    groupData: result.groupData
-  });
-
   return result;
 }
 
@@ -371,23 +300,17 @@ export async function getLiveData(liveId: string, force: boolean = false): Promi
  */
 async function getGroupsData(liveId: string): Promise<GroupData[]> {
   try {
-    console.log(`[getLiveData] 👥 Buscando dados dos grupos para cache...`);
-
     const { data: groups, error } = await supabase
       .from('live_groups')
       .select('id, group_id, group_name, group_size, monitoring, created_at, updated_at')
       .eq('live_id', liveId);
 
     if (error) {
-      console.error(`[getLiveData] ❌ Erro ao buscar grupos:`, error);
       return [];
     }
-
-    console.log(`[getLiveData] 👥 ${groups?.length || 0} grupos encontrados para cache`);
     return groups || [];
 
   } catch (error) {
-    console.error(`[getLiveData] ❌ Erro na função getGroupsData:`, error);
     return [];
   }
 }
@@ -422,10 +345,7 @@ async function generateCampaignsWithInsightsFromDailyData(
   }>;
 }>> {
   try {
-    console.log(`[getLiveData] 🔄 Gerando campaignsWithInsights baseado em ${dailyInsights.length} insights diários`);
-
     if (!dailyInsights || dailyInsights.length === 0 || !campaigns || campaigns.length === 0) {
-      console.log(`[getLiveData] ⚠️ Dados insuficientes para gerar campaignsWithInsights`);
       return [];
     }
 
@@ -443,12 +363,9 @@ async function generateCampaignsWithInsightsFromDailyData(
         ]
       }))
     }));
-
-    console.log(`[getLiveData] ✅ Generated ${result.length} campaigns with insights for cache`);
     return result;
 
   } catch (error) {
-    console.error(`[getLiveData] ❌ Erro na função generateCampaignsWithInsightsFromDailyData:`, error);
     return [];
   }
 }
@@ -469,8 +386,6 @@ async function enrichDailyInsightsWithGroupData(
   dateFrom: string,
   dateTo: string
 ) {
-  console.log(`[getLiveData] 🔄 Enriquecendo insights diários com dados dos grupos (cache inteligente)...`);
-
   try {
     // Verificar se já temos dados em cache para dias anteriores
     const { data: liveData, error: liveCacheError } = await supabase
@@ -480,29 +395,9 @@ async function enrichDailyInsightsWithGroupData(
       .single();
 
     const today = new Date().toISOString().split('T')[0];
-    console.log(`[getLiveData] 📅 Data atual: ${today}`);
-  console.log(`[getLiveData] 🔍 DEBUG - Período da consulta:`, {
-    dateFrom,
-    dateTo,
-    userId: userId.substring(0, 8) + '...',
-    liveId,
-    totalInsights: dailyInsights.length
-  });
-
     // Separar insights por categoria: dias anteriores vs dia atual
     const previousDays = dailyInsights.filter(insight => insight.date < today);
     const currentDay = dailyInsights.filter(insight => insight.date >= today);
-
-    console.log(`[getLiveData] 📊 Divisão dos insights:`, {
-      totalInsights: dailyInsights.length,
-      previousDays: previousDays.length,
-      currentDay: currentDay.length,
-      dates: {
-        previous: previousDays.map(d => d.date),
-        current: currentDay.map(d => d.date)
-      }
-    });
-
     let enrichedInsights = [];
 
     // ETAPA 1: Tentar usar cache para dias anteriores
@@ -515,14 +410,10 @@ async function enrichDailyInsightsWithGroupData(
           cacheMap.set(cached.date, cached);
         }
       });
-
-      console.log(`[getLiveData] 📦 Cache encontrado para ${cacheMap.size} dias`);
-
       // Usar cache para dias anteriores que já têm dados de grupo
       const previousWithCache = previousDays.map(insight => {
         const cached = cacheMap.get(insight.date);
         if (cached && cached.groupJoin !== undefined) {
-          console.log(`[getLiveData] ✅ Usando cache para ${insight.date}`);
           return {
             ...insight,
             groupJoin: cached.groupJoin,
@@ -531,14 +422,13 @@ async function enrichDailyInsightsWithGroupData(
             retention: cached.retention
           };
         } else {
-          console.log(`[getLiveData] ⚠️ Cache não encontrado para ${insight.date}, buscando dados frescos`);
           return insight;
         }
       });
 
       // Separar quais dias ainda precisam de dados frescos
-      const needsFreshData = previousWithCache.filter(insight => insight.groupJoin === undefined);
-      const fromCache = previousWithCache.filter(insight => insight.groupJoin !== undefined);
+      const needsFreshData = previousWithCache.filter(insight => (insight as any).groupJoin === undefined);
+      const fromCache = previousWithCache.filter(insight => (insight as any).groupJoin !== undefined);
 
       enrichedInsights.push(...fromCache);
 
@@ -546,34 +436,19 @@ async function enrichDailyInsightsWithGroupData(
       const daysNeedingFresh = [...needsFreshData, ...currentDay];
 
       if (daysNeedingFresh.length > 0) {
-        console.log(`[getLiveData] 🔄 Buscando dados frescos para ${daysNeedingFresh.length} dias:`, daysNeedingFresh.map(d => d.date));
         const freshEnriched = await fetchFreshWhatsappData(daysNeedingFresh, liveId, userId);
         enrichedInsights.push(...freshEnriched);
       }
     } else {
       // ETAPA 2: Sem cache válido, buscar todos os dados frescos
-      console.log(`[getLiveData] 🔄 Cache não encontrado, buscando todos os dados frescos`);
       enrichedInsights = await fetchFreshWhatsappData(dailyInsights, liveId, userId);
     }
 
     // Ordenar por data
     enrichedInsights.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    console.log(`[getLiveData] ✅ Insights finais enriquecidos:`, {
-      total: enrichedInsights.length,
-      withGroupData: enrichedInsights.filter(i => i.groupJoin > 0).length,
-      sampleData: enrichedInsights.slice(0, 2).map(i => ({
-        date: i.date,
-        groupJoin: i.groupJoin,
-        groupExit: i.groupExit,
-        retention: i.retention
-      }))
-    });
-
     return enrichedInsights;
 
   } catch (error) {
-    console.error(`[getLiveData] ❌ Erro ao enriquecer insights:`, error);
     // Retornar insights originais com dados zerados em caso de erro
     return dailyInsights.map(insight => ({
       ...insight,
@@ -596,24 +471,11 @@ async function fetchFreshWhatsappData(
   if (insights.length === 0) return [];
 
   // Buscar IDs dos grupos da Live
-  console.log(`[getLiveData] 🔍 DEBUG - Buscando grupos da Live:`, { liveId });
   const { data: groups, error: groupsError } = await supabase
     .from('live_groups')
     .select('group_id, group_name')
     .eq('live_id', liveId);
-
-  console.log(`[getLiveData] 📱 DEBUG - Resultado da consulta de grupos:`, {
-    success: !groupsError,
-    error: groupsError?.message,
-    groupsFound: groups?.length || 0,
-    groupDetails: groups?.slice(0, 3).map(g => ({
-      group_id: g.group_id?.substring(0, 15) + '...',
-      group_name: g.group_name
-    }))
-  });
-
   if (groupsError || !groups || groups.length === 0) {
-    console.warn(`[getLiveData] ⚠️ Nenhum grupo encontrado:`, groupsError);
     return insights.map(insight => ({
       ...insight,
       groupJoin: 0,
@@ -629,14 +491,6 @@ async function fetchFreshWhatsappData(
   const dates = insights.map(i => i.date).sort();
   const dateFrom = dates[0];
   const dateTo = dates[dates.length - 1];
-
-  console.log(`[getLiveData] 📱 Buscando dados frescos do WhatsApp:`, {
-    liveId,
-    totalGroups: groups.length,
-    dateRange: `${dateFrom} até ${dateTo}`,
-    groupIds: groupIds.slice(0, 2) // Primeiros 2 IDs
-  });
-
   // Buscar dados do WhatsApp Groups Log
   const whatsappDailyData = await getWhatsAppGroupsLogByPeriod(
     groupIds,
@@ -645,14 +499,6 @@ async function fetchFreshWhatsappData(
     userId,
     'day'
   );
-
-  console.log(`[getLiveData] 📱 Dados WhatsApp obtidos:`, {
-    records: whatsappDailyData.length,
-    totalEntries: whatsappDailyData.reduce((sum, d) => sum + d.entries, 0),
-    totalExits: whatsappDailyData.reduce((sum, d) => sum + d.exits, 0),
-    dateRange: whatsappDailyData.map(d => d.date)
-  });
-
   // Criar mapa por data
   const whatsappDataMap = new Map();
   whatsappDailyData.forEach(dayData => {
@@ -680,8 +526,6 @@ async function fetchFreshWhatsappData(
 }
 
 async function fetchCampaignsFromMeta(live: Live) {
-  console.log(`[getLiveData] 🔍 ETAPA 2: Buscando campanhas do Meta...`);
-  
   try {
     // Buscar integração Meta do usuário
     const { data: metaIntegration, error: metaError } = await supabase
@@ -765,8 +609,6 @@ async function fetchCampaignsFromMeta(live: Live) {
 
     // SALVAR CAMPANHAS NOVAS NO BANCO AUTOMATICAMENTE
     if (newCampaigns.length > 0) {
-      console.log(`[getLiveData] 💾 Salvando ${newCampaigns.length} campanhas novas no banco...`);
-      
       const campaignsToInsert = newCampaigns.map(campaign => ({
         live_id: live.id,
         campaign_id: campaign.id,
@@ -782,20 +624,15 @@ async function fetchCampaignsFromMeta(live: Live) {
         .insert(campaignsToInsert);
 
       if (insertError) {
-        console.error(`[getLiveData] ❌ Erro ao salvar campanhas novas:`, insertError);
       } else {
-        console.log(`[getLiveData] ✅ ${newCampaigns.length} campanhas salvas com sucesso!`);
         newCampaigns.forEach(campaign => {
-          console.log(`[getLiveData] ✅ Nova campanha salva: ${campaign.name} (${campaign.id})`);
         });
       }
     }
 
     // MANTER CAMPANHAS REMOVIDAS NO BANCO (não excluir)
     if (missingCampaigns.length > 0) {
-      console.log(`[getLiveData] ⚠️ ${missingCampaigns.length} campanhas removidas do Meta (mantendo no banco):`);
       missingCampaigns.forEach(campaign => {
-        console.log(`[getLiveData] ⚠️ Campanha mantida: ${campaign.campaign_name} (${campaign.campaign_id})`);
       });
     }
 
@@ -807,7 +644,6 @@ async function fetchCampaignsFromMeta(live: Live) {
     };
 
   } catch (error) {
-    console.error(`[getLiveData] ❌ Erro na ETAPA 2:`, error);
     return {
       total: 0,
       new: 0,
@@ -818,8 +654,6 @@ async function fetchCampaignsFromMeta(live: Live) {
 }
 
 async function fetchAggregatedInsights(live: Live) {
-  console.log(`[getLiveData] 📊 ETAPA 3: Buscando insights agregados...`);
-  
   try {
     // Buscar integração Meta do usuário
     const { data: metaIntegration, error: metaError } = await supabase
@@ -900,7 +734,6 @@ async function fetchAggregatedInsights(live: Live) {
     };
 
   } catch (error) {
-    console.error(`[getLiveData] ❌ Erro na ETAPA 3:`, error);
     return {
       totalSpend: 0,
       totalLeads: 0,
@@ -910,8 +743,6 @@ async function fetchAggregatedInsights(live: Live) {
 }
 
 async function fetchDailyInsights(live: Live) {
-  console.log(`[getLiveData] 📅 ETAPA 4: Buscando insights diários...`);
-  
   try {
     // Buscar integração Meta do usuário
     const { data: metaIntegration, error: metaError } = await supabase
@@ -1005,19 +836,14 @@ async function fetchDailyInsights(live: Live) {
       ...day,
       cplMeta: day.leads > 0 ? day.spend / day.leads : 0
     }));
-
-    console.log(`[getLiveData] 📊 Insights diários encontrados:`, dailyInsightsWithCPL);
     return dailyInsightsWithCPL;
 
   } catch (error) {
-    console.error(`[getLiveData] ❌ Erro na ETAPA 4:`, error);
     return [];
   }
 }
 
 async function fetchGroupDataForCalculations(liveId: string, userId: string, dateFrom: string, dateTo: string) {
-  console.log(`[getLiveData] 👥 ETAPA 5: Buscando dados dos grupos...`);
-
   try {
     // Buscar grupos da Live
     const { data: groups, error } = await supabase
@@ -1026,7 +852,6 @@ async function fetchGroupDataForCalculations(liveId: string, userId: string, dat
       .eq('live_id', liveId);
 
     if (error) {
-      console.warn(`[getLiveData] ⚠️ Erro ao buscar grupos:`, error);
       return {
         totalMembers: 0,
         entries: 0,
@@ -1037,17 +862,10 @@ async function fetchGroupDataForCalculations(liveId: string, userId: string, dat
 
     const totalMembers = groups?.reduce((sum, group) => sum + (group.group_size || 0), 0) || 0;
     const activeGroups = groups?.filter(group => group.monitoring).length || 0;
-
-    console.log(`[getLiveData] 👥 Grupos encontrados: ${groups?.length || 0}`);
-    console.log(`[getLiveData] 👥 Total de membros: ${totalMembers}`);
-    console.log(`[getLiveData] 👥 Grupos ativos: ${activeGroups}`);
-
     // Buscar dados reais do WhatsApp Groups Log
     if (groups && groups.length > 0) {
       try {
         const groupIds = groups.map(group => group.group_id);
-        console.log(`[getLiveData] 📱 Buscando dados reais do WhatsApp Groups Log...`);
-
         const whatsappData = await getWhatsAppGroupsLogByPeriod(
           groupIds,
           dateFrom,
@@ -1060,14 +878,6 @@ async function fetchGroupDataForCalculations(liveId: string, userId: string, dat
         const totalEntries = whatsappData.reduce((sum, day) => sum + day.entries, 0);
         const totalExits = whatsappData.reduce((sum, day) => sum + day.exits, 0);
         const realActiveMembers = Math.max(0, totalEntries - totalExits);
-
-        console.log(`[getLiveData] 📱 Dados reais do WhatsApp:`, {
-          totalEntries,
-          totalExits,
-          realActiveMembers,
-          daysWithData: whatsappData.length
-        });
-
         return {
           totalMembers,
           entries: totalEntries,
@@ -1076,7 +886,6 @@ async function fetchGroupDataForCalculations(liveId: string, userId: string, dat
         };
 
       } catch (whatsappError) {
-        console.warn(`[getLiveData] ⚠️ Erro ao buscar dados do WhatsApp Groups Log:`, whatsappError);
         // Usar dados dos grupos como fallback
         return {
           totalMembers,
@@ -1095,7 +904,6 @@ async function fetchGroupDataForCalculations(liveId: string, userId: string, dat
     };
 
   } catch (error) {
-    console.error(`[getLiveData] ❌ Erro na ETAPA 5:`, error);
     return {
       totalMembers: 0,
       entries: 0,
@@ -1111,13 +919,6 @@ function calculateSimpleMetrics(
   totalGroupMembers: number,
   orcamentoGasto: number
 ) {
-  console.log(`[getLiveData] 🧮 Dados de entrada:`, {
-    totalSpend,
-    totalLeads,
-    totalGroupMembers,
-    orcamentoGasto
-  });
-
   // CPL Meta: Total gasto / Total de leads do Meta
   const cplMeta = totalLeads > 0 ? totalSpend / totalLeads : 0;
 
@@ -1136,14 +937,6 @@ function calculateSimpleMetrics(
     retentionRate,
     cplLiquidoPlanejamento
   };
-
-  console.log(`[getLiveData] 🧮 Métricas calculadas:`, {
-    cplMeta: `R$ ${cplMeta.toFixed(2)}`,
-    cplLiquido: `R$ ${cplLiquido.toFixed(2)}`,
-    retentionRate: `${retentionRate.toFixed(2)}%`,
-    cplLiquidoPlanejamento: `R$ ${cplLiquidoPlanejamento.toFixed(2)}`
-  });
-
   return metrics;
 }
 
@@ -1157,8 +950,6 @@ function calculateSimpleMetrics(
  * @param liveData Dados completos da Live
  */
 export async function updateLiveCache(liveId: string, liveData: LiveDataResult): Promise<void> {
-  console.log(`[getLiveData] 💾 Salvando cache completo da Live: ${liveId}`);
-  
   try {
     // Preparar dados para cache
     const cacheData = {
@@ -1203,13 +994,7 @@ export async function updateLiveCache(liveId: string, liveData: LiveDataResult):
     };
 
     // Atualizar banco (usando tabela de teste)
-    console.log(`[getLiveData] 🎯 SALVANDO NA TABELA: lives`);
-    console.log(`[getLiveData] 🎯 LIVE ID: ${liveId}`);
-    console.log(`[getLiveData] 🎯 DADOS PARA SALVAR:`, cacheData);
-    
     // Fazer UPDATE direto (Live já existe na tabela de teste)
-    console.log(`[getLiveData] 🔄 Fazendo UPDATE na tabela lives...`);
-    
     const { data: updateResult, error } = await supabase
       .from('lives')
       .update(cacheData)
@@ -1217,22 +1002,9 @@ export async function updateLiveCache(liveId: string, liveData: LiveDataResult):
       .select('cached_metrics, cached_group_data, cached_meta_data, cached_traffic_data, traffic_last_synced_at, last_synced_at, updated_at');
 
     if (error) {
-      console.error(`[getLiveData] ❌ ERRO ao salvar na tabela lives:`, error);
       throw error;
     }
-
-    console.log(`[getLiveData] ✅ SUCESSO! Cache salvo na tabela: lives`);
-    console.log(`[getLiveData] ✅ LIVE ID atualizada: ${liveId}`);
-    console.log(`[getLiveData] 📋 Resultado do UPDATE:`, updateResult);
-    console.log(`[getLiveData] 📊 Dados salvos:`, {
-      métricas: cacheData.cached_metrics,
-      grupos: cacheData.cached_group_data,
-      meta: cacheData.cached_meta_data,
-      tráfego: `${cacheData.cached_traffic_data.dailyInsights.length} insights diários`
-    });
-
   } catch (error) {
-    console.error(`[getLiveData] ❌ Erro na função de cache:`, error);
     throw error;
   }
 }
@@ -1244,8 +1016,6 @@ export async function updateLiveCache(liveId: string, liveData: LiveDataResult):
  */
 export async function isCacheValid(liveId: string): Promise<boolean> {
   try {
-    console.log(`[getLiveData] ⏰ Verificando validade do cache para Live: ${liveId}`);
-    
     const { data, error } = await supabase
       .from('lives')
       .select('traffic_last_synced_at')
@@ -1253,24 +1023,16 @@ export async function isCacheValid(liveId: string): Promise<boolean> {
       .single();
     
     if (error || !data?.traffic_last_synced_at) {
-      console.log(`[getLiveData] ⚠️ Cache não encontrado ou inválido:`, error?.message);
       return false;
     }
     
     const lastSync = new Date(data.traffic_last_synced_at);
     const now = new Date();
     const diffMinutes = (now.getTime() - lastSync.getTime()) / (1000 * 60);
-    
-    console.log(`[getLiveData] ⏰ Última sincronização: ${lastSync.toLocaleString()}`);
-    console.log(`[getLiveData] ⏰ Tempo decorrido: ${diffMinutes.toFixed(1)} minutos`);
-    
     const isValid = diffMinutes < 30;
-    console.log(`[getLiveData] ${isValid ? '✅' : '❌'} Cache ${isValid ? 'válido' : 'expirado'}`);
-    
     return isValid;
     
   } catch (error) {
-    console.error(`[getLiveData] ❌ Erro ao verificar cache:`, error);
     return false;
   }
 }
@@ -1282,8 +1044,6 @@ export async function isCacheValid(liveId: string): Promise<boolean> {
  */
 export async function getCachedLiveData(liveId: string): Promise<CachedData | null> {
   try {
-    console.log(`[getLiveData] 📦 Buscando dados do cache para Live: ${liveId}`);
-    
     const { data, error } = await supabase
       .from('lives')
       .select('cached_metrics, cached_group_data, cached_meta_data, cached_traffic_data')
@@ -1291,21 +1051,11 @@ export async function getCachedLiveData(liveId: string): Promise<CachedData | nu
       .single();
     
     if (error) {
-      console.error(`[getLiveData] ❌ Erro ao buscar cache:`, error);
       return null;
     }
-    
-    console.log(`[getLiveData] ✅ Dados do cache encontrados:`);
-    console.log(`[getLiveData] 📊 CACHE COMPLETO:`, data);
-    console.log(`[getLiveData] 📈 Métricas:`, data.cached_metrics);
-    console.log(`[getLiveData] 👥 Grupos:`, data.cached_group_data);
-    console.log(`[getLiveData] 📊 Meta:`, data.cached_meta_data);
-    console.log(`[getLiveData] 🚦 Tráfego:`, data.cached_traffic_data);
-    
     return data;
     
   } catch (error) {
-    console.error(`[getLiveData] ❌ Erro ao buscar dados do cache:`, error);
     return null;
   }
 }
@@ -1316,8 +1066,6 @@ export async function getCachedLiveData(liveId: string): Promise<CachedData | nu
  * @returns Dados completos da Live
  */
 export async function getLiveDataWithCache(liveId: string): Promise<LiveDataResult> {
-  console.log(`[getLiveData] 🚀 Buscando dados e salvando cache para Live: ${liveId}`);
-  
   // Buscar dados completos
   const liveData = await getLiveData(liveId);
   
@@ -1334,8 +1082,6 @@ export async function getLiveDataWithCache(liveId: string): Promise<LiveDataResu
  */
 export async function getLiveDataFromDatabase(liveId: string): Promise<LiveDatabaseData | null> {
   try {
-    console.log(`[getLiveData] 📦 Buscando dados da Live do banco: ${liveId}`);
-    
     const { data, error } = await supabase
       .from('lives')
       .select('*')
@@ -1343,15 +1089,11 @@ export async function getLiveDataFromDatabase(liveId: string): Promise<LiveDatab
       .single();
     
     if (error) {
-      console.error(`[getLiveData] ❌ Erro ao buscar Live do banco:`, error);
       return null;
     }
-    
-    console.log(`[getLiveData] ✅ Live encontrada no banco:`, data.name);
     return data;
     
   } catch (error) {
-    console.error(`[getLiveData] ❌ Erro na função getLiveDataFromDatabase:`, error);
     return null;
   }
 }

@@ -168,7 +168,7 @@ export function useLiveCampaignData(liveId: string): UseLiveCampaignDataReturn {
                     onConflict: 'campaign_id,date_start,date_stop' 
                   });
               } catch (saveError) {
-                console.warn('Erro ao salvar insights no banco:', saveError);
+
               }
             }
 
@@ -201,7 +201,7 @@ export function useLiveCampaignData(liveId: string): UseLiveCampaignDataReturn {
               }
             };
           } catch (err) {
-            console.warn(`Erro ao buscar dados Meta para campanha ${campaign.campaign_id}:`, err);
+
             // Retorna sem dados Meta se der erro
             return campaign;
           }
@@ -211,7 +211,7 @@ export function useLiveCampaignData(liveId: string): UseLiveCampaignDataReturn {
       setCampaigns(campaignsWithMetaData as CampaignWithMetaData[]);
 
     } catch (err: unknown) {
-      console.error('Erro ao carregar dados das campanhas:', err);
+
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar dados das campanhas';
       setError(errorMessage);
     } finally {

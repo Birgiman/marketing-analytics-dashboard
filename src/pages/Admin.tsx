@@ -71,7 +71,7 @@ export default function Admin() {
 
       setStats(newStats);
     } catch (error) {
-      console.error('Error loading profiles:', error);
+
       toast({
         title: "Erro",
         description: "Erro ao carregar dados dos usuários",
@@ -91,7 +91,7 @@ export default function Admin() {
         setUserId(session.user.id);
         await loadProfiles();
       } catch (error) {
-        console.error('Error checking auth:', error);
+
         navigate('/auth/signin'); 
       } finally {
         setLoading(false);
@@ -117,7 +117,7 @@ export default function Admin() {
 
       await loadProfiles();
     } catch (error) {
-      console.error('Error approving user:', error);
+
       toast({
         title: "Erro",
         description: "Erro ao aprovar usuário",
@@ -142,7 +142,7 @@ export default function Admin() {
 
       await loadProfiles();
     } catch (error) {
-      console.error('Error rejecting user:', error);
+
       toast({
         title: "Erro",
         description: "Erro ao rejeitar usuário",
@@ -167,7 +167,7 @@ export default function Admin() {
 
       await loadProfiles();
     } catch (error) {
-      console.error('Error disabling user:', error);
+
       toast({
         title: "Erro",
         description: "Erro ao desabilitar usuário",
@@ -192,7 +192,7 @@ export default function Admin() {
 
       await loadProfiles();
     } catch (error) {
-      console.error('Error enabling user:', error);
+
       toast({
         title: "Erro",
         description: "Erro ao habilitar usuário",

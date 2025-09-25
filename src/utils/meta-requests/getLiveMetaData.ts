@@ -48,8 +48,6 @@ export interface LiveMetaDataResponse {
  */
 export async function getLiveMetaData(liveId: string): Promise<LiveMetaDataResponse> {
   try {
-    console.log(`🔍 [LIVE-META-DATA] Buscando dados da live: ${liveId}`);
-    
     // 1. Buscar dados da live
     const { data: liveData, error: liveError } = await supabase
       .from('lives')
@@ -69,9 +67,6 @@ export async function getLiveMetaData(liveId: string): Promise<LiveMetaDataRespo
     if (!liveData) {
       throw new Error('Live não encontrada');
     }
-
-    console.log(`✅ [LIVE-META-DATA] Live encontrada: ${liveData.id}`);
-
     // 2. Buscar campanhas da live
     const { data: campaignsData, error: campaignsError } = await supabase
       .from('live_campaigns')
@@ -88,9 +83,6 @@ export async function getLiveMetaData(liveId: string): Promise<LiveMetaDataRespo
     if (campaignsError) {
       throw new Error(`Erro ao buscar campanhas: ${campaignsError.message}`);
     }
-
-    console.log(`✅ [LIVE-META-DATA] Campanhas encontradas: ${campaignsData?.length || 0}`);
-
     // 3. Processar dados
     const processedData: LiveMetaData = {
       liveId: liveData.id,
@@ -107,13 +99,6 @@ export async function getLiveMetaData(liveId: string): Promise<LiveMetaDataRespo
         objective: campaign.objective
       })) || []
     };
-
-    console.log(`📊 [LIVE-META-DATA] Dados processados:`, {
-      termo: processedData.campaignSearchTerm,
-      accountId: processedData.accountId,
-      campanhas: processedData.campaignCount
-    });
-
     return {
       success: true,
       data: processedData
@@ -121,8 +106,6 @@ export async function getLiveMetaData(liveId: string): Promise<LiveMetaDataRespo
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-    console.error(`❌ [LIVE-META-DATA] Erro: ${errorMessage}`);
-    
     return {
       success: false,
       error: errorMessage

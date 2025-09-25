@@ -32,7 +32,7 @@ export default function Analytics() {
 
         setUserId(session.user.id);
       } catch (error) {
-        console.error('Error checking auth:', error);
+
         if (!DEMO_MODE) {
           navigate('/auth/signin');
         }

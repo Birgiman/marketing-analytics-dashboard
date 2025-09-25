@@ -53,11 +53,11 @@ export function useLiveLocalStorageCache({
       const stored = localStorage.getItem(cacheKey);
       if (stored) {
         const parsed = JSON.parse(stored);
-        console.log('📦 [useLiveLocalStorageCache] Cache encontrado no localStorage:', parsed);
+
         return parsed;
       }
     } catch (error) {
-      console.warn('⚠️ [useLiveLocalStorageCache] Erro ao ler cache do localStorage:', error);
+
     }
     return null;
   }, [cacheKey]);
@@ -66,9 +66,9 @@ export function useLiveLocalStorageCache({
   const saveCacheToStorage = useCallback((cacheData: LiveCacheData) => {
     try {
       localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-      console.log('💾 [useLiveLocalStorageCache] Cache salvo no localStorage');
+
     } catch (error) {
-      console.warn('⚠️ [useLiveLocalStorageCache] Erro ao salvar cache no localStorage:', error);
+
     }
   }, [cacheKey]);
 
@@ -89,7 +89,7 @@ export function useLiveLocalStorageCache({
 
       // Log apenas se não encontrar leads (para debug futuro)
       if (actions.length === 0) {
-        console.log('⚠️ [calculateMetrics] Nenhuma action encontrada para campanha:', campaign.campaign_name);
+
       }
 
       // PRIORIDADE 1: Leads específicos (conversões reais)
@@ -136,13 +136,7 @@ export function useLiveLocalStorageCache({
 
       // Log para debug do cálculo
       if (leadValue > 0) {
-        console.log(`📊 [calculateMetrics] ${campaign.campaign_name}:`, {
-          actionType: finalAction?.action_type,
-          rawValue,
-          weight,
-          leadValue,
-          fonte: trueLead ? 'LEAD_REAL' : engagementAction ? 'ENGAJAMENTO' : 'SOCIAL'
-        });
+
       }
 
       return sum + leadValue;
@@ -154,15 +148,6 @@ export function useLiveLocalStorageCache({
     const retentionRate = totalLeads > 0 ? Math.round(totalGroupMembers / totalLeads * 100) : 0;
 
     // Log sucesso do cálculo
-    console.log('✅ [calculateMetrics] Métricas calculadas:', {
-      cplLiquido: `R$ ${cplLiquido.toFixed(2)}`,
-      cplMeta: `R$ ${cplMeta.toFixed(2)}`,
-      retentionRate: `${retentionRate}%`,
-      totalSpent: `R$ ${totalSpent.toFixed(2)}`,
-      totalLeads,
-      totalGroupMembers,
-      calculoCPL: totalLeads > 0 ? `R$ ${totalSpent.toFixed(2)} / ${totalLeads} leads = R$ ${cplMeta.toFixed(2)}` : 'Sem leads'
-    });
 
     return {
       cplLiquido,
@@ -177,8 +162,6 @@ export function useLiveLocalStorageCache({
   // Buscar dados básicos (Live, Grupos, Campanhas)
   const fetchBasicData = useCallback(async () => {
     if (!liveId) return null;
-
-    console.log('🔄 [useLiveLocalStorageCache] Buscando dados básicos da Live:', liveId);
 
     // Buscar dados da Live
     const { data: live, error: liveError } = await supabase
@@ -216,7 +199,6 @@ export function useLiveLocalStorageCache({
   const fetchMetaData = useCallback(async (live: Live, campaigns: LiveCampaign[]): Promise<LiveCampaignWithInsights[]> => {
     if (!campaigns || campaigns.length === 0) return [];
 
-    console.log('📡 [useLiveLocalStorageCache] Buscando dados do Meta para', campaigns.length, 'campanhas');
     setIsMetaLoading(true);
 
     try {
@@ -229,7 +211,7 @@ export function useLiveLocalStorageCache({
         .single();
 
       if (metaError || !metaIntegration?.access_token) {
-        console.log('⚠️ [useLiveLocalStorageCache] Sem integração Meta ativa');
+
         return campaigns;
       }
 
@@ -287,7 +269,7 @@ export function useLiveLocalStorageCache({
                     onConflict: 'campaign_id,date_start,date_stop'
                   });
               } catch (saveError) {
-                console.warn('Erro ao salvar insights no banco:', saveError);
+
               }
             }
 
@@ -320,7 +302,7 @@ export function useLiveLocalStorageCache({
               }
             };
           } catch (err) {
-            console.warn(`Erro ao buscar dados Meta para campanha ${campaign.campaign_id}:`, err);
+
             return campaign;
           }
         })
@@ -344,7 +326,7 @@ export function useLiveLocalStorageCache({
       const cachedData = loadCacheFromStorage();
 
       if (cachedData && isCacheValid(cachedData) && !forceMetaFetch) {
-        console.log('📦 [useLiveLocalStorageCache] Usando cache válido');
+
         setCache(cachedData);
         setIsLoading(false);
         return;
@@ -361,12 +343,12 @@ export function useLiveLocalStorageCache({
       if (forceMetaFetch || !cachedData || canFetchMeta(cachedData)) {
         campaignsWithInsights = await fetchMetaData(basicData.live, basicData.campaigns);
         lastMetaFetch = Date.now();
-        console.log('📡 [useLiveLocalStorageCache] Dados do Meta atualizados');
+
       } else {
         // Usar dados do Meta do cache se disponível
         if (cachedData && cachedData.campaignsWithInsights) {
           campaignsWithInsights = cachedData.campaignsWithInsights;
-          console.log('📦 [useLiveLocalStorageCache] Usando dados do Meta do cache');
+
         }
       }
 
@@ -390,10 +372,8 @@ export function useLiveLocalStorageCache({
       setCache(newCache);
       setForceUpdate(prev => prev + 1); // Forçar re-render
 
-      console.log('✅ [useLiveLocalStorageCache] Dados carregados e cacheados');
-
     } catch (err: unknown) {
-      console.error('❌ [useLiveLocalStorageCache] Erro:', err);
+
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar dados da Live';
       setError(errorMessage);
     } finally {
@@ -403,7 +383,7 @@ export function useLiveLocalStorageCache({
 
   // Função para forçar atualização (incluindo Meta)
   const refreshData = useCallback(async () => {
-    console.log('🔄 [useLiveLocalStorageCache] Forçando atualização completa');
+
     await loadData(true);
   }, [loadData]);
 
@@ -412,9 +392,9 @@ export function useLiveLocalStorageCache({
     try {
       localStorage.removeItem(cacheKey);
       setCache(null);
-      console.log('🗑️ [useLiveLocalStorageCache] Cache limpo');
+
     } catch (error) {
-      console.warn('⚠️ [useLiveLocalStorageCache] Erro ao limpar cache:', error);
+
     }
   }, [cacheKey]);
 

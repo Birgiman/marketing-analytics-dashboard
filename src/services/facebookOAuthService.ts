@@ -51,16 +51,11 @@ class FacebookOAuthService {
           xfbml: true,
           version: 'v19.0'
         });
-        
-        console.log('🟢 Facebook SDK initialized with App ID:', this.APP_ID);
-        
         this.isSDKLoaded = true;
-        console.log('🟢 Facebook SDK loaded successfully');
         resolve();
       };
       
       script.onerror = () => {
-        console.error('❌ Failed to load Facebook SDK');
         reject(new Error('Failed to load Facebook SDK'));
       };
       
@@ -75,24 +70,13 @@ class FacebookOAuthService {
     try {
       // Initialize SDK first
       await this.initFacebookSDK();
-
-      console.log('🔄 Starting Facebook OAuth flow...');
-
       return new Promise((resolve) => {
         window.FB.login((response: any) => {
-          console.log('Facebook login response:', response);
-
           if (response.authResponse) {
             const { accessToken, userID } = response.authResponse;
             
             // Get user info
             window.FB.api('/me', { fields: 'name,email' }, (userResponse: any) => {
-              console.log('✅ Facebook OAuth successful:', {
-                accessToken: accessToken.substring(0, 20) + '...',
-                userId: userID,
-                userName: userResponse.name
-              });
-
               resolve({
                 success: true,
                 accessToken,
@@ -104,7 +88,6 @@ class FacebookOAuthService {
               });
             });
           } else {
-            console.log('❌ Facebook OAuth failed or cancelled');
             resolve({
               success: false,
               error: 'Login cancelado ou falhou'
@@ -118,7 +101,6 @@ class FacebookOAuthService {
       });
 
     } catch (error) {
-      console.error('❌ Facebook OAuth error:', error);
       return {
         success: false,
         error: 'Erro ao inicializar Facebook OAuth'
@@ -134,7 +116,6 @@ class FacebookOAuthService {
       await this.initFacebookSDK();
       return true;
     } catch (error) {
-      console.error('Facebook SDK not ready:', error);
       return false;
     }
   }

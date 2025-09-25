@@ -160,7 +160,6 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
       }
       
     } catch (err) {
-      console.error('Erro ao carregar contas:', err);
       setError(err instanceof Error ? err.message : 'Erro desconhecido ao carregar contas');
     } finally {
       setLoading(false);
@@ -172,9 +171,6 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
     setError(null);
 
     try {
-      console.log('🔍 Carregando campanhas para conta:', account.name, account.id);
-      console.log('🔍 Modo de busca:', { useSearch, searchTerm: searchTerm.trim() });
-
       const token = accessToken || await getUserMetaToken(userId!);
       if (!token) {
         throw new Error('Token de acesso não encontrado');
@@ -190,12 +186,8 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
         fields: ['id', 'name', 'status', 'objective', 'daily_budget', 'lifetime_budget', 'created_time', 'updated_time'],
         status: [] // Sem filtro de status na API para evitar erros
       };
-
-      console.log('🔍 Opções da requisição:', options);
-
       // Buscar campanhas com filtro se solicitado
       if (useSearch && searchTerm.trim()) {
-        console.log('🔍 Fazendo busca com filtro:', searchTerm.trim());
         // Usar a API do Meta com filtering
         const url = `https://graph.facebook.com/v23.0/${account.id}/campaigns?` +
           new URLSearchParams({
@@ -208,44 +200,32 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
               value: searchTerm.trim()
             }])
           });
-
-        console.log('🔍 URL da requisição:', url.replace(token, 'TOKEN_OCULTO'));
-
         const response = await fetch(url);
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('❌ Erro na resposta da API:', response.status, errorText);
           throw new Error(`Erro na API: ${response.statusText}`);
         }
 
         const data = await response.json();
-        console.log('✅ Resposta da API (com filtro):', data);
-
         const campaignsWithAccount = (data.data || []).map((campaign: MetaCampaign) => ({
           ...campaign,
           account_name: account.name,
           account_id: account.id
         }));
-        console.log('✅ Campanhas processadas (com filtro):', campaignsWithAccount.length);
         setCampaigns(campaignsWithAccount);
       } else {
-        console.log('🔍 Buscando todas as campanhas');
         // Buscar todas as campanhas
         const campaignsData = await fetchCampaigns(account.id, token, options);
-        console.log('✅ Campanhas recebidas:', campaignsData.length);
-
         const campaignsWithAccount = campaignsData.map(campaign => ({
           ...campaign,
           account_name: account.name,
           account_id: account.id
         }));
-        console.log('✅ Campanhas processadas:', campaignsWithAccount.length);
         setCampaigns(campaignsWithAccount);
       }
       
     } catch (err) {
-      console.error('Erro ao carregar campanhas:', err);
       setError(err instanceof Error ? err.message : 'Erro desconhecido ao carregar campanhas');
     } finally {
       setLoading(false);
@@ -294,7 +274,6 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
       await loadCampaignsFromAccount(selectedAccount);
 
     } catch (error) {
-      console.error('Error in auto search:', error);
       setLoading(false);
     }
   };

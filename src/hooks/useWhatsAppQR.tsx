@@ -116,7 +116,7 @@ export const useWhatsAppQR = (): UseWhatsAppQRResult => {
         });
       }
     } catch (error) {
-      console.error('Erro ao verificar status:', error);
+
     }
   }, [instance, status, toast, clearAllIntervals, getUserId]);
 
@@ -290,7 +290,7 @@ export const useWhatsAppQR = (): UseWhatsAppQRResult => {
         description: "Instância removida com sucesso",
       });
     } catch (err: unknown) {
-      console.error('Erro ao deletar instância:', err);
+
       // Mesmo com erro, resetar estados locais
       setStatus('generating');
       setQrCode(null);

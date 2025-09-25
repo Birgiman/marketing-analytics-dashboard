@@ -83,7 +83,7 @@ class MetaTokenService {
       };
 
     } catch (error) {
-      console.error('Error validating Meta token:', error);
+
       return {
         isValid: false,
         accountCount: 0,
@@ -154,7 +154,7 @@ class MetaTokenService {
       return result;
 
     } catch (error) {
-      console.error('[MetaTokenService] Error saving Meta integration:', error);
+
       throw error;
     }
   }
@@ -168,14 +168,14 @@ class MetaTokenService {
       const response = await fetch(`https://graph.facebook.com/v23.0/me/adaccounts?fields=id,name,currency,timezone_name&access_token=${accessToken}`);
       
       if (!response.ok) {
-        console.warn('Could not fetch ad accounts for sync');
+
         return;
       }
       
       const data = await response.json();
       
       if (!data.data || data.data.length === 0) {
-        console.warn('No ad accounts found for sync');
+
         return;
       }
       
@@ -209,7 +209,7 @@ class MetaTokenService {
       
       
     } catch (error) {
-      console.error('[MetaTokenService] Error syncing ad accounts:', error);
+
       // Não falhar a integração por causa disso
     }
   }
@@ -241,7 +241,7 @@ class MetaTokenService {
       return integration;
 
     } catch (error) {
-      console.error('[MetaTokenService] Error fetching user integration:', error);
+
       return null;
     }
   }
@@ -264,10 +264,8 @@ class MetaTokenService {
         .eq('user_id', userId)
         .eq('is_active', true);
 
-      console.info('[MetaTokenService] Integration disconnected successfully');
-
     } catch (error) {
-      console.error('[MetaTokenService] Error disconnecting integration:', error);
+
       throw error;
     }
   }
@@ -300,7 +298,7 @@ class MetaTokenService {
       return true;
 
     } catch (error) {
-      console.error('[MetaTokenService] Error revalidating integration:', error);
+
       return false;
     }
   }

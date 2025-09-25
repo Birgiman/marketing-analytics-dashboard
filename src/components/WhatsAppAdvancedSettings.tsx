@@ -47,7 +47,7 @@ export function WhatsAppAdvancedSettings({
           fetchAllGroupsFromAPI();
         } else {
           // Use cached data - much faster
-          console.log('✅ Using cached group data (faster)');
+
           setLoading(false);
         }
       });
@@ -90,12 +90,12 @@ export function WhatsAppAdvancedSettings({
         .order('group_name');
 
       if (error) {
-        console.error('Error loading groups:', error);
+
       } else {
         setGroups(data || []);
       }
     } catch (error) {
-      console.error('Error loading groups:', error);
+
     } finally {
       setLoading(false);
     }
@@ -107,12 +107,12 @@ export function WhatsAppAdvancedSettings({
     const MINIMUM_INTERVAL = 10000; // 10 seconds minimum between calls
     
     if (isFetchingFromAPI) {
-      console.log('⏳ API fetch already in progress - ignoring duplicate call');
+
       return;
     }
     
     if (now - lastFetchTime < MINIMUM_INTERVAL) {
-      console.log(`⏳ Too soon since last fetch (${Math.round((now - lastFetchTime) / 1000)}s ago) - ignoring duplicate call`);
+
       return;
     }
 
@@ -135,7 +135,7 @@ export function WhatsAppAdvancedSettings({
     }
 
     if (!currentInstance?.instance_name) {
-      console.error('No instance name available');
+
       return;
     }
 
@@ -143,7 +143,6 @@ export function WhatsAppAdvancedSettings({
       setFetchingGroups(true);
       setIsFetchingFromAPI(true);
       setLastFetchTime(now);
-      console.log('🔄 Fetching groups for instance:', currentInstance.instance_name);
 
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) return;
@@ -164,22 +163,22 @@ export function WhatsAppAdvancedSettings({
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Error fetching groups:', errorText);
+
         return;
       }
 
       const result = await response.json();
 
       if (result.success) {
-        console.log('✅ Groups fetched successfully:', result.groups?.length || 0);
+
         // Reload groups from database to show the updated list
         await loadGroupsFromDatabase();
       } else {
-        console.error('❌ Error fetching groups:', result.error);
+
       }
 
     } catch (error) {
-      console.error('Error fetching groups from API:', error);
+
     } finally {
       setFetchingGroups(false);
       setIsFetchingFromAPI(false); // Release the lock
@@ -207,7 +206,7 @@ export function WhatsAppAdvancedSettings({
         .eq('id', groupId);
 
       if (error) {
-        console.error('Error updating group monitoring:', error);
+
       } else {
         // Update local state
         const updatedGroups = groups.map(group =>
@@ -218,7 +217,7 @@ export function WhatsAppAdvancedSettings({
         setGroups(updatedGroups);
       }
     } catch (error) {
-      console.error('Error updating group monitoring:', error);
+
     }
   };
 
@@ -240,15 +239,13 @@ export function WhatsAppAdvancedSettings({
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) return;
 
-      console.log(`🔄 ${targetState ? 'Enabling' : 'Disabling'} monitoring for all groups...`);
-      
       const { error } = await supabase
         .from('whatsapp_groups')
         .update({ monitoring: targetState })
         .eq('user_id', session.session.user.id);
 
       if (error) {
-        console.error('Error updating all groups:', error);
+
       } else {
         // Update local state
         const updatedGroups = groups.map(group => ({
@@ -257,10 +254,10 @@ export function WhatsAppAdvancedSettings({
         }));
         setGroups(updatedGroups);
         setAllGroupsEnabled(targetState);
-        console.log(`✅ All groups ${targetState ? 'enabled' : 'disabled'} successfully`);
+
       }
     } catch (error) {
-      console.error('Error bulk updating groups:', error);
+
     }
   };
 
@@ -268,7 +265,7 @@ export function WhatsAppAdvancedSettings({
   const handleModalChange = (open: boolean) => {
     if (!open && (loading || fetchingGroups)) {
       // Prevent closing during loading
-      console.log('⛔ Modal close blocked - sync in progress');
+
       return;
     }
     onClose();

@@ -79,7 +79,7 @@ export default function Profile() {
         .single();
 
       if (error) {
-        console.error('Error fetching profile:', error);
+
         return;
       }
 
@@ -98,7 +98,7 @@ export default function Profile() {
         });
       }
     } catch (error) {
-      console.error('Error in getProfile:', error);
+
     }
   };
 
@@ -125,7 +125,7 @@ export default function Profile() {
         .eq('user_id', user.id);
 
       if (error) {
-        console.error('Error updating profile:', error);
+
         toast({
           title: "Erro",
           description: "Erro ao atualizar o perfil",
@@ -139,7 +139,7 @@ export default function Profile() {
         description: "Suas informações foram atualizadas com sucesso",
       });
     } catch (error) {
-      console.error('Error in updateProfile:', error);
+
       toast({
         title: "Erro",
         description: "Erro inesperado ao atualizar o perfil",
