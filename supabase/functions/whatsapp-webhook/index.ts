@@ -23,11 +23,14 @@ const extractPotentialGroupIds = (data: any): string[] => {
   const searchObject = (obj: any, path = '') => {
     if (!obj || typeof obj !== 'object') return;
     
-    for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === 'string' && value.endsWith('@g.us')) {
-        ids.push(`${path}${key}: ${value}`);
-      } else if (typeof value === 'object') {
-        searchObject(value, `${path}${key}.`);
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        const value = obj[key];
+        if (typeof value === 'string' && value.endsWith('@g.us')) {
+          ids.push(`${path}${key}: ${value}`);
+        } else if (typeof value === 'object') {
+          searchObject(value, `${path}${key}.`);
+        }
       }
     }
   };
@@ -48,11 +51,14 @@ const extractPotentialGroupNames = (data: any): string[] => {
   const searchObject = (obj: any, path = '') => {
     if (!obj || typeof obj !== 'object') return;
     
-    for (const [key, value] of Object.entries(obj)) {
-      if (nameFields.includes(key.toLowerCase()) && typeof value === 'string') {
-        names.push(`${path}${key}: ${value}`);
-      } else if (typeof value === 'object') {
-        searchObject(value, `${path}${key}.`);
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        const value = obj[key];
+        if (nameFields.indexOf(key.toLowerCase()) !== -1 && typeof value === 'string') {
+          names.push(`${path}${key}: ${value}`);
+        } else if (typeof value === 'object') {
+          searchObject(value, `${path}${key}.`);
+        }
       }
     }
   };

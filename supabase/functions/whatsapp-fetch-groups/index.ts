@@ -23,7 +23,7 @@ serve(async (req: any) => {
   try {
     console.log('🚀 [whatsapp-fetch-groups] Function started');
     console.log('📋 [whatsapp-fetch-groups] Request method:', req.method);
-    console.log('📋 [whatsapp-fetch-groups] Request headers:', Object.fromEntries(req.headers.entries()));
+    console.log('📋 [whatsapp-fetch-groups] Request headers:', 'Request received with headers');
 
     const supabase = createClient(
       // @ts-ignore
