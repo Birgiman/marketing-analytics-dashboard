@@ -37,7 +37,7 @@ export function GroupSearchSelector({
 }: GroupSearchSelectorProps) {
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm || '');
   const [searchResults, setSearchResults] = useState<GroupResult[]>([]);
-  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
+  // Removido: não permitimos mais seleção individual
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
@@ -154,31 +154,13 @@ export function GroupSearchSelector({
     }
   };
 
-  const handleGroupToggle = (groupId: string) => {
-    const newSelected = new Set(selectedGroups);
-    if (newSelected.has(groupId)) {
-      newSelected.delete(groupId);
-    } else {
-      newSelected.add(groupId);
-    }
-    setSelectedGroups(newSelected);
-  };
+  // Função removida - não permitimos mais seleção individual
 
-  const handleSelectAll = () => {
-    if (selectedGroups.size === searchResults.length) {
-      // Unselect all
-      setSelectedGroups(new Set());
-    } else {
-      // Select all
-      setSelectedGroups(new Set(searchResults.map(g => g.id)));
-    }
-  };
+  // Função removida - não permitimos mais seleção
 
   const handleConfirmSelection = () => {
-    const selectedGroupsList = searchResults.filter(group => 
-      selectedGroups.has(group.id)
-    );
-    onGroupsSelected(selectedGroupsList, searchTerm);
+    // Agora sempre confirma todos os grupos encontrados
+    onGroupsSelected(searchResults, searchTerm);
     onClose();
   };
 
@@ -280,19 +262,10 @@ export function GroupSearchSelector({
             ) : searchResults.length > 0 ? (
               <div className="space-y-4">
                 {/* Selection Controls */}
-                <div className="flex justify-between items-center bg-gray-200 p-3 rounded-lg">
+                <div className="flex justify-center items-center bg-gray-200 p-3 rounded-lg">
                   <span className="text-sm text-gray-700">
                     {searchResults.length} grupo{searchResults.length !== 1 ? 's' : ''} encontrado{searchResults.length !== 1 ? 's' : ''}
-                    {selectedGroups.size > 0 && ` • ${selectedGroups.size} selecionado${selectedGroups.size !== 1 ? 's' : ''}`}
                   </span>
-                  <Button
-                    onClick={handleSelectAll}
-                    variant="outline" 
-                    size="sm"
-                    disabled={searchResults.length === 0}
-                  >
-                    {selectedGroups.size === searchResults.length ? '❌ Desmarcar todos' : '✅ Selecionar todos'}
-                  </Button>
                 </div>
 
                 {/* Groups List */}
@@ -302,10 +275,6 @@ export function GroupSearchSelector({
                       key={group.id}
                       className="flex items-center gap-4 p-4 bg-white border rounded-lg hover:bg-gray-100 transition-colors"
                     >
-                      <Checkbox
-                        checked={selectedGroups.has(group.id)}
-                        onCheckedChange={() => handleGroupToggle(group.id)}
-                      />
                       
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-gray-900 truncate">
@@ -351,13 +320,13 @@ export function GroupSearchSelector({
               Cancelar
             </Button>
             
-            {selectedGroups.size > 0 && (
+            {searchResults.length > 0 && (
               <Button
                 onClick={handleConfirmSelection}
                 variant="primary"
                 className="flex-shrink-0"
               >
-                Adicionar {selectedGroups.size} grupo{selectedGroups.size !== 1 ? 's' : ''} selecionado{selectedGroups.size !== 1 ? 's' : ''}
+                Confirmar {searchResults.length} grupo{searchResults.length !== 1 ? 's' : ''}
               </Button>
             )}
           </div>

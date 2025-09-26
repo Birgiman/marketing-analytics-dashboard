@@ -203,9 +203,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
     setShowGroupSelector(false);
   };
 
-  const handleRemoveGroup = (groupId: string) => {
-    setSelectedGroups(prev => prev.filter(g => g.id !== groupId));
-  };
+  // Função removida - não permitimos mais deletar grupos individualmente
 
   const handleCampaignsSelected = (campaigns: MetaCampaign[], searchTerm?: string) => {
     setSelectedCampaigns(campaigns);
@@ -499,7 +497,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
               {/* Groups Section */}
               <div className="space-y-3 flex-1 min-h-0">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Grupos selecionados</Label>
+                  <Label className="text-sm font-medium">Grupos encontrados</Label>
                   <Button 
                     onClick={() => setShowGroupSelector(true)}
                     size="sm"
@@ -513,28 +511,20 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                   <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
                     <Users className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
                     <p className="text-sm text-muted-foreground">
-                      Nenhum grupo selecionado ainda
+                      Nenhum grupo encontrado ainda
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Clique em "Buscar grupos" para adicionar
+                      Clique em "Buscar grupos" para verificar o termo de busca
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-48 overflow-y-auto rounded-lg p-3">
                     {selectedGroups.map((group) => (
-                      <div key={group.id} className="flex items-start justify-between p-2 bg-green-50 border border-green-200 rounded-lg gap-2">
+                      <div key={group.id} className="flex items-start p-2 bg-green-50 border border-green-200 rounded-lg">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium break-words leading-tight">{group.group_name}</p>
                           <p className="text-xs text-muted-foreground">{group.group_size} participantes</p>
                         </div>
-                        <Button
-                          onClick={() => handleRemoveGroup(group.id)}
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive hover:text-destructive flex-shrink-0"
-                        >
-                          ✕
-                        </Button>
                       </div>
                     ))}
                   </div>
@@ -561,7 +551,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                   variant="primary"
                   onClick={handleNextStep}
                   className="flex-1 max-w-[180px]"
-                  disabled={selectedGroups.length === 0}
                 >
                   Próximo
                   <ChevronRight className="ml-2 h-4 w-4" />
