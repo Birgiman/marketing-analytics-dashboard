@@ -2,7 +2,6 @@ import CampaignSelector from '@/components/CampaignSelector';
 import { GroupSearchSelector } from '@/components/GroupSearchSelector';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +11,7 @@ import { useLives } from '@/hooks/useLives';
 import { supabase } from '@/integrations/supabase/client';
 import { Live, LiveCampaign, LiveGroup, WhatsAppInstance } from '@/types/live';
 import { MetaCampaign } from '@/utils/metaApi';
-import { AlertTriangle, ChevronLeft, ChevronRight, Target, Trash2, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Target, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface CreateLiveModalProps {
@@ -622,11 +621,11 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                   </div>
                 )}
 
-                {linkedCampaigns.length > 0 && selectedCampaigns.length > 0 && (
-                  <Badge variant="outline" className="w-fit border-blue-300 text-blue-700">
-                    Total: {linkedCampaigns.length + selectedCampaigns.length}
-                  </Badge>
-                )}
+                                 {(linkedCampaigns.length > 0 || selectedCampaigns.length > 0) && (
+                   <Badge variant="outline" className="w-fit border-blue-300 text-blue-700">
+                     Total: {linkedCampaigns.length + selectedCampaigns.length}
+                   </Badge>
+                 )}
               </div>
 
               {/* Test functionality removed for now */}
