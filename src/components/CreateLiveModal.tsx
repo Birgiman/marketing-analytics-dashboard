@@ -211,6 +211,9 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
 
   const handleCreate = async () => {
     try {
+      // Calcular timestamp 31 minutos atrás para garantir cache válido
+      const thirtyOneMinutesAgo = new Date(Date.now() - 31 * 60 * 1000).toISOString();
+
       const liveData = {
         name: formData.liveName,
         live_date: formData.liveStart,
@@ -223,7 +226,10 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         insights_date_since: dateRange.since,
         insights_date_until: dateRange.until,
         campaign_search_term: campaignSearchTerm,
-        whatsapp_search_term: whatsappSearchTerm
+        whatsapp_search_term: whatsappSearchTerm,
+        // Definir timestamps de sincronização 31 minutos atrás para garantir cache válido
+        last_synced_at: thirtyOneMinutesAgo,
+        traffic_last_synced_at: thirtyOneMinutesAgo
       };
 
       const groups = selectedGroups.map(group => ({
