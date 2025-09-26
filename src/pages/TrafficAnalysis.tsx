@@ -7,13 +7,15 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { PublicAudience, PublicAudienceCorrelation } from "@/types/audience";
+import { fetchPublicAudiences, generateAudienceCorrelation } from "@/utils/audienceService";
 import { AdSetData, CampaignData, extractAdSetDataFromInsights, extractCampaignData } from "@/utils/data-extractors-v2";
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 import { getLiveDataFromDatabase } from '@/utils/LiveData/getLiveData';
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 import { fetchAdSetInsights } from "@/utils/metaApi";
 import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
@@ -39,6 +41,8 @@ const TrafficAnalysis = () => {
     id: string;
     name: string;
     ad_budget?: number;
+    insights_date_since?: string;
+    insights_date_until?: string;
     cached_metrics?: {
       cplLiquido: number;
       cplMeta: number;
@@ -58,6 +62,7 @@ const TrafficAnalysis = () => {
         spend: number;
         leads: number;
         cplMeta: number;
+        campaign_name?: string;
       }>;
       campaigns: Array<{
         id: string;
@@ -174,6 +179,10 @@ const TrafficAnalysis = () => {
   // Estados para dados por conjunto de anúncios
   const [adSetData, setAdSetData] = useState<AdSetData[]>([]);
   
+  // Estados para públicos e correlações
+  const [publicAudiences, setPublicAudiences] = useState<PublicAudience[]>([]);
+  const [audienceCorrelations, setAudienceCorrelations] = useState<PublicAudienceCorrelation[]>([]);
+  
   // Estados para filtros (baseado no exemplo)
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -186,22 +195,23 @@ const TrafficAnalysis = () => {
   const [selectedPublico, setSelectedPublico] = useState<string[]>(['todos']);
   const [showPublicoDropdown, setShowPublicoDropdown] = useState(false);
   
-  // Opções de público (preparado para futuras implementações)
-  const publicoOptions = [
+  // Opções de público (dados reais dos públicos da Live) - memoizado para evitar re-renders
+  const publicoOptions = useMemo(() => [
     { value: 'todos', label: 'Todos os Públicos' },
-    // TODO: Adicionar opções de estados quando dados estiverem disponíveis
-    // { value: 'ES', label: 'Espírito Santo' },
-    // { value: 'MA', label: 'Maceió' },
-    // { value: 'BR', label: 'Brasília' },
-    // { value: 'NA', label: 'Nacional' },
-    // { value: 'NAB', label: 'Nacional Teste' }
-  ];
+    ...publicAudiences.map(audience => ({
+      value: audience.id,
+      label: `${audience.emoji} ${audience.title}`
+    }))
+  ], [publicAudiences]);
 
   // Fechar dropdown ao clicar fora
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (showPublicoDropdown) {
-        setShowPublicoDropdown(false);
+        const target = event.target as HTMLElement;
+        if (!target.closest('.publico-dropdown-container')) {
+          setShowPublicoDropdown(false);
+        }
       }
     };
 
@@ -210,6 +220,62 @@ const TrafficAnalysis = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showPublicoDropdown]);
+
+  // Função para carregar públicos da Live
+  const fetchPublicAudiencesData = useCallback(async () => {
+    if (!liveId) return;
+    
+    try {
+      const audiences = await fetchPublicAudiences(liveId);
+      setPublicAudiences(audiences);
+      
+      // Gerar correlações se temos integração Meta
+      if (audiences.length > 0) {
+        // Buscar integração Meta
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: metaIntegration } = await supabase
+            .from('meta_integrations')
+            .select('access_token')
+            .eq('user_id', session.user.id)
+            .eq('is_active', true)
+            .single();
+
+          if (metaIntegration?.access_token) {
+            // Buscar account_id das campanhas da Live
+            const { data: liveCampaigns } = await supabase
+              .from('live_campaigns')
+              .select('account_id')
+              .eq('live_id', liveId)
+              .limit(1);
+
+            if (liveCampaigns && liveCampaigns.length > 0) {
+              // Buscar dados da live para obter as datas
+              const { data: liveData } = await supabase
+                .from('lives')
+                .select('insights_date_since, insights_date_until')
+                .eq('id', liveId)
+                .single();
+
+              if (liveData?.insights_date_since && liveData?.insights_date_until) {
+                const correlations = await Promise.all(
+                  audiences.map(audience => 
+                    generateAudienceCorrelation(audience, liveCampaigns[0].account_id || '', metaIntegration.access_token, {
+                      since: liveData.insights_date_since,
+                      until: liveData.insights_date_until
+                    })
+                  )
+                );
+                setAudienceCorrelations(correlations);
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar públicos:', error);
+    }
+  }, [liveId]);
 
   // Função para carregar dados do banco (mesmo padrão das outras telas)
   const loadDataFromDatabase = useCallback(async (isFromButton = false) => {
@@ -225,6 +291,8 @@ const TrafficAnalysis = () => {
           id: liveData.id,
           name: liveData.name,
           ad_budget: parseFloat(liveData.ad_budget),
+          insights_date_since: liveData.insights_date_since,
+          insights_date_until: liveData.insights_date_until,
           cached_metrics: liveData.cached_metrics || undefined,
           cached_group_data: liveData.cached_group_data || undefined,
           cached_traffic_data: liveData.cached_traffic_data || undefined,
@@ -286,6 +354,15 @@ const TrafficAnalysis = () => {
           }
         } else {
         }
+        
+        // Carregar públicos após carregar dados básicos
+        try {
+          const audiences = await fetchPublicAudiences(liveId);
+          setPublicAudiences(audiences);
+        } catch (error) {
+          console.error('Erro ao carregar públicos:', error);
+        }
+        
         setIsLoading(false);
         
       } else {
@@ -552,7 +629,7 @@ const TrafficAnalysis = () => {
     if (liveId) {
       loadDataFromDatabase(false); // Carregamento inicial, não do botão
     }
-  }, [liveId, loadDataFromDatabase]); // Adicionado loadDataFromDatabase nas dependências
+  }, [liveId]); // Removido loadDataFromDatabase das dependências para evitar loop
   
   
   // Usar métricas do cache ou calcular se necessário
@@ -569,16 +646,61 @@ const TrafficAnalysis = () => {
 
   // Debug: Log dos dados que serão exibidos nos cards
   // Debug: Log do timezone do servidor
-  // Calcular dados diários usando dailyInsights do cache
-  const calculateDailyData = () => {
+  // Calcular dados diários usando dailyInsights do cache - memoizado para evitar re-renders
+  const calculateDailyData = useMemo(() => {
     // Verificar se temos dailyInsights do cache
     const dailyInsights = live?.cached_traffic_data?.dailyInsights;
 
     if (!dailyInsights || dailyInsights.length === 0) {
       return [];
     }
+
+    let filteredInsights = dailyInsights;
+
+    // Se não é "todos", filtrar por público selecionado
+    if (!selectedPublico.includes('todos')) {
+      const selectedAudience = publicAudiences.find(a => selectedPublico.includes(a.id));
+      
+      if (selectedAudience) {
+        // Buscar grupos que correspondem ao emoji do público
+        const audienceGroups = groups.filter(group => 
+          group.group_name.includes(selectedAudience.emoji)
+        );
+        
+        if (audienceGroups.length > 0) {
+          // Filtrar insights que correspondem aos grupos do público
+          // Como os insights são agregados por data, vamos manter todos os insights
+          // mas ajustar os dados dos grupos para refletir apenas os grupos do público
+          filteredInsights = dailyInsights.map(insight => {
+            // Calcular proporção dos grupos do público em relação ao total
+            const totalGroupSize = groups.reduce((sum, group) => sum + group.group_size, 0);
+            const audienceGroupSize = audienceGroups.reduce((sum, group) => sum + group.group_size, 0);
+            const proportion = totalGroupSize > 0 ? audienceGroupSize / totalGroupSize : 0;
+            
+            return {
+              ...insight,
+              // Ajustar dados dos grupos proporcionalmente
+              groupJoin: Math.round(((insight as any).groupJoin || 0) * proportion),
+              groupExit: Math.round(((insight as any).groupExit || 0) * proportion),
+              cplLiquido: audienceGroupSize > 0 ? insight.spend / audienceGroupSize : 0,
+              retention: insight.leads > 0 ? Math.round((audienceGroupSize / insight.leads) * 100) : 0
+            };
+          });
+        } else {
+          // Se não há grupos correspondentes, retornar insights zerados
+          filteredInsights = dailyInsights.map(insight => ({
+            ...insight,
+            groupJoin: 0,
+            groupExit: 0,
+            cplLiquido: 0,
+            retention: 0
+          }));
+        }
+      }
+    }
+
     // Converter dailyInsights para formato esperado pela tabela
-    const result = dailyInsights.map(insight => ({
+    const result = filteredInsights.map(insight => ({
       date: insight.date,
       investment: insight.spend,
       cadastros: insight.leads,
@@ -589,11 +711,11 @@ const TrafficAnalysis = () => {
       retention: (insight as any).retention || 0
     })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return result;
-  };
+  }, [live?.cached_traffic_data?.dailyInsights, selectedPublico, publicAudiences, groups]);
   
-  // Calcular totais e médias para os cabeçalhos das colunas
-  const calculateTotals = () => {
-    const dailyData = calculateDailyData();
+  // Calcular totais e médias para os cabeçalhos das colunas - memoizado para evitar re-renders
+  const calculateTotals = useMemo(() => {
+    const dailyData = calculateDailyData;
     
     // CORRIGIDO: Calcular totais baseados nos dados da tabela (não dados externos)
     const totalInvestment = dailyData.reduce((sum, day) => sum + day.investment, 0);
@@ -624,10 +746,10 @@ const TrafficAnalysis = () => {
       averageCplLiquido,
       averageRetention
     };
-  };
+  }, [calculateDailyData]);
   
-  const tableData = calculateDailyData();
-  const totals = calculateTotals();
+  const tableData = calculateDailyData;
+  const totals = calculateTotals;
   
   // Debug: Testar conversão de data
   if (tableData.length > 0) {
@@ -647,26 +769,15 @@ const TrafficAnalysis = () => {
   };
   
 
-  // Filtrar dados por data
-  const filterDataByDate = (data: Array<{
-    date: string;
-    investment: number;
-    cadastros: number;
-    group: number;
-    groupExit: number;
-    cplMeta: number;
-    cplLiquido: number;
-    retention: number;
-  }>) => {
-    if (!startDate || !endDate) return data;
+  // Filtrar dados por data - memoizado para evitar re-renders
+  const filteredTableData = useMemo(() => {
+    if (!startDate || !endDate) return tableData;
     
-    return data.filter(day => {
+    return tableData.filter(day => {
       if (!day.date) return false;
       return day.date >= startDate && day.date <= endDate;
     });
-  };
-  
-  const filteredTableData = filterDataByDate(tableData);
+  }, [tableData, startDate, endDate]);
 
   // Funções de ordenação (baseado no exemplo)
   const handleSort = (field: string) => {
@@ -683,15 +794,17 @@ const TrafficAnalysis = () => {
     return sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
   };
   
-  const sortedData = [...filteredTableData].sort((a, b) => {
-    if (!sortField) return 0;
-    const aValue = a[sortField as keyof typeof a];
-    const bValue = b[sortField as keyof typeof b];
-    
-    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-    return 0;
-  });
+  const sortedData = useMemo(() => {
+    return [...filteredTableData].sort((a, b) => {
+      if (!sortField) return 0;
+      const aValue = a[sortField as keyof typeof a];
+      const bValue = b[sortField as keyof typeof b];
+      
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredTableData, sortField, sortDirection]);
   
   // Funções para filtro de públicos
   const handlePublicoSelect = (value: string) => {
@@ -707,6 +820,9 @@ const TrafficAnalysis = () => {
       // Se nenhum público estiver selecionado, voltar para "todos"
       setSelectedPublico(newSelection.length === 0 ? ['todos'] : newSelection);
     }
+    
+    // Fechar dropdown após seleção
+    setShowPublicoDropdown(false);
   };
 
   const getPublicoDisplayText = () => {
@@ -902,7 +1018,7 @@ const TrafficAnalysis = () => {
                 <label className="text-sm font-medium">Data fim:</label>
                 <Input type="date" className="w-auto" value={tempEndDate} onChange={e => setTempEndDate(e.target.value)} />
               </div>
-                <div className="relative">
+                <div className="relative publico-dropdown-container">
                   <Button 
                     variant="outline" 
                     onClick={() => setShowPublicoDropdown(!showPublicoDropdown)}
@@ -917,13 +1033,16 @@ const TrafficAnalysis = () => {
                         <div
                           key={option.value}
                           className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
-                          onClick={() => handlePublicoSelect(option.value)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePublicoSelect(option.value);
+                          }}
                         >
                           <input
                             type="checkbox"
                             checked={selectedPublico.includes(option.value)}
                             onChange={() => {}}
-                            className="mr-2"
+                            className="mr-2 pointer-events-none"
                           />
                           <span className="text-sm">{option.label}</span>
                         </div>
