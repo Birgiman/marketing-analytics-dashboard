@@ -172,6 +172,8 @@ export function GroupSearchSelector({
     onClose();
   };
 
+  console.log('🔍 [GroupSearchSelector] Renderizando com isOpen:', isOpen);
+  
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[850px] overflow-y-auto flex flex-col">
