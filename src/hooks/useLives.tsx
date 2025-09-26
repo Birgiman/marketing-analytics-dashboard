@@ -487,6 +487,7 @@ export function useLives() {
           id,
           user_id,
           name,
+          live_date,
           captacao_start,
           ta_rolando_start,
           ta_rolando_end,
