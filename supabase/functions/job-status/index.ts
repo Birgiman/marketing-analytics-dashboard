@@ -17,8 +17,6 @@ interface JobStatusResponse {
     status: string;
     instanceName: string;
     searchTerm: string | null;
-    currentPage: number;
-    totalPages: number | null;
     resultCount: number;
     lastError: string | null;
     startedAt: string | null;
@@ -137,8 +135,6 @@ serve(async (req: any) => {
         status: job.status,
         instanceName: job.instance_name,
         searchTerm: job.search_term,
-        currentPage: job.current_page,
-        totalPages: job.total_pages,
         resultCount: job.result_count,
         lastError: job.last_error,
         startedAt: job.started_at,
