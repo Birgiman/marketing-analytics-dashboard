@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { getLiveData, updateLiveCache } from "@/utils/LiveData/getLiveData";
+import { getLiveData, updateLiveCacheWithoutHierarchy } from "@/utils/LiveData/getLiveData";
 import { RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -43,7 +43,7 @@ export function ScreenNavigatorLives({
       
       // Atualizar cache no banco, mas SEM incluir dados hierárquicos
       // Os dados hierárquicos são gerenciados separadamente
-      await updateLiveCache(liveId, liveDataResult);
+      await updateLiveCacheWithoutHierarchy(liveId, liveDataResult);
       
       // Notificar que os dados foram atualizados
       if (onDataUpdated) {

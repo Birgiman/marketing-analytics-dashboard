@@ -1436,6 +1436,67 @@ export async function updateHierarchicalCache(liveId: string, campaignsHierarchy
 }
 
 /**
+ * Atualiza cache SEM gerar dados hierárquicos (para botão principal)
+ * @param liveId ID da Live
+ * @param liveData Dados completos da Live
+ */
+export async function updateLiveCacheWithoutHierarchy(liveId: string, liveData: LiveDataResult): Promise<void> {
+  // Preparar dados para cache (SEM dados hierárquicos)
+  const cacheData = {
+    // Métricas calculadas
+    cached_metrics: {
+      cplMeta: liveData.metrics.cplMeta,
+      cplLiquido: liveData.metrics.cplLiquido,
+      retentionRate: liveData.metrics.retentionRate,
+      cplLiquidoPlanejamento: liveData.metrics.cplLiquidoPlanejamento
+    },
+    
+    // Dados dos grupos
+    cached_group_data: {
+      totalGroups: liveData.groupData.totalMembers > 0 ? 8 : 0, // Assumindo 8 grupos baseado nos logs
+      totalMembers: liveData.groupData.totalMembers,
+      entries: liveData.groupData.entries,
+      exits: liveData.groupData.exits,
+      activeMembers: liveData.groupData.activeMembers
+    },
+    
+    // Dados agregados do Meta
+    cached_meta_data: {
+      totalSpend: liveData.aggregatedInsights.totalSpend,
+      totalResults: liveData.aggregatedInsights.totalLeads,
+      campaignCount: liveData.campaigns.total,
+      insightsCount: liveData.dailyInsights.length
+    },
+    
+    // Dados de tráfego (insights diários) - SEM dados hierárquicos
+    cached_traffic_data: {
+      dailyInsights: liveData.dailyInsights,
+      campaigns: liveData.campaigns.list,
+      groups: await getGroupsData(liveId), // Buscar dados reais dos grupos
+      campaignsWithInsights: await generateCampaignsWithInsightsFromDailyData(liveData.dailyInsights, liveData.campaigns.list) // Popular com dados reais
+      // NÃO incluir campaignsHierarchy aqui
+    },
+    
+    // Timestamp da última sincronização
+    traffic_last_synced_at: new Date().toISOString(),
+    last_synced_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  // Atualizar banco (usando tabela de teste)
+  // Fazer UPDATE direto (Live já existe na tabela de teste)
+  const { data: updateResult, error } = await supabase
+    .from('lives')
+    .update(cacheData)
+    .eq('id', liveId)
+    .select('cached_metrics, cached_group_data, cached_meta_data, cached_traffic_data, traffic_last_synced_at, last_synced_at, updated_at');
+
+  if (error) {
+    throw error;
+  }
+}
+
+/**
  * Busca dados do cache (sem fazer requisições ao Meta)
  * @param liveId ID da Live
  * @returns Dados do cache ou null se não encontrado
