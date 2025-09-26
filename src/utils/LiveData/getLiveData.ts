@@ -235,14 +235,8 @@ export async function getLiveData(liveId: string, force: boolean = false): Promi
         await updateLiveCache(liveId, result);
         
         return result;
-      } else {
-        console.log('🔄 [getLiveData] Cache vazio ou inválido, buscando dados frescos...');
       }
-    } else {
-      console.log('⏰ [getLiveData] Cache expirado, buscando dados frescos...');
     }
-  } else {
-    console.log('🔄 [getLiveData] Force=true, buscando dados frescos...');
   }
   // ETAPA 1: Buscar dados da Live no banco
   const { data: live, error: liveError } = await supabase
@@ -264,7 +258,7 @@ export async function getLiveData(liveId: string, force: boolean = false): Promi
     );
     
     if (newGroupsCount > 0) {
-      console.log(`🔄 [getLiveData] ${newGroupsCount} novos grupos sincronizados, atualizando cache...`);
+      // Novos grupos sincronizados
     }
   }
 
@@ -343,7 +337,7 @@ async function getGroupsData(liveId: string): Promise<GroupData[]> {
  * @param liveId ID da Live para buscar dados de integração
  * @returns Estrutura hierárquica de campanhas
  */
-async function generateCampaignsHierarchy(
+export async function generateCampaignsHierarchy(
   campaigns: Array<{
     id: string;
     name: string;
@@ -385,7 +379,6 @@ async function generateCampaignsHierarchy(
       return { campaigns: [] };
     }
 
-    console.log(`🔍 [CampaignsHierarchy] Gerando hierarquia para ${campaigns.length} campanhas`);
 
     // Buscar dados de integração do Meta
     const { data: { session } } = await supabase.auth.getSession();
@@ -428,11 +421,9 @@ async function generateCampaignsHierarchy(
     // Processar cada campanha
     for (const campaign of campaigns) {
       try {
-        console.log(`📊 [CampaignsHierarchy] Processando campanha: ${campaign.name}`);
 
         // 1. Buscar Ad Sets da campanha
         const adSets = await fetchAdSetsFromMeta(campaign.id, metaIntegration.access_token);
-        console.log(`📱 [CampaignsHierarchy] Encontrados ${adSets.length} ad sets para ${campaign.name}`);
 
         const campaignAdSets = [];
 
@@ -441,7 +432,6 @@ async function generateCampaignsHierarchy(
           try {
             // Buscar Ads do Ad Set
             const ads = await fetchAdsFromMeta(adSet.id, metaIntegration.access_token);
-            console.log(`🎯 [CampaignsHierarchy] Encontrados ${ads.length} ads para ad set: ${adSet.name}`);
 
             const adSetInsights = [];
 
@@ -452,8 +442,6 @@ async function generateCampaignsHierarchy(
                 
                 if (adInsights.length > 0) {
                   // LOG: Dados brutos do ad
-                  console.log(`🔍 [Ad Insights Raw] Ad: ${ad.name} (${ad.id})`);
-                  console.log('📊 Raw insights:', adInsights);
                   
                   // Agregar insights do ad
                   const totalSpend = adInsights.reduce((sum, insight) => sum + Number(insight.spend || 0), 0);
@@ -464,11 +452,6 @@ async function generateCampaignsHierarchy(
                   }, 0);
                   const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
 
-                  // LOG: Dados processados do ad
-                  console.log(`✅ [Ad Processed] ${ad.name}:`);
-                  console.log(`   💰 Spend: ${totalSpend} (type: ${typeof totalSpend})`);
-                  console.log(`   👥 Leads: ${totalLeads} (type: ${typeof totalLeads})`);
-                  console.log(`   📈 CPL: ${cpl} (type: ${typeof cpl})`);
 
                   adSetInsights.push({
                     id: ad.id,
@@ -489,12 +472,6 @@ async function generateCampaignsHierarchy(
             const adSetTotalLeads = adSetInsights.reduce((sum, insight) => sum + Number(insight.leads || 0), 0);
             const adSetCpl = adSetTotalLeads > 0 ? adSetTotalSpend / adSetTotalLeads : 0;
 
-            // LOG: Dados agregados do Ad Set
-            console.log(`📱 [AdSet Aggregated] ${adSet.name}:`);
-            console.log(`   💰 Total Spend: ${adSetTotalSpend} (type: ${typeof adSetTotalSpend})`);
-            console.log(`   👥 Total Leads: ${adSetTotalLeads} (type: ${typeof adSetTotalLeads})`);
-            console.log(`   📈 CPL: ${adSetCpl} (type: ${typeof adSetCpl})`);
-            console.log(`   🎯 Insights count: ${adSetInsights.length}`);
 
             campaignAdSets.push({
               id: adSet.id,
@@ -515,12 +492,6 @@ async function generateCampaignsHierarchy(
         const campaignTotalLeads = campaignAdSets.reduce((sum, adSet) => sum + Number(adSet.totalLeads || 0), 0);
         const campaignCpl = campaignTotalLeads > 0 ? campaignTotalSpend / campaignTotalLeads : 0;
 
-        // LOG: Dados finais da campanha
-        console.log(`🏢 [Campaign Final] ${campaign.name}:`);
-        console.log(`   💰 Total Spend: ${campaignTotalSpend} (type: ${typeof campaignTotalSpend})`);
-        console.log(`   👥 Total Leads: ${campaignTotalLeads} (type: ${typeof campaignTotalLeads})`);
-        console.log(`   📈 CPL: ${campaignCpl} (type: ${typeof campaignCpl})`);
-        console.log(`   📱 AdSets count: ${campaignAdSets.length}`);
 
         campaignsHierarchy.push({
           id: campaign.id,
@@ -536,11 +507,6 @@ async function generateCampaignsHierarchy(
       }
     }
 
-    console.log(`✅ [CampaignsHierarchy] Hierarquia gerada com ${campaignsHierarchy.length} campanhas`);
-    
-    // LOG: Estrutura final completa
-    console.log('🏁 [FINAL STRUCTURE] Estrutura completa da hierarquia:');
-    console.log(JSON.stringify(campaignsHierarchy, null, 2));
     
     return { campaigns: campaignsHierarchy };
 
@@ -714,8 +680,6 @@ async function enrichDailyInsightsWithGroupData(
   dateTo: string
 ) {
   try {
-    console.log(`🔄 [WhatsApp Groups Fix] Enriquecendo ${dailyInsights.length} insights diários`);
-    console.log(`📅 Período: ${dateFrom} até ${dateTo}`);
 
     // Implementar estratégia "2 Dias Fresh"
     const today = new Date().toISOString().split('T')[0];
@@ -729,8 +693,6 @@ async function enrichDailyInsightsWithGroupData(
       insight.date < yesterday
     );
 
-    console.log(`✨ Fresh days (sempre buscar): ${freshDays.length} dias`);
-    console.log(`📦 Older days (tentar cache): ${olderDays.length} dias`);
 
     const enrichedInsights = [];
 
@@ -802,7 +764,6 @@ async function enrichDailyInsightsWithGroupData(
     enrichedInsights.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
     // Log final de validação
-    console.log(`✅ [WhatsApp Groups Fix] Resultado final: ${enrichedInsights.length} insights enriquecidos`);
     enrichedInsights.forEach(insight => {
       if (insight.groupJoin > 0 || insight.groupExit > 0) {
         console.log(`📊 ${insight.date}: ${insight.groupJoin} entradas, ${insight.groupExit} saídas, CPL Líquido: R$ ${insight.cplLiquido?.toFixed(2) || '0.00'}`);
@@ -835,7 +796,6 @@ async function fetchFreshWhatsappData(
 ): Promise<Array<{ date: string; spend: number; leads: number; cplMeta: number; groupJoin: number; groupExit: number; cplLiquido: number; retention: number }>> {
   if (insights.length === 0) return [];
 
-  console.log(`🔍 [WhatsApp Fresh Data] Buscando dados frescos para ${insights.length} dias`);
 
   // Buscar IDs dos grupos da Live
   const { data: groups, error: groupsError } = await supabase
@@ -921,7 +881,6 @@ async function fetchFreshWhatsappData(
   // Log de resumo
   const totalEntries = enrichedResults.reduce((sum, r) => sum + r.groupJoin, 0);
   const totalExits = enrichedResults.reduce((sum, r) => sum + r.groupExit, 0);
-  console.log(`📊 [WhatsApp Fresh Data] Total processado: ${totalEntries} entradas, ${totalExits} saídas`);
 
   return enrichedResults;
 }
@@ -1438,6 +1397,60 @@ export async function isCacheValid(liveId: string): Promise<boolean> {
 }
 
 /**
+ * Verifica se o cache da tabela hierárquica de campanhas é válido (60 minutos)
+ * @param liveId ID da Live
+ * @returns true se cache é válido, false caso contrário
+ */
+export async function isHierarchicalCacheValid(liveId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('lives')
+      .select('campaigns_hierarchy_last_synced_at')
+      .eq('id', liveId)
+      .single();
+    
+    if (error || !data?.campaigns_hierarchy_last_synced_at) {
+      return false;
+    }
+    
+    const lastSync = new Date(data.campaigns_hierarchy_last_synced_at);
+    const now = new Date();
+    const diffMinutes = (now.getTime() - lastSync.getTime()) / (1000 * 60);
+    const isValid = diffMinutes < 60; // 60 minutos para tabela hierárquica
+    return isValid;
+    
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Atualiza apenas o cache da tabela hierárquica de campanhas
+ * @param liveId ID da Live
+ * @param campaignsHierarchy Dados hierárquicos das campanhas
+ */
+export async function updateHierarchicalCache(liveId: string, campaignsHierarchy: { campaigns: unknown[] }): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('lives')
+      .update({
+        cached_traffic_data: {
+          campaignsHierarchy: campaignsHierarchy
+        },
+        campaigns_hierarchy_last_synced_at: new Date().toISOString()
+      })
+      .eq('id', liveId);
+
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
+    console.error('❌ [HierarchicalCache] Erro ao atualizar cache hierárquico:', error);
+    throw error;
+  }
+}
+
+/**
  * Busca dados do cache (sem fazer requisições ao Meta)
  * @param liveId ID da Live
  * @returns Dados do cache ou null se não encontrado
@@ -1502,7 +1515,6 @@ export async function syncWhatsAppGroupsWithLive(
   searchTerm: string
 ): Promise<number> {
   try {
-    console.log(`🔄 [WhatsApp Sync] Sincronizando grupos para Live ${liveId} com termo: "${searchTerm}"`);
 
     // 1. Buscar grupos existentes vinculados à live
     const { data: existingGroups, error: existingError } = await supabase
@@ -1516,7 +1528,6 @@ export async function syncWhatsAppGroupsWithLive(
     }
 
     const existingGroupIds = new Set(existingGroups?.map(g => g.group_id) || []);
-    console.log(`📋 [WhatsApp Sync] Grupos existentes: ${existingGroupIds.size}`);
 
     // 2. Buscar todos os grupos do usuário que correspondem ao termo
     const { data: matchingGroups, error: matchingError } = await supabase
@@ -1530,14 +1541,12 @@ export async function syncWhatsAppGroupsWithLive(
       return 0;
     }
 
-    console.log(`🔍 [WhatsApp Sync] Grupos encontrados com termo "${searchTerm}": ${matchingGroups?.length || 0}`);
 
     // 3. Identificar novos grupos
     const newGroups = matchingGroups?.filter(group => 
       !existingGroupIds.has(group.group_id)
     ) || [];
 
-    console.log(`✨ [WhatsApp Sync] Novos grupos para vincular: ${newGroups.length}`);
 
     // 4. Vincular novos grupos à live (igual ao processo de criação)
     if (newGroups.length > 0) {
@@ -1561,12 +1570,6 @@ export async function syncWhatsAppGroupsWithLive(
         return 0;
       }
 
-      console.log(`✅ [WhatsApp Sync] ${newGroups.length} novos grupos vinculados automaticamente`);
-      
-      // Log dos grupos vinculados
-      newGroups.forEach(group => {
-        console.log(`📱 [WhatsApp Sync] Vinculado: ${group.group_name} (${group.group_size} membros)`);
-      });
     }
 
     return newGroups.length;

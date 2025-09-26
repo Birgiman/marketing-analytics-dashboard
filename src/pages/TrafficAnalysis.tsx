@@ -11,10 +11,10 @@ import { PublicAudience, PublicAudienceCorrelation } from "@/types/audience";
 import { fetchPublicAudiences, generateAudienceCorrelation } from "@/utils/audienceService";
 // Removido imports legados: AdSetData, CampaignData, extractAdSetDataFromInsights, extractCampaignData
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
-import { getLiveDataFromDatabase } from '@/utils/LiveData/getLiveData';
+import { getLiveDataFromDatabase, isHierarchicalCacheValid, updateHierarchicalCache, generateCampaignsHierarchy } from '@/utils/LiveData/getLiveData';
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 // Removido import legado: fetchAdSetInsights
-import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Filter } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Filter, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
@@ -225,6 +225,10 @@ const TrafficAnalysis = () => {
   // Estados para expansão hierárquica
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   
+  // Estados para cache independente da tabela hierárquica
+  const [isHierarchicalRefreshing, setIsHierarchicalRefreshing] = useState(false);
+  const [hierarchicalCacheValid, setHierarchicalCacheValid] = useState(false);
+  
   // Opções de público (dados reais dos públicos da Live) - memoizado para evitar re-renders
   const publicoOptions = useMemo(() => [
     { value: 'todos', label: 'Todos os Públicos' },
@@ -393,6 +397,15 @@ const TrafficAnalysis = () => {
           console.error('Erro ao carregar públicos:', error);
         }
         
+        // Verificar cache da tabela hierárquica
+        try {
+          const isCacheValid = await isHierarchicalCacheValid(liveId);
+          setHierarchicalCacheValid(isCacheValid);
+        } catch (error) {
+          console.error('Erro ao verificar cache hierárquico:', error);
+          setHierarchicalCacheValid(false);
+        }
+        
         setIsLoading(false);
         
       } else {
@@ -405,6 +418,40 @@ const TrafficAnalysis = () => {
       if (isFromButton) {
         setIsButtonRefreshing(false);
       }
+    }
+  }, [liveId]);
+
+  // Função para atualizar cache da tabela hierárquica
+  const handleHierarchicalRefresh = useCallback(async () => {
+    if (!liveId) return;
+    
+    setIsHierarchicalRefreshing(true);
+    
+    try {
+      // Buscar dados da Live para obter campanhas e insights
+      const liveData = await getLiveDataFromDatabase(liveId);
+      if (!liveData) {
+        throw new Error('Live não encontrada');
+      }
+      
+      // Gerar nova hierarquia de campanhas
+      const campaignsHierarchy = await generateCampaignsHierarchy(
+        liveData.cached_traffic_data?.campaigns || [],
+        liveData.cached_traffic_data?.dailyInsights || [],
+        liveId
+      );
+      
+      // Atualizar cache no banco
+      await updateHierarchicalCache(liveId, campaignsHierarchy);
+      
+      // Atualizar estado local
+      setCampaignsHierarchy(campaignsHierarchy);
+      setHierarchicalCacheValid(true);
+      
+    } catch (error) {
+      console.error('❌ [HierarchicalRefresh] Erro ao atualizar cache hierárquico:', error);
+    } finally {
+      setIsHierarchicalRefreshing(false);
     }
   }, [liveId]);
 
@@ -1349,6 +1396,12 @@ const TrafficAnalysis = () => {
           <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
             <div>
               <CardTitle>🏆 Análise Profunda de Campanhas</CardTitle>
+              <div className="text-xs text-muted-foreground mt-1">
+                Cache independente • Atualização a cada 60 minutos
+                {hierarchicalCacheValid && (
+                  <span className="text-green-600 ml-2">✓ Cache válido</span>
+                )}
+              </div>
             </div>
             <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
               <div className="flex items-center space-x-2">
@@ -1362,6 +1415,17 @@ const TrafficAnalysis = () => {
                 <Button onClick={handleApplyFilters} className="flex items-center gap-2">
                 <Filter className="h-4 w-4" />
                 Filtrar
+              </Button>
+              {/* Botão de atualização independente */}
+              <Button 
+                onClick={handleHierarchicalRefresh}
+                disabled={isHierarchicalRefreshing || hierarchicalCacheValid}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isHierarchicalRefreshing ? 'animate-spin' : ''}`} />
+                {isHierarchicalRefreshing ? 'Atualizando...' : 'Atualizar Hierarquia'}
               </Button>
             </div>
           </div>

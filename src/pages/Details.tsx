@@ -109,7 +109,6 @@ const Details = () => {
       }
 
       // Agora, usar getLiveData para validar cache e buscar dados frescos se necessário
-      console.log('🔄 [Details] Validando cache e buscando dados...');
       const liveDataResult = await getLiveData(liveId, false); // false = verificar cache primeiro
       
       // Atualizar dados com os resultados mais recentes
@@ -166,7 +165,6 @@ const Details = () => {
   const handleRefreshStart = async () => {
     setIsButtonRefreshing(true);
     try {
-      console.log('🔄 [Details] Forçando atualização de dados...');
       const liveDataResult = await getLiveData(liveId!, true); // true = force refresh
       
       // Atualizar dados com os resultados mais recentes
