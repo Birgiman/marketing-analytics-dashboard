@@ -1,6 +1,14 @@
+/*
+// EDGE FUNCTION TEMPORARIAMENTE DESABILITADA
+// Para reativar: descomente todo o código abaixo e faça deploy
+// Motivo: Limpeza de functions não utilizadas no frontend
+// Data: 2025-09-26
+
+// Código original comentado abaixo:
+
 // @ts-ignore
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-// @ts-ignore  
+// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -48,7 +56,7 @@ serve(async (req: any) => {
     }
 
     const { instanceName, userId, searchTerm }: SearchGroupsRequest = await req.json()
-    
+
     if (!instanceName || !userId || !searchTerm) {
       return new Response(
         JSON.stringify({ success: false, error: 'instanceName, userId and searchTerm are required' }),
@@ -76,8 +84,8 @@ serve(async (req: any) => {
     if (instanceError || !instanceData?.api_token) {
       console.error('❌ Instance or API token not found:', instanceError)
       return new Response(
-        JSON.stringify({ 
-          success: false, 
+        JSON.stringify({
+          success: false,
           error: 'Instance not found or API token missing. Please reconnect your WhatsApp instance.'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -90,7 +98,7 @@ serve(async (req: any) => {
     // @ts-ignore
     const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'https://evolution-api-2-3-0-production-6d75.up.railway.app'
     const cleanApiUrl = evolutionApiUrl.replace(/\/$/, '')
-    
+
     // Get ALL groups first (we'll filter after)
     const evolutionUrl = `${cleanApiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false`
     console.log(`🌐 Calling Evolution API: ${evolutionUrl}`)
@@ -98,7 +106,7 @@ serve(async (req: any) => {
     // Add retry logic and shorter timeout
     let response;
     let lastError;
-    
+
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         console.log(`📡 Attempt ${attempt}/2 to search groups (timeout: 60s)`)
@@ -111,7 +119,7 @@ serve(async (req: any) => {
           },
           signal: AbortSignal.timeout(60000) // 60 second timeout para instâncias com muitos grupos
         })
-        
+
         if (response.ok) {
           console.log(`✅ Successfully fetched groups for search on attempt ${attempt}`)
           break;
@@ -128,7 +136,7 @@ serve(async (req: any) => {
         }
       }
     }
-    
+
     if (!response || !response.ok) {
       throw lastError || new Error('Failed to search groups after 2 attempts')
     }
@@ -147,14 +155,14 @@ serve(async (req: any) => {
     // Filter and process groups
     const searchLower = searchTerm.toLowerCase().trim()
     const matchedGroups: GroupResult[] = []
-    
+
     for (const group of groupsData) {
       try {
         const groupId = group.id
         const groupName = group.subject || 'Sem nome'
         const groupSize = group.size || 0
         const groupOwner = group.owner
-        
+
         // Skip invalid groups
         if (!groupId || groupSize === 0 || !group.subject || group.subject.trim() === '') {
           continue
@@ -166,8 +174,8 @@ serve(async (req: any) => {
           continue
         }
 
-        // Convert Unix timestamp to ISO string  
-        const groupCreatedAt = group.creation 
+        // Convert Unix timestamp to ISO string
+        const groupCreatedAt = group.creation
           ? new Date(group.creation * 1000).toISOString()
           : null
 
@@ -178,11 +186,11 @@ serve(async (req: any) => {
           group_size: groupSize,
           group_owner: groupOwner,
           group_created_at: groupCreatedAt || undefined,
-          group_created_formatted: groupCreatedAt 
+          group_created_formatted: groupCreatedAt
             ? new Date(groupCreatedAt).toLocaleDateString('pt-BR')
             : 'N/A',
-          group_owner_formatted: groupOwner 
-            ? groupOwner.replace('@s.whatsapp.net', '').replace(/\d+/g, (match: string) => 
+          group_owner_formatted: groupOwner
+            ? groupOwner.replace('@s.whatsapp.net', '').replace(/\d+/g, (match: string) =>
                 match.replace(/(\d{2})(\d{2})(\d{4,5})(\d{4})/, '($1) $2 $3-$4')
               )
             : 'N/A',
@@ -217,14 +225,18 @@ serve(async (req: any) => {
   } catch (error) {
     console.error('❌ Function error:', error)
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: (error as Error).message 
+      JSON.stringify({
+        success: false,
+        error: (error as Error).message
       }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
   }
 })
+
+*/
+
+export {};
