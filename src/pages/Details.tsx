@@ -57,6 +57,7 @@ const Details = () => {
   const loadDataFromDatabase = useCallback(async () => {
     if (!liveId) return;
     try {
+      // Primeiro, buscar dados básicos da Live
       const liveData = await getLiveDataFromDatabase(liveId);
       if (liveData) {
         // Atualizar dados básicos da Live
@@ -75,7 +76,7 @@ const Details = () => {
           updated_at: liveData.updated_at
         });
 
-        // Extrair dados do cache JSONB
+        // Extrair dados do cache JSONB se existirem
         if (liveData.cached_metrics) {
           const cachedMetrics = liveData.cached_metrics;
           setMetrics({
@@ -105,11 +106,40 @@ const Details = () => {
             });
           }
         }
-        setIsLoading(false);
-      } else {
-        setIsLoading(false);
       }
+
+      // Agora, usar getLiveData para validar cache e buscar dados frescos se necessário
+      console.log('🔄 [Details] Validando cache e buscando dados...');
+      const liveDataResult = await getLiveData(liveId, false); // false = verificar cache primeiro
+      
+      // Atualizar dados com os resultados mais recentes
+      if (liveDataResult) {
+        setMetrics({
+          cplMeta: liveDataResult.metrics.cplMeta,
+          cplLiquido: liveDataResult.metrics.cplLiquido,
+          retentionRate: liveDataResult.metrics.retentionRate,
+          cplLiquidoPlanejamento: liveDataResult.metrics.cplLiquidoPlanejamento
+        });
+        
+        setExtractedData({
+          metaData: {
+            totalSpend: liveDataResult.aggregatedInsights.totalSpend,
+            totalResults: liveDataResult.aggregatedInsights.totalLeads,
+            campaignCount: liveDataResult.campaigns.total
+          },
+          groupData: {
+            totalGroups: 0, // Será calculado baseado nos dados
+            totalMembers: liveDataResult.groupData.totalMembers,
+            entries: liveDataResult.groupData.entries,
+            exits: liveDataResult.groupData.exits,
+            activeMembers: liveDataResult.groupData.activeMembers
+          }
+        });
+      }
+      
+      setIsLoading(false);
     } catch (error) {
+      console.error('❌ [Details] Erro ao carregar dados:', error);
       setError(`Erro ao carregar dados: ${error}`);
       setIsLoading(false);
     } finally {
@@ -133,8 +163,42 @@ const Details = () => {
   }, [liveId, loadDataFromDatabase]);
 
   // Função para iniciar o refresh (chamada pelo botão)
-  const handleRefreshStart = () => {
+  const handleRefreshStart = async () => {
     setIsButtonRefreshing(true);
+    try {
+      console.log('🔄 [Details] Forçando atualização de dados...');
+      const liveDataResult = await getLiveData(liveId!, true); // true = force refresh
+      
+      // Atualizar dados com os resultados mais recentes
+      if (liveDataResult) {
+        setMetrics({
+          cplMeta: liveDataResult.metrics.cplMeta,
+          cplLiquido: liveDataResult.metrics.cplLiquido,
+          retentionRate: liveDataResult.metrics.retentionRate,
+          cplLiquidoPlanejamento: liveDataResult.metrics.cplLiquidoPlanejamento
+        });
+        
+        setExtractedData({
+          metaData: {
+            totalSpend: liveDataResult.aggregatedInsights.totalSpend,
+            totalResults: liveDataResult.aggregatedInsights.totalLeads,
+            campaignCount: liveDataResult.campaigns.total
+          },
+          groupData: {
+            totalGroups: 0, // Será calculado baseado nos dados
+            totalMembers: liveDataResult.groupData.totalMembers,
+            entries: liveDataResult.groupData.entries,
+            exits: liveDataResult.groupData.exits,
+            activeMembers: liveDataResult.groupData.activeMembers
+          }
+        });
+      }
+    } catch (error) {
+      console.error('❌ [Details] Erro ao atualizar dados:', error);
+      setError(`Erro ao atualizar dados: ${error}`);
+    } finally {
+      setIsButtonRefreshing(false);
+    }
   };
 
   // Função para testar getLiveData
