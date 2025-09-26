@@ -90,18 +90,18 @@ const [lives, setLives] = useState<Live[]>([]);
         return;
       }
 
-      // Iniciar sincronização assíncrona usando novo método paginado
-      whatsappService.syncGroupsPaged(instanceName, userId).then((result) => {
+      // Iniciar sincronização assíncrona usando nova arquitetura de filas
+      whatsappService.syncGroupsWithQueue(instanceName, userId).then((result) => {
         if (result.success) {
-          console.log(`✅ [Dashboard] Sincronização concluída: ${result.totalGroups} grupos sincronizados`);
+          console.log(`✅ [Dashboard] Job de sincronização criado: ${result.jobId}`);
         } else {
-          console.log(`❌ [Dashboard] Sincronização falhou: ${result.error}`);
+          console.log(`❌ [Dashboard] Falha ao criar job: ${result.error}`);
         }
       }).catch((error) => {
-        console.log(`⚠️ [Dashboard] Erro na sincronização paginada:`, error.message);
+        console.log(`⚠️ [Dashboard] Erro na sincronização com fila:`, error.message);
       });
 
-      console.log(`✅ [Dashboard] Sincronização paginada iniciada`);
+      console.log(`✅ [Dashboard] Sincronização com fila iniciada`);
       
     } catch (error) {
       console.log(`❌ [Dashboard] Erro na sincronização:`, error);

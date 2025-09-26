@@ -406,7 +406,51 @@ class WhatsAppService {
     }
   }
 
-  // Sincronizar grupos com paginação multi-chamada
+  // Sincronizar grupos usando nova arquitetura de filas
+  async syncGroupsWithQueue(instanceName: string, userId: string, searchTerm?: string): Promise<{ success: boolean; jobId?: string; error?: string }> {
+    try {
+      console.log('🚀 [syncGroupsWithQueue] Iniciando sincronização com fila para:', instanceName);
+      
+      const response = await supabase.functions.invoke('start-fetch-groups', {
+        body: {
+          instanceName,
+          userId,
+          searchTerm
+        }
+      });
+
+      if (response.error) {
+        console.error('❌ [syncGroupsWithQueue] Erro na Edge Function:', response.error);
+        return {
+          success: false,
+          error: response.error.message || 'Erro na sincronização'
+        };
+      }
+
+      const result = response.data;
+      if (result.success) {
+        console.log(`✅ [syncGroupsWithQueue] Job criado com sucesso: ${result.jobId}`);
+        return {
+          success: true,
+          jobId: result.jobId
+        };
+      } else {
+        console.error('❌ [syncGroupsWithQueue] Falha ao criar job:', result.error);
+        return {
+          success: false,
+          error: result.error || 'Falha ao criar job'
+        };
+      }
+    } catch (error) {
+      console.error('❌ [syncGroupsWithQueue] Erro geral:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro desconhecido'
+      };
+    }
+  }
+
+  // Sincronizar grupos com paginação multi-chamada (LEGACY - será removida)
   async syncGroupsPaged(instanceName: string, userId: string, searchTerm?: string): Promise<{ success: boolean; totalGroups: number; error?: string }> {
     try {
       console.log('🚀 [syncGroupsPaged] Iniciando sincronização paginada para:', instanceName);

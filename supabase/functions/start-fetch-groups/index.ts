@@ -126,10 +126,33 @@ serve(async (req: any) => {
       );
     }
 
+    // Chamar automaticamente a função process-fetch-groups-job para processar o job criado
+    try {
+      const processFunctionUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/process-fetch-groups-job`;
+      
+      const processResponse = await fetch(processFunctionUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ jobId: newJob.id })
+      });
+
+      if (!processResponse.ok) {
+        console.error('❌ [start-fetch-groups] Erro ao chamar process-fetch-groups-job:', processResponse.status);
+      } else {
+        const processResult = await processResponse.json();
+        console.log('✅ [start-fetch-groups] Process-fetch-groups-job executado:', processResult);
+      }
+    } catch (error) {
+      console.error('❌ [start-fetch-groups] Erro ao chamar process-fetch-groups-job:', error);
+    }
+
     const response: StartFetchGroupsResponse = {
       success: true,
       jobId: newJob.id,
-      message: 'Job created successfully. Processing will begin shortly.'
+      message: 'Job created successfully. Processing started automatically.'
     };
 
     return new Response(

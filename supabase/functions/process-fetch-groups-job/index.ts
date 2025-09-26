@@ -47,6 +47,9 @@ serve(async (req: any) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  // LOG DE DEBUG - VERIFICAR SE FUNÇÃO ESTÁ SENDO EXECUTADA
+  console.log('🚀 [process-fetch-groups-job] FUNÇÃO INICIADA - DEBUG');
+
   const startTime = Date.now();
   const summary = {
     bodyReceived: null,
@@ -192,6 +195,7 @@ serve(async (req: any) => {
 
     if (!jobs || jobs.length === 0) {
       summary.jobsFound = [];
+      console.log('📋 [process-fetch-groups-job] NENHUM JOB ENCONTRADO - DEBUG');
       return new Response(
         JSON.stringify({
           success: true,
@@ -447,7 +451,8 @@ serve(async (req: any) => {
       message
     };
 
-    // LOG ÚNICO RESUMIDO
+    // LOG ÚNICO RESUMIDO - TESTE SIMPLES
+    console.log('TESTE LOG SIMPLES - FUNÇÃO EXECUTADA COM SUCESSO');
     console.log(`📊 [process-fetch-groups-job] RESUMO: Jobs: [${summary.jobsFound.join(', ')}] | Grupos: ${summary.groupsLoaded.count} (${summary.groupsLoaded.timeMs}ms) | Processados: ${summary.totalProcessed} | Tempo: ${totalDuration}ms | Status: ${summary.status}${summary.errors.length > 0 ? ` | Erros: ${summary.errors.join('; ')}` : ''}`);
 
     return new Response(
