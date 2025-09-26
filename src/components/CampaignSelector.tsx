@@ -45,23 +45,15 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   const [hasSearched, setHasSearched] = useState(false); // Controla se já foi feita uma busca
   const [autoSearchTerm, setAutoSearchTerm] = useState('');
 
-  // Chave para armazenamento no localStorage - COMENTADO: Migrado para Supabase
-  // const STORAGE_KEY = 'liveshop_campaign_search_term';
 
-  // Função para salvar termo de busca no localStorage - COMENTADO: Migrado para Supabase
+  // Função para atualizar termo de busca
   const saveSearchTerm = (term: string) => {
     setSearchTerm(term);
-    // if (term.trim()) {
-    //   localStorage.setItem(STORAGE_KEY, term);
-    // } else {
-    //   localStorage.removeItem(STORAGE_KEY);
-    // }
   };
 
-  // Função para limpar termo de busca (reset completo) - COMENTADO: Migrado para Supabase
+  // Função para limpar termo de busca
   const clearSearchTerm = () => {
     setSearchTerm('');
-    // localStorage.removeItem(STORAGE_KEY);
   };
   const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -103,16 +95,6 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
     }
   }, [isOpen, userId]);
 
-  useEffect(() => {
-    // Carregar termo de busca salvo do localStorage - COMENTADO: Migrado para Supabase
-    if (isOpen) {
-      // const savedSearchTerm = localStorage.getItem(STORAGE_KEY);
-      // if (savedSearchTerm) {
-      //   setSearchTerm(savedSearchTerm);
-      //   setUseSearch(true); // Habilitar busca se há termo salvo
-      // }
-    }
-  }, [isOpen]);
 
   // Atualizar searchTerm quando initialSearchTerm mudar (modo de edição)
   useEffect(() => {

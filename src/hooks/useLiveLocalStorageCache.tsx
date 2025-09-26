@@ -47,27 +47,14 @@ export function useLiveLocalStorageCache({
     return (now - cacheData.lastMetaFetch) > META_FETCH_COOLDOWN;
   }, []);
 
-  // Carregar cache do localStorage - COMENTADO: Migrado para Supabase
+  // Carregar cache do localStorage - REMOVIDO: Migrado para Supabase
   const loadCacheFromStorage = useCallback((): LiveCacheData | null => {
-    try {
-      // const stored = localStorage.getItem(cacheKey);
-      // if (stored) {
-      //   const parsed = JSON.parse(stored);
-      //   return parsed;
-      // }
-    } catch (error) {
-
-    }
     return null;
   }, [cacheKey]);
 
-  // Salvar cache no localStorage - COMENTADO: Migrado para Supabase
+  // Salvar cache no localStorage - REMOVIDO: Migrado para Supabase
   const saveCacheToStorage = useCallback((cacheData: LiveCacheData) => {
-    try {
-      // localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-    } catch (error) {
-
-    }
+    // Não faz nada - migrado para Supabase
   }, [cacheKey]);
 
   // Calcular métricas baseado nos dados
@@ -385,14 +372,9 @@ export function useLiveLocalStorageCache({
     await loadData(true);
   }, [loadData]);
 
-  // Função para limpar cache - COMENTADO: Migrado para Supabase
+  // Função para limpar cache - REMOVIDO: Migrado para Supabase
   const clearCache = useCallback(() => {
-    try {
-      // localStorage.removeItem(cacheKey);
-      setCache(null);
-    } catch (error) {
-
-    }
+    setCache(null);
   }, [cacheKey]);
 
 

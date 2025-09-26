@@ -4,7 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-// import { useLiveLocalStorageCache } from "@/hooks/useLiveLocalStorageCache"; // COMENTADO: Migrado para Supabase
 import { supabase } from "@/integrations/supabase/client";
 import { Heart, MapPin, MessageSquare, Package, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -25,13 +24,6 @@ const ResearchInsights = () => {
   const location = useLocation();
   const liveId = searchParams.get('live');
 
-  // Usar cache localStorage para dados da Live (mesmo que não use campanhas) - COMENTADO: Migrado para Supabase
-  // const {
-  //   live,
-  //   isFromCache,
-  //   canFetchMetaAgain
-  // } = useLiveLocalStorageCache({ liveId: liveId || '' });
-  
   // TODO: Migrar para Supabase - usar hook de dados da live
   const live = null;
   const isFromCache = false;
