@@ -53,7 +53,6 @@ export function GroupSearchSelector({
   useEffect(() => {
     if (initialSearchTerm && initialSearchTerm !== searchTerm) {
       setSearchTerm(initialSearchTerm);
-      console.log('📱 [GroupSearchSelector] Termo inicial carregado:', initialSearchTerm);
     }
   }, [initialSearchTerm]);
 

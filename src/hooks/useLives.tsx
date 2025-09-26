@@ -48,11 +48,6 @@ export function useLives() {
         throw new Error('Usuário não autenticado')
       }
 
-      // DEBUG: Log dos dados antes de salvar
-      console.log('💾 [useLives] createLiveWithGroups - Dados para salvar:', {
-        whatsapp_search_term: liveData.whatsapp_search_term,
-        campaign_search_term: liveData.campaign_search_term
-      });
 
       // Create the live first
       const { data: liveResult, error: liveError } = await supabase

@@ -101,7 +101,6 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
     if (initialSearchTerm && initialSearchTerm !== searchTerm) {
       setSearchTerm(initialSearchTerm);
       setUseSearch(true);
-      console.log('🎯 [CampaignSelector] Termo inicial carregado:', initialSearchTerm);
     }
   }, [initialSearchTerm]);
 

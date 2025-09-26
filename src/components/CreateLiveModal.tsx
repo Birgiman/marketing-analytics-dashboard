@@ -143,14 +143,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         setSelectedGroups(groups);
       }
 
-      // DEBUG: Log do objeto completo da live sendo editada
-      console.log('🔍 [CreateLiveModal] DEBUG - Live sendo editada:', {
-        id: editingLive.id,
-        name: editingLive.name,
-        whatsapp_search_term: editingLive.whatsapp_search_term,
-        campaign_search_term: editingLive.campaign_search_term,
-        live_groups: editingLive.live_groups?.length || 0
-      });
 
       // Load linked campaigns if editing
       loadLinkedCampaigns(editingLive.id);
@@ -158,12 +150,10 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
       // Set search terms if editing
       if (editingLive.whatsapp_search_term) {
         setWhatsappSearchTerm(editingLive.whatsapp_search_term);
-        console.log('📱 [CreateLiveModal] WhatsApp search term carregado:', editingLive.whatsapp_search_term);
       }
       
       if (editingLive.campaign_search_term) {
         setCampaignSearchTerm(editingLive.campaign_search_term);
-        console.log('🎯 [CreateLiveModal] Campaign search term carregado:', editingLive.campaign_search_term);
       }
     }
   }, [editingLive, open]);
@@ -189,9 +179,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
   };
 
   const handleGroupsSelected = (groups: GroupResult[], searchTerm: string) => {
-    console.log('📱 [CreateLiveModal] handleGroupsSelected - Termo capturado:', searchTerm);
-    console.log('👥 [CreateLiveModal] handleGroupsSelected - Grupos selecionados:', groups.length);
-    
     setSelectedGroups(groups);
     setWhatsappSearchTerm(searchTerm);
     setShowGroupSelector(false);
@@ -224,12 +211,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
 
   const handleCreate = async () => {
     try {
-      // DEBUG: Log dos valores antes de salvar
-      console.log('🔍 [CreateLiveModal] DEBUG - Valores antes de salvar:');
-      console.log('📱 whatsappSearchTerm:', whatsappSearchTerm);
-      console.log('🎯 campaignSearchTerm:', campaignSearchTerm);
-      console.log('👥 selectedGroups:', selectedGroups.length, 'grupos');
-      
       const liveData = {
         name: formData.liveName,
         live_date: formData.liveStart,
@@ -244,9 +225,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         campaign_search_term: campaignSearchTerm,
         whatsapp_search_term: whatsappSearchTerm
       };
-
-      // DEBUG: Log do objeto final
-      console.log('💾 [CreateLiveModal] DEBUG - liveData final:', liveData);
 
       const groups = selectedGroups.map(group => ({
         group_id: group.group_id,

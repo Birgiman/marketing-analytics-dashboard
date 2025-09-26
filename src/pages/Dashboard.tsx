@@ -110,8 +110,8 @@ const [lives, setLives] = useState<Live[]>([]);
 
   const [hasLoadedStats, setHasLoadedStats] = useState(false);
 
-  const loadStats = useCallback(async (userId: string) => {
-    if (hasLoadedStats) return; // Evitar carregamento duplicado
+  const loadStats = useCallback(async (userId: string, forceReload = false) => {
+    if (hasLoadedStats && !forceReload) return; // Evitar carregamento duplicado
     
     try {
       // Fetch user lives with groups
@@ -223,7 +223,7 @@ const [lives, setLives] = useState<Live[]>([]);
         await softDeleteLive(liveToDelete.id);
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
-          await loadStats(session.user.id);
+          await loadStats(session.user.id, true);
         }
         setShowDeleteModal(false);
         setLiveToDelete(null);
@@ -424,7 +424,7 @@ const [lives, setLives] = useState<Live[]>([]);
             try {
               const { data: { session } } = await supabase.auth.getSession();
               if (session?.user) {
-                await loadStats(session.user.id);
+                await loadStats(session.user.id, true);
               }
             } catch (error) {
 
@@ -447,7 +447,7 @@ const [lives, setLives] = useState<Live[]>([]);
             try {
               const { data: { session } } = await supabase.auth.getSession();
               if (session?.user) {
-                await loadStats(session.user.id);
+                await loadStats(session.user.id, true);
               }
             } catch (error) {
 
@@ -468,7 +468,7 @@ const [lives, setLives] = useState<Live[]>([]);
             try {
               const { data: { session } } = await supabase.auth.getSession();
               if (session?.user) {
-                await loadStats(session.user.id);
+                await loadStats(session.user.id, true);
               }
             } catch (error) {
 
