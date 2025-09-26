@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchCampaignById, fetchMetaInsights } from '@/utils/metaApi';
+import { useCallback, useEffect, useState } from 'react';
 
 interface LiveCampaign {
   id: string;
@@ -140,7 +140,7 @@ export function useLiveCampaignData(liveId: string): UseLiveCampaignDataReturn {
             );
 
             // Pegar o primeiro insight (mais recente)
-            const latestInsight = insightsData[0] || {};
+            const latestInsight = insightsData[0] || {} as any;
 
             // Salvar insights no banco de dados para cache
             if (latestInsight && Object.keys(latestInsight).length > 0) {

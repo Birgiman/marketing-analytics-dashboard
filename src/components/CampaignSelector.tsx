@@ -283,15 +283,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
     }
   }, [campaigns, autoSearchTerm, hasSearched, loading]);
 
-  const handleCampaignToggle = (campaign: MetaCampaign) => {
-    setSelectedCampaignIds(prev => {
-      if (prev.includes(campaign.id)) {
-        return prev.filter(id => id !== campaign.id);
-      } else {
-        return [...prev, campaign.id];
-      }
-    });
-  };
+  // Função removida - campanhas são selecionadas automaticamente
 
   const handleConfirm = () => {
     const selectedCampaigns = campaigns.filter(campaign =>
@@ -335,7 +327,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
           <DialogDescription>
             {step === 1 
               ? 'Escolha a conta de anúncios para buscar campanhas.'
-              : 'Escolha as campanhas do Meta Ads que serão vinculadas a esta Live.'
+              : 'As campanhas que correspondem ao termo de busca serão selecionadas automaticamente.'
             }
           </DialogDescription>
         </DialogHeader>
@@ -545,7 +537,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                   <div className="space-y-3">
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                       <p className="text-sm text-blue-800">
-                        Digite o padrão das campanhas e o sistema selecionará automaticamente todas as campanhas que contenham esse termo.
+                        Digite o padrão das campanhas e o sistema selecionará automaticamente todas as campanhas que contenham esse termo. As campanhas encontradas serão exibidas para visualização, mas não podem ser desmarcadas individualmente.
                       </p>
                     </div>
 
@@ -709,16 +701,15 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                             isLinked
                               ? 'border-orange-300 bg-orange-50 cursor-default'
                               : isSelected
-                                ? 'border-blue-500 bg-blue-50 cursor-pointer'
-                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
+                                ? 'border-blue-500 bg-blue-50 cursor-default'
+                                : 'border-gray-200 cursor-default'
                           }`}
-                          onClick={() => !isLinked && handleCampaignToggle(campaign)}
                         >
                           <div className="flex items-start space-x-3">
                             <Checkbox
                               checked={isSelected || isLinked}
-                              disabled={isLinked}
-                              onChange={() => {}} // Handled by parent click
+                              disabled={true}
+                              onChange={() => {}} // Sempre desabilitado
                               className="mt-1"
                             />
 

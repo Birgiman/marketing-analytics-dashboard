@@ -1,16 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchCampaignById, fetchMetaInsights } from '@/utils/metaApi';
 import {
-  Live,
-  LiveGroup,
-  LiveCampaign,
-  LiveCampaignWithInsights,
-  LiveMetrics,
-  LiveCacheData,
-  MetaAction
+    Live,
+    LiveCacheData,
+    LiveCampaign,
+    LiveCampaignWithInsights,
+    LiveGroup,
+    LiveMetrics,
+    MetaAction
 } from '@/types/live';
-import { MetaInsightsOptions } from '@/types/metaApi';
+import { fetchCampaignById, fetchMetaInsights } from '@/utils/metaApi';
+import { useCallback, useEffect, useState } from 'react';
 
 // Interface já importada de @/types/live
 
@@ -226,7 +225,7 @@ export function useLiveLocalStorageCache({
               options
             );
 
-            const latestInsight = insightsData[0] || {};
+            const latestInsight = insightsData[0] || {} as any;
 
             // Salvar insights no banco para cache persistente
             if (latestInsight && Object.keys(latestInsight).length > 0) {
