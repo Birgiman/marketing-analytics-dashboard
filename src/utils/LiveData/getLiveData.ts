@@ -718,7 +718,6 @@ async function enrichDailyInsightsWithGroupData(
         const olderWithCache = olderDays.map(insight => {
           const cached = cacheMap.get(insight.date);
           if (cached && cached.groupJoin !== undefined) {
-            console.log(`📦 Usando cache para ${insight.date}: ${cached.groupJoin} entradas, ${cached.groupExit} saídas`);
             return {
               ...insight,
               groupJoin: cached.groupJoin,
@@ -736,8 +735,6 @@ async function enrichDailyInsightsWithGroupData(
 
         enrichedInsights.push(...fromCache);
         
-        console.log(`📦 Recuperados do cache: ${fromCache.length} dias`);
-        console.log(`🔍 Ainda precisam de dados: ${needsFreshData.length} dias antigos + ${freshDays.length} dias recentes`);
 
         // Buscar dados frescos para dias que não estão em cache + dias recentes
         const allNeedingFresh = [...needsFreshData, ...freshDays];
@@ -808,14 +805,12 @@ async function fetchFreshWhatsappData(
   }
 
   const groupIds = groups.map(group => group.group_id);
-  console.log(`📱 Grupos encontrados: ${groupIds.length} grupos`);
 
   // CORREÇÃO CRÍTICA: Buscar dados de cada dia individualmente para garantir mapeamento exato
   const enrichedResults = [];
 
   for (const insight of insights) {
     try {
-      console.log(`📅 Processando dados para ${insight.date}`);
       
       // Buscar dados específicos do dia (com margem de 1 dia)
       const dayStart = `${insight.date} 00:00:00`;

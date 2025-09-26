@@ -198,11 +198,9 @@ export async function getWhatsAppGroupsLogByPeriod(
 }>> {
   try {
     if (!groupIds || groupIds.length === 0) {
-      console.log(`⚠️ [WhatsApp Groups Log] Nenhum grupo fornecido`);
       return [];
     }
 
-    console.log(`📊 [WhatsApp Groups Log] Consultando período ${dateFrom} até ${dateTo} para ${groupIds.length} grupos`);
 
     // Consulta otimizada com logs detalhados
     const { data: rawData, error } = await supabase
@@ -276,7 +274,6 @@ export async function getWhatsAppGroupsLogByPeriod(
 
     const totalEntries = result.reduce((sum, day) => sum + day.entries, 0);
     const totalExits = result.reduce((sum, day) => sum + day.exits, 0);
-    console.log(`📊 [WhatsApp Groups Log] Total: ${totalEntries} entradas, ${totalExits} saídas`);
 
     return result;
 
