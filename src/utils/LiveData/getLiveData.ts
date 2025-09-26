@@ -337,9 +337,10 @@ async function getGroupsData(liveId: string): Promise<GroupData[]> {
 }
 
 /**
- * Gera estrutura hierárquica de campanhas com ad sets e insights
+ * Gera estrutura hierárquica de campanhas com ad sets e insights REAIS do Meta API
  * @param campaigns Lista de campanhas
  * @param dailyInsights Insights diários do Meta
+ * @param liveId ID da Live para buscar dados de integração
  * @returns Estrutura hierárquica de campanhas
  */
 async function generateCampaignsHierarchy(
@@ -353,7 +354,8 @@ async function generateCampaignsHierarchy(
     spend: number;
     leads: number;
     cplMeta: number;
-  }>
+  }>,
+  liveId: string
 ): Promise<{
   campaigns: Array<{
     id: string;
@@ -383,66 +385,230 @@ async function generateCampaignsHierarchy(
       return { campaigns: [] };
     }
 
-    // Por enquanto, criar estrutura básica com dados agregados
-    // TODO: Implementar busca real de ad sets e insights do Meta
-    const campaignsHierarchy = campaigns.map(campaign => {
-      // Calcular totais baseados nos dailyInsights
-      const totalSpend = dailyInsights.reduce((sum, insight) => sum + insight.spend, 0);
-      const totalLeads = dailyInsights.reduce((sum, insight) => sum + insight.leads, 0);
-      const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
+    console.log(`🔍 [CampaignsHierarchy] Gerando hierarquia para ${campaigns.length} campanhas`);
 
-      return {
-        id: campaign.id,
-        name: campaign.name,
-        totalSpend,
-        totalLeads,
-        cpl,
-        adSets: [
-          // Placeholder: ad set simulado
-          {
-            id: `${campaign.id}_adset_1`,
-            name: `${campaign.name} - Ad Set 1`,
-            totalSpend: totalSpend * 0.6, // 60% do total
-            totalLeads: totalLeads * 0.6,
-            cpl: totalLeads * 0.6 > 0 ? (totalSpend * 0.6) / (totalLeads * 0.6) : 0,
-            insights: [
-              // Placeholder: insight simulado
-              {
-                id: `${campaign.id}_insight_1`,
-                name: `${campaign.name} - Insight 1`,
-                spend: totalSpend * 0.3,
-                leads: totalLeads * 0.3,
-                cpl: totalLeads * 0.3 > 0 ? (totalSpend * 0.3) / (totalLeads * 0.3) : 0,
-                creativeUrl: undefined
+    // Buscar dados de integração do Meta
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
+      console.error('Usuário não autenticado');
+      return { campaigns: [] };
+    }
+
+    const { data: metaIntegration } = await supabase
+      .from('meta_integrations')
+      .select('access_token')
+      .eq('user_id', session.user.id)
+      .eq('is_active', true)
+      .single();
+
+    if (!metaIntegration?.access_token) {
+      console.error('Token do Meta não encontrado');
+      return { campaigns: [] };
+    }
+
+    // Buscar dados da Live para pegar o período
+    const { data: liveData } = await supabase
+      .from('lives')
+      .select('insights_date_since, insights_date_until')
+      .eq('id', liveId)
+      .single();
+
+    if (!liveData?.insights_date_since || !liveData?.insights_date_until) {
+      console.error('Período de insights não encontrado na Live');
+      return { campaigns: [] };
+    }
+
+    const dateRange = {
+      since: liveData.insights_date_since,
+      until: liveData.insights_date_until
+    };
+
+    const campaignsHierarchy = [];
+
+    // Processar cada campanha
+    for (const campaign of campaigns) {
+      try {
+        console.log(`📊 [CampaignsHierarchy] Processando campanha: ${campaign.name}`);
+
+        // 1. Buscar Ad Sets da campanha
+        const adSets = await fetchAdSetsFromMeta(campaign.id, metaIntegration.access_token);
+        console.log(`📱 [CampaignsHierarchy] Encontrados ${adSets.length} ad sets para ${campaign.name}`);
+
+        const campaignAdSets = [];
+
+        // 2. Para cada Ad Set, buscar Ads e seus insights
+        for (const adSet of adSets) {
+          try {
+            // Buscar Ads do Ad Set
+            const ads = await fetchAdsFromMeta(adSet.id, metaIntegration.access_token);
+            console.log(`🎯 [CampaignsHierarchy] Encontrados ${ads.length} ads para ad set: ${adSet.name}`);
+
+            const adSetInsights = [];
+
+            // 3. Para cada Ad, buscar insights
+            for (const ad of ads) {
+              try {
+                const adInsights = await fetchAdInsightsFromMeta(ad.id, metaIntegration.access_token, dateRange);
+                
+                if (adInsights.length > 0) {
+                  // Agregar insights do ad
+                  const totalSpend = adInsights.reduce((sum, insight) => sum + (insight.spend || 0), 0);
+                  const totalLeads = adInsights.reduce((sum, insight) => {
+                    const actions = insight.actions || [];
+                    const leadAction = actions.find((action: { action_type: string; value: number }) => action.action_type === 'lead');
+                    return sum + (leadAction?.value || 0);
+                  }, 0);
+                  const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
+
+                  adSetInsights.push({
+                    id: ad.id,
+                    name: ad.name,
+                    spend: totalSpend,
+                    leads: totalLeads,
+                    cpl,
+                    creativeUrl: undefined // TODO: Implementar busca de creative URL
+                  });
+                }
+              } catch (error) {
+                console.error(`Erro ao buscar insights do ad ${ad.id}:`, error);
               }
-            ]
-          },
-          {
-            id: `${campaign.id}_adset_2`,
-            name: `${campaign.name} - Ad Set 2`,
-            totalSpend: totalSpend * 0.4, // 40% do total
-            totalLeads: totalLeads * 0.4,
-            cpl: totalLeads * 0.4 > 0 ? (totalSpend * 0.4) / (totalLeads * 0.4) : 0,
-            insights: [
-              {
-                id: `${campaign.id}_insight_2`,
-                name: `${campaign.name} - Insight 2`,
-                spend: totalSpend * 0.2,
-                leads: totalLeads * 0.2,
-                cpl: totalLeads * 0.2 > 0 ? (totalSpend * 0.2) / (totalLeads * 0.2) : 0,
-                creativeUrl: undefined
-              }
-            ]
+            }
+
+            // Agregar dados do Ad Set
+            const adSetTotalSpend = adSetInsights.reduce((sum, insight) => sum + insight.spend, 0);
+            const adSetTotalLeads = adSetInsights.reduce((sum, insight) => sum + insight.leads, 0);
+            const adSetCpl = adSetTotalLeads > 0 ? adSetTotalSpend / adSetTotalLeads : 0;
+
+            campaignAdSets.push({
+              id: adSet.id,
+              name: adSet.name,
+              totalSpend: adSetTotalSpend,
+              totalLeads: adSetTotalLeads,
+              cpl: adSetCpl,
+              insights: adSetInsights
+            });
+
+          } catch (error) {
+            console.error(`Erro ao processar ad set ${adSet.id}:`, error);
           }
-        ]
-      };
-    });
+        }
 
+        // Agregar dados da campanha
+        const campaignTotalSpend = campaignAdSets.reduce((sum, adSet) => sum + adSet.totalSpend, 0);
+        const campaignTotalLeads = campaignAdSets.reduce((sum, adSet) => sum + adSet.totalLeads, 0);
+        const campaignCpl = campaignTotalLeads > 0 ? campaignTotalSpend / campaignTotalLeads : 0;
+
+        campaignsHierarchy.push({
+          id: campaign.id,
+          name: campaign.name,
+          totalSpend: campaignTotalSpend,
+          totalLeads: campaignTotalLeads,
+          cpl: campaignCpl,
+          adSets: campaignAdSets
+        });
+
+      } catch (error) {
+        console.error(`Erro ao processar campanha ${campaign.id}:`, error);
+      }
+    }
+
+    console.log(`✅ [CampaignsHierarchy] Hierarquia gerada com ${campaignsHierarchy.length} campanhas`);
     return { campaigns: campaignsHierarchy };
 
   } catch (error) {
     console.error('Erro ao gerar hierarquia de campanhas:', error);
     return { campaigns: [] };
+  }
+}
+
+/**
+ * Busca Ad Sets de uma campanha do Meta API
+ */
+async function fetchAdSetsFromMeta(
+  campaignId: string,
+  accessToken: string
+): Promise<Array<{ id: string; name: string; status: string }>> {
+  try {
+    const params = new URLSearchParams({
+      fields: 'id,name,status',
+      access_token: accessToken,
+      limit: '100'
+    });
+
+    const response = await fetch(`https://graph.facebook.com/v18.0/${campaignId}/adsets?${params}`);
+    
+    if (!response.ok) {
+      throw new Error(`Erro ao buscar ad sets: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.data || [];
+  } catch (error) {
+    console.error('Erro ao buscar ad sets:', error);
+    return [];
+  }
+}
+
+/**
+ * Busca Ads de um Ad Set do Meta API
+ */
+async function fetchAdsFromMeta(
+  adSetId: string,
+  accessToken: string
+): Promise<Array<{ id: string; name: string; status: string }>> {
+  try {
+    const params = new URLSearchParams({
+      fields: 'id,name,status',
+      access_token: accessToken,
+      limit: '100'
+    });
+
+    const response = await fetch(`https://graph.facebook.com/v18.0/${adSetId}/ads?${params}`);
+    
+    if (!response.ok) {
+      throw new Error(`Erro ao buscar ads: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.data || [];
+  } catch (error) {
+    console.error('Erro ao buscar ads:', error);
+    return [];
+  }
+}
+
+/**
+ * Busca insights de um Ad do Meta API
+ */
+async function fetchAdInsightsFromMeta(
+  adId: string,
+  accessToken: string,
+  dateRange: { since: string; until: string }
+): Promise<Array<{
+  spend: number;
+  actions?: Array<{ action_type: string; value: number }>;
+}>> {
+  try {
+    const params = new URLSearchParams({
+      fields: 'spend,actions',
+      access_token: accessToken,
+      time_range: JSON.stringify({
+        since: dateRange.since,
+        until: dateRange.until
+      })
+    });
+
+    const response = await fetch(`https://graph.facebook.com/v18.0/${adId}/insights?${params}`);
+    
+    if (!response.ok) {
+      throw new Error(`Erro ao buscar insights do ad: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.data || [];
+  } catch (error) {
+    console.error('Erro ao buscar insights do ad:', error);
+    return [];
   }
 }
 
@@ -1192,7 +1358,7 @@ export async function updateLiveCache(liveId: string, liveData: LiveDataResult):
       campaigns: liveData.campaigns.list,
       groups: await getGroupsData(liveId), // Buscar dados reais dos grupos
       campaignsWithInsights: await generateCampaignsWithInsightsFromDailyData(liveData.dailyInsights, liveData.campaigns.list), // Popular com dados reais
-      campaignsHierarchy: await generateCampaignsHierarchy(liveData.campaigns.list, liveData.dailyInsights) // Popular com dados hierárquicos
+        campaignsHierarchy: await generateCampaignsHierarchy(liveData.campaigns.list, liveData.dailyInsights, liveId) // Popular com dados hierárquicos REAIS
     },
     
     // Timestamp da última sincronização
