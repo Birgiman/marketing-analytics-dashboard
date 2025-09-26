@@ -451,14 +451,24 @@ async function generateCampaignsHierarchy(
                 const adInsights = await fetchAdInsightsFromMeta(ad.id, metaIntegration.access_token, dateRange);
                 
                 if (adInsights.length > 0) {
+                  // LOG: Dados brutos do ad
+                  console.log(`🔍 [Ad Insights Raw] Ad: ${ad.name} (${ad.id})`);
+                  console.log('📊 Raw insights:', adInsights);
+                  
                   // Agregar insights do ad
-                  const totalSpend = adInsights.reduce((sum, insight) => sum + (insight.spend || 0), 0);
+                  const totalSpend = adInsights.reduce((sum, insight) => sum + Number(insight.spend || 0), 0);
                   const totalLeads = adInsights.reduce((sum, insight) => {
                     const actions = insight.actions || [];
                     const leadAction = actions.find((action: { action_type: string; value: number }) => action.action_type === 'lead');
-                    return sum + (leadAction?.value || 0);
+                    return sum + Number(leadAction?.value || 0);
                   }, 0);
                   const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
+
+                  // LOG: Dados processados do ad
+                  console.log(`✅ [Ad Processed] ${ad.name}:`);
+                  console.log(`   💰 Spend: ${totalSpend} (type: ${typeof totalSpend})`);
+                  console.log(`   👥 Leads: ${totalLeads} (type: ${typeof totalLeads})`);
+                  console.log(`   📈 CPL: ${cpl} (type: ${typeof cpl})`);
 
                   adSetInsights.push({
                     id: ad.id,
@@ -475,9 +485,16 @@ async function generateCampaignsHierarchy(
             }
 
             // Agregar dados do Ad Set
-            const adSetTotalSpend = adSetInsights.reduce((sum, insight) => sum + insight.spend, 0);
-            const adSetTotalLeads = adSetInsights.reduce((sum, insight) => sum + insight.leads, 0);
+            const adSetTotalSpend = adSetInsights.reduce((sum, insight) => sum + Number(insight.spend || 0), 0);
+            const adSetTotalLeads = adSetInsights.reduce((sum, insight) => sum + Number(insight.leads || 0), 0);
             const adSetCpl = adSetTotalLeads > 0 ? adSetTotalSpend / adSetTotalLeads : 0;
+
+            // LOG: Dados agregados do Ad Set
+            console.log(`📱 [AdSet Aggregated] ${adSet.name}:`);
+            console.log(`   💰 Total Spend: ${adSetTotalSpend} (type: ${typeof adSetTotalSpend})`);
+            console.log(`   👥 Total Leads: ${adSetTotalLeads} (type: ${typeof adSetTotalLeads})`);
+            console.log(`   📈 CPL: ${adSetCpl} (type: ${typeof adSetCpl})`);
+            console.log(`   🎯 Insights count: ${adSetInsights.length}`);
 
             campaignAdSets.push({
               id: adSet.id,
@@ -494,9 +511,16 @@ async function generateCampaignsHierarchy(
         }
 
         // Agregar dados da campanha
-        const campaignTotalSpend = campaignAdSets.reduce((sum, adSet) => sum + adSet.totalSpend, 0);
-        const campaignTotalLeads = campaignAdSets.reduce((sum, adSet) => sum + adSet.totalLeads, 0);
+        const campaignTotalSpend = campaignAdSets.reduce((sum, adSet) => sum + Number(adSet.totalSpend || 0), 0);
+        const campaignTotalLeads = campaignAdSets.reduce((sum, adSet) => sum + Number(adSet.totalLeads || 0), 0);
         const campaignCpl = campaignTotalLeads > 0 ? campaignTotalSpend / campaignTotalLeads : 0;
+
+        // LOG: Dados finais da campanha
+        console.log(`🏢 [Campaign Final] ${campaign.name}:`);
+        console.log(`   💰 Total Spend: ${campaignTotalSpend} (type: ${typeof campaignTotalSpend})`);
+        console.log(`   👥 Total Leads: ${campaignTotalLeads} (type: ${typeof campaignTotalLeads})`);
+        console.log(`   📈 CPL: ${campaignCpl} (type: ${typeof campaignCpl})`);
+        console.log(`   📱 AdSets count: ${campaignAdSets.length}`);
 
         campaignsHierarchy.push({
           id: campaign.id,
@@ -513,6 +537,11 @@ async function generateCampaignsHierarchy(
     }
 
     console.log(`✅ [CampaignsHierarchy] Hierarquia gerada com ${campaignsHierarchy.length} campanhas`);
+    
+    // LOG: Estrutura final completa
+    console.log('🏁 [FINAL STRUCTURE] Estrutura completa da hierarquia:');
+    console.log(JSON.stringify(campaignsHierarchy, null, 2));
+    
     return { campaigns: campaignsHierarchy };
 
   } catch (error) {

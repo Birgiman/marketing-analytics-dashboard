@@ -921,19 +921,19 @@ const TrafficAnalysis = () => {
           </div>
         </TableCell>
         <TableCell className="text-center font-medium">
-          {type === 'campaign' ? item.totalLeads.toLocaleString('pt-BR') : 
-           type === 'adSet' ? item.totalLeads.toLocaleString('pt-BR') : 
-           item.leads.toLocaleString('pt-BR')}
+          {type === 'campaign' ? Number(item.totalLeads || 0).toLocaleString('pt-BR') : 
+           type === 'adSet' ? Number(item.totalLeads || 0).toLocaleString('pt-BR') : 
+           Number(item.leads || 0).toLocaleString('pt-BR')}
         </TableCell>
         <TableCell className="text-center font-medium">
-          R$ {type === 'campaign' ? item.totalSpend.toFixed(2).replace('.', ',') : 
-              type === 'adSet' ? item.totalSpend.toFixed(2).replace('.', ',') : 
-              item.spend.toFixed(2).replace('.', ',')}
+          R$ {type === 'campaign' ? Number(item.totalSpend || 0).toFixed(2).replace('.', ',') : 
+              type === 'adSet' ? Number(item.totalSpend || 0).toFixed(2).replace('.', ',') : 
+              Number(item.spend || 0).toFixed(2).replace('.', ',')}
         </TableCell>
         <TableCell className="text-center font-medium">
-          R$ {type === 'campaign' ? item.cpl.toFixed(2).replace('.', ',') : 
-              type === 'adSet' ? item.cpl.toFixed(2).replace('.', ',') : 
-              item.cpl.toFixed(2).replace('.', ',')}
+          R$ {type === 'campaign' ? Number(item.cpl || 0).toFixed(2).replace('.', ',') : 
+              type === 'adSet' ? Number(item.cpl || 0).toFixed(2).replace('.', ',') : 
+              Number(item.cpl || 0).toFixed(2).replace('.', ',')}
         </TableCell>
         <TableCell className="text-center">
           {type === 'insight' && item.creativeUrl ? (
