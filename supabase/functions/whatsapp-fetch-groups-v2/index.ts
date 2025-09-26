@@ -1,6 +1,14 @@
+/*
+// EDGE FUNCTION TEMPORARIAMENTE DESABILITADA
+// Para reativar: descomente todo o código abaixo e faça deploy
+// Motivo: Limpeza de functions não utilizadas no frontend
+// Data: 2025-09-26
+
+// Código original comentado abaixo:
+
 // @ts-ignore
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-// @ts-ignore  
+// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -46,11 +54,11 @@ serve(async (req: any) => {
     }
 
     const { instanceName, userId, searchTerm, page = 1, limit = DEFAULT_PAGE_SIZE }: FetchGroupsRequest = await req.json()
-    
+
     // Validar parâmetros de paginação
     const currentPage = Math.max(1, page);
     const pageSize = Math.min(Math.max(1, limit), MAX_PAGE_SIZE);
-    
+
     console.log('📥 [whatsapp-fetch-groups-v2] Request parsed:', {
       instanceName,
       userId,
@@ -60,7 +68,7 @@ serve(async (req: any) => {
       hasInstanceName: !!instanceName,
       hasUserId: !!userId
     });
-    
+
     if (!instanceName || !userId) {
       return new Response(
         JSON.stringify({ success: false, error: 'instanceName and userId are required' }),
@@ -81,8 +89,8 @@ serve(async (req: any) => {
     if (instanceError || !instanceData?.api_token) {
       console.error('❌ [V2] Instance or API token not found:', { instanceError, instanceData })
       return new Response(
-        JSON.stringify({ 
-          success: false, 
+        JSON.stringify({
+          success: false,
           error: 'Instance not found or API token missing. Please reconnect your WhatsApp instance.'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -95,13 +103,13 @@ serve(async (req: any) => {
     // @ts-ignore
     const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'https://evolution-api-2-3-0-production-6d75.up.railway.app'
     const cleanApiUrl = evolutionApiUrl.replace(/\/$/, '')
-    
+
     const evolutionUrl = `${cleanApiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false`
     console.log(`🌐 [V2] Calling Evolution API: ${evolutionUrl}`)
 
     // V2 OPTIMIZATION: Fetch groups (SEM TIMEOUT para teste de performance)
     console.log(`🔄 [V2] Fetching groups from Evolution API (sem timeout)`)
-    
+
     const response = await fetch(evolutionUrl, {
       method: 'GET',
       headers: {
@@ -111,12 +119,12 @@ serve(async (req: any) => {
       }
       // SEM TIMEOUT - Deixar livre para testar performance
     })
-    
+
     if (!response.ok) {
       console.error(`❌ [V2] Evolution API error: ${response.status} ${response.statusText}`)
       throw new Error(`Evolution API error: ${response.status} ${response.statusText}`)
     }
-    
+
     console.log(`✅ [V2] Successfully fetched groups from Evolution API`)
 
     const groupsData = await response.json()
@@ -132,12 +140,12 @@ serve(async (req: any) => {
 
     // V2 OPTIMIZATION: Filter groups BEFORE processing
     console.log(`🔍 [V2] Applying filters to ${groupsData.length} groups...`)
-    
+
     const filteredGroups = groupsData.filter(group => {
       const groupId = group.id
       const groupName = group.subject || 'Sem nome'
       const groupSize = group.size || 0
-      
+
       // Skip groups without ID
       if (!groupId) {
         console.warn('⚠️ [V2] Skipping group without ID:', group)
@@ -160,7 +168,7 @@ serve(async (req: any) => {
       if (searchTerm && searchTerm.trim() !== '') {
         const searchLower = searchTerm.toLowerCase().trim();
         const groupNameLower = (group.subject || '').toLowerCase();
-        
+
         if (!groupNameLower.includes(searchLower)) {
           console.log(`🔍 [V2] Search filtered out group: ${groupName} (doesn't match "${searchTerm}")`)
           return false;
@@ -176,7 +184,7 @@ serve(async (req: any) => {
     const startIndex = (currentPage - 1) * pageSize;
     const endIndex = startIndex + pageSize;
     const groupsToProcess = filteredGroups.slice(startIndex, endIndex);
-    
+
     console.log(`🎯 [V2] Processing page ${currentPage}: groups ${startIndex + 1}-${Math.min(endIndex, filteredGroups.length)} of ${filteredGroups.length}`)
 
     if (groupsToProcess.length === 0) {
@@ -212,8 +220,8 @@ serve(async (req: any) => {
       const groupName = group.subject || 'Sem nome'
       const groupSize = group.size || 0
       const groupOwner = group.owner
-      
-      const groupCreatedAt = group.creation 
+
+      const groupCreatedAt = group.creation
         ? new Date(group.creation * 1000).toISOString()
         : null
 
@@ -243,8 +251,8 @@ serve(async (req: any) => {
     if (upsertError) {
       console.error('❌ [V2] Error in bulk upsert:', upsertError)
       return new Response(
-        JSON.stringify({ 
-          success: false, 
+        JSON.stringify({
+          success: false,
           error: 'Database error during bulk upsert',
           details: upsertError.message
         }),
@@ -299,18 +307,22 @@ serve(async (req: any) => {
   } catch (error) {
     console.error('❌ [whatsapp-fetch-groups-v2] Function error:', error)
     console.error('❌ [whatsapp-fetch-groups-v2] Error stack:', (error as Error).stack)
-    
+
     return new Response(
-      JSON.stringify({ 
-        success: false, 
+      JSON.stringify({
+        success: false,
         error: (error as Error).message,
         errorType: (error as Error).name,
         timestamp: new Date().toISOString()
       }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
   }
 })
+
+*/
+
+export {};

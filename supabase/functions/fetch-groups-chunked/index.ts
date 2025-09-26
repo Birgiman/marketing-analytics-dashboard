@@ -1,6 +1,14 @@
+/*
+// EDGE FUNCTION TEMPORARIAMENTE DESABILITADA
+// Para reativar: descomente todo o código abaixo e faça deploy
+// Motivo: Limpeza de functions não utilizadas no frontend
+// Data: 2025-09-26
+
+// Código original comentado abaixo:
+
 // @ts-ignore
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-// @ts-ignore  
+// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -56,7 +64,7 @@ serve(async (req: any) => {
     }
 
     const { instanceName, userId, searchTerm, startPage = 1, maxPagesPerCall = DEFAULT_MAX_PAGES_PER_CALL }: FetchGroupsRequest = await req.json();
-    
+
     console.log('🚀 [fetch-groups-chunked] Iniciando busca paginada (multi-chamada)');
     console.log('📋 [fetch-groups-chunked] Parâmetros:', {
       instanceName,
@@ -99,7 +107,7 @@ serve(async (req: any) => {
 
     // Log mascarado para não vazar URLs sensíveis no frontend
     console.log('🔗 [fetch-groups-chunked] Evolution API configurada (URL mascarada)');
-    
+
     // Array para consolidar grupos desta chamada
     const allGroups: GroupData[] = [];
     let currentPage = startPage;
@@ -114,7 +122,7 @@ serve(async (req: any) => {
     // Loop de paginação limitado por maxPagesPerCall
     while (hasMorePages && currentPage <= endPage) {
       console.log(`📄 [fetch-groups-chunked] Processando página ${currentPage} (páginas ${startPage}-${endPage})`);
-      
+
       const evolutionUrl = `${cleanApiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false&limit=${CHUNK_SIZE}&page=${currentPage}`;
 
       let pageGroups: GroupData[] = [];
@@ -148,9 +156,9 @@ serve(async (req: any) => {
             },
             signal: controller.signal
           });
-          
+
           clearTimeout(timeoutId);
-          
+
           totalRequests++;
 
           if (!response.ok) {
@@ -158,7 +166,7 @@ serve(async (req: any) => {
           }
 
           const groupsData = await response.json();
-          
+
           if (!Array.isArray(groupsData)) {
             throw new Error('Invalid response format from Evolution API');
           }
@@ -198,7 +206,7 @@ serve(async (req: any) => {
       } else {
         currentPage++;
         console.log(`➡️ [fetch-groups-chunked] Continuando para próxima página...`);
-        
+
         // Delay entre páginas para reduzir carga na Evolution API
         if (hasMorePages && currentPage <= endPage) {
           console.log(`⏳ [fetch-groups-chunked] Aguardando ${PAGE_DELAY/1000}s antes da próxima página...`);
@@ -234,7 +242,7 @@ serve(async (req: any) => {
     // Salvar grupos na tabela whatsapp_groups
     if (validGroups.length > 0) {
       console.log(`💾 [fetch-groups-chunked] Salvando ${validGroups.length} grupos na tabela whatsapp_groups`);
-      
+
       try {
         // Preparar dados para inserção
         const groupsToInsert = validGroups.map(group => ({
@@ -272,7 +280,7 @@ serve(async (req: any) => {
     // Verificar se há mais páginas para processar
     const nextPage = (currentPage > endPage && hasMorePages) ? currentPage : null;
     const hasMore = nextPage !== null;
-    
+
     // Retornar resposta com informações de paginação
     return new Response(
       JSON.stringify({
@@ -289,11 +297,11 @@ serve(async (req: any) => {
           totalRequests
         }
       }),
-      { 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        } 
+      {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
       }
     );
 
@@ -318,3 +326,7 @@ serve(async (req: any) => {
     );
   }
 });
+
+*/
+
+export {};

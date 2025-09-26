@@ -1,6 +1,14 @@
+/*
+// EDGE FUNCTION TEMPORARIAMENTE DESABILITADA
+// Para reativar: descomente todo o código abaixo e faça deploy
+// Motivo: Limpeza de functions não utilizadas no frontend
+// Data: 2025-09-26
+
+// Código original comentado abaixo:
+
 // @ts-ignore
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-// @ts-ignore  
+// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -43,7 +51,7 @@ serve(async (req: any) => {
 
     console.log('📥 [whatsapp-fetch-groups] Parsing request body...');
     const { instanceName, userId, searchTerm }: FetchGroupsRequest = await req.json()
-    
+
     console.log('📥 [whatsapp-fetch-groups] Request body parsed:', {
       instanceName,
       userId,
@@ -51,7 +59,7 @@ serve(async (req: any) => {
       hasInstanceName: !!instanceName,
       hasUserId: !!userId
     });
-    
+
     if (!instanceName || !userId) {
       console.error('❌ [whatsapp-fetch-groups] Missing required parameters:', {
         instanceName: !!instanceName,
@@ -71,7 +79,7 @@ serve(async (req: any) => {
       .select('instance_name, api_token')
       .eq('user_id', userId)
 
-    console.log(`👤 Found ${userInstances?.length || 0} instances for user ${userId}:`, 
+    console.log(`👤 Found ${userInstances?.length || 0} instances for user ${userId}:`,
       userInstances?.map((i: any) => ({ name: i.instance_name, hasToken: !!i.api_token })))
 
     // Get Evolution API credentials from user's stored instance
@@ -96,8 +104,8 @@ serve(async (req: any) => {
         requestedUserId: userId
       })
       return new Response(
-        JSON.stringify({ 
-          success: false, 
+        JSON.stringify({
+          success: false,
           error: 'Instance not found or API token missing. Please reconnect your WhatsApp instance.',
           debug: {
             instanceName,
@@ -117,17 +125,17 @@ serve(async (req: any) => {
     // @ts-ignore
     const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'https://evolution-api-2-3-0-production-6d75.up.railway.app'
     const cleanApiUrl = evolutionApiUrl.replace(/\/$/, '')
-    
+
     // Use getParticipants=false to avoid polluting the interface
     const evolutionUrl = `${cleanApiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false`
     console.log(`🌐 Calling Evolution API: ${evolutionUrl}`)
 
     console.log(`🔄 Fetching groups from Evolution API: ${evolutionUrl}`)
-    
+
     // Add retry logic and shorter timeout
     let response;
     let lastError;
-    
+
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         console.log(`📡 Attempt ${attempt}/3 to fetch groups`)
@@ -140,7 +148,7 @@ serve(async (req: any) => {
           },
           signal: AbortSignal.timeout(15000) // 15 second timeout
         })
-        
+
         if (response.ok) {
           console.log(`✅ Successfully fetched groups on attempt ${attempt}`)
           break;
@@ -157,7 +165,7 @@ serve(async (req: any) => {
         }
       }
     }
-    
+
     if (!response || !response.ok) {
       throw lastError || new Error('Failed to fetch groups after 3 attempts')
     }
@@ -165,9 +173,9 @@ serve(async (req: any) => {
     if (!response.ok) {
       console.error(`❌ Evolution API error: ${response.status} ${response.statusText}`)
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `Evolution API error: ${response.status} ${response.statusText}` 
+        JSON.stringify({
+          success: false,
+          error: `Evolution API error: ${response.status} ${response.statusText}`
         }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
@@ -195,16 +203,16 @@ serve(async (req: any) => {
     // Process and save groups to database
     const processedGroups = []
     const filteredOutGroups = []
-    
+
     for (const group of groupsData) {
       try {
         const groupId = group.id
         const groupName = group.subject || 'Sem nome'
         const groupSize = group.size || 0
         const groupOwner = group.owner
-        
+
         // Convert Unix timestamp to ISO string
-        const groupCreatedAt = group.creation 
+        const groupCreatedAt = group.creation
           ? new Date(group.creation * 1000).toISOString()
           : null
 
@@ -235,7 +243,7 @@ serve(async (req: any) => {
         if (searchTerm && searchTerm.trim() !== '') {
           const searchLower = searchTerm.toLowerCase().trim();
           const groupNameLower = (group.subject || '').toLowerCase();
-          
+
           if (!groupNameLower.includes(searchLower)) {
             console.log(`🔍 Search filtered out group: ${groupName} (doesn't match "${searchTerm}")`)
             continue; // Skip groups that don't match the search term
@@ -268,7 +276,7 @@ serve(async (req: any) => {
           console.log(`📝 New group - will be monitored by default: ${groupName}`)
         } else {
           // For existing groups, preserve monitoring setting and only update if values changed
-          const hasChanges = 
+          const hasChanges =
             existingGroup.group_name !== groupName ||
             existingGroup.group_size !== groupSize ||
             existingGroup.group_owner !== groupOwner ||
@@ -313,7 +321,7 @@ serve(async (req: any) => {
     }
 
     console.log(`🎯 Successfully processed ${processedGroups.length} groups`)
-    console.log(`🚫 Filtered out ${filteredOutGroups.length} groups:`, 
+    console.log(`🚫 Filtered out ${filteredOutGroups.length} groups:`,
       filteredOutGroups.map(g => `${g.name} (${g.reason})`).slice(0, 10))
 
     return new Response(
@@ -342,18 +350,22 @@ serve(async (req: any) => {
     console.error('❌ [whatsapp-fetch-groups] Function error:', error)
     console.error('❌ [whatsapp-fetch-groups] Error stack:', (error as Error).stack)
     console.error('❌ [whatsapp-fetch-groups] Error name:', (error as Error).name)
-    
+
     return new Response(
-      JSON.stringify({ 
-        success: false, 
+      JSON.stringify({
+        success: false,
         error: (error as Error).message,
         errorType: (error as Error).name,
         timestamp: new Date().toISOString()
       }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
   }
 })
+
+*/
+
+export {};
