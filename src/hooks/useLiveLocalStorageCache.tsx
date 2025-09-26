@@ -47,26 +47,24 @@ export function useLiveLocalStorageCache({
     return (now - cacheData.lastMetaFetch) > META_FETCH_COOLDOWN;
   }, []);
 
-  // Carregar cache do localStorage
+  // Carregar cache do localStorage - COMENTADO: Migrado para Supabase
   const loadCacheFromStorage = useCallback((): LiveCacheData | null => {
     try {
-      const stored = localStorage.getItem(cacheKey);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-
-        return parsed;
-      }
+      // const stored = localStorage.getItem(cacheKey);
+      // if (stored) {
+      //   const parsed = JSON.parse(stored);
+      //   return parsed;
+      // }
     } catch (error) {
 
     }
     return null;
   }, [cacheKey]);
 
-  // Salvar cache no localStorage
+  // Salvar cache no localStorage - COMENTADO: Migrado para Supabase
   const saveCacheToStorage = useCallback((cacheData: LiveCacheData) => {
     try {
-      localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-
+      // localStorage.setItem(cacheKey, JSON.stringify(cacheData));
     } catch (error) {
 
     }
@@ -387,12 +385,11 @@ export function useLiveLocalStorageCache({
     await loadData(true);
   }, [loadData]);
 
-  // Função para limpar cache
+  // Função para limpar cache - COMENTADO: Migrado para Supabase
   const clearCache = useCallback(() => {
     try {
-      localStorage.removeItem(cacheKey);
+      // localStorage.removeItem(cacheKey);
       setCache(null);
-
     } catch (error) {
 
     }

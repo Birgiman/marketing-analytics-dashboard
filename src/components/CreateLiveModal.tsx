@@ -55,6 +55,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
   const [showCampaignSelector, setShowCampaignSelector] = useState(false);
   const [linkedCampaigns, setLinkedCampaigns] = useState<LiveCampaign[]>([]);
   const [campaignSearchTerm, setCampaignSearchTerm] = useState<string>('');
+  const [whatsappSearchTerm, setWhatsappSearchTerm] = useState<string>('');
   const [selectedCampaignsToDelete, setSelectedCampaignsToDelete] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const { createLiveWithGroups, updateLiveWithGroups, isLoading } = useLives();
@@ -108,6 +109,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
 
       setLinkedCampaigns(campaigns || []);
     } catch (error) {
+      console.error('❌ [CreateLiveModal] Erro ao carregar campanhas vinculadas:', error);
     }
   };
 
@@ -147,8 +149,28 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         setSelectedGroups(groups);
       }
 
+      // DEBUG: Log do objeto completo da live sendo editada
+      console.log('🔍 [CreateLiveModal] DEBUG - Live sendo editada:', {
+        id: editingLive.id,
+        name: editingLive.name,
+        whatsapp_search_term: editingLive.whatsapp_search_term,
+        campaign_search_term: editingLive.campaign_search_term,
+        live_groups: editingLive.live_groups?.length || 0
+      });
+
       // Load linked campaigns if editing
       loadLinkedCampaigns(editingLive.id);
+
+      // Set search terms if editing
+      if (editingLive.whatsapp_search_term) {
+        setWhatsappSearchTerm(editingLive.whatsapp_search_term);
+        console.log('📱 [CreateLiveModal] WhatsApp search term carregado:', editingLive.whatsapp_search_term);
+      }
+      
+      if (editingLive.campaign_search_term) {
+        setCampaignSearchTerm(editingLive.campaign_search_term);
+        console.log('🎯 [CreateLiveModal] Campaign search term carregado:', editingLive.campaign_search_term);
+      }
     }
   }, [editingLive, open]);
 
@@ -172,8 +194,12 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
     }
   };
 
-  const handleGroupsSelected = (groups: GroupResult[]) => {
+  const handleGroupsSelected = (groups: GroupResult[], searchTerm: string) => {
+    console.log('📱 [CreateLiveModal] handleGroupsSelected - Termo capturado:', searchTerm);
+    console.log('👥 [CreateLiveModal] handleGroupsSelected - Grupos selecionados:', groups.length);
+    
     setSelectedGroups(groups);
+    setWhatsappSearchTerm(searchTerm);
     setShowGroupSelector(false);
   };
 
@@ -250,19 +276,29 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
 
   const handleCreate = async () => {
     try {
+      // DEBUG: Log dos valores antes de salvar
+      console.log('🔍 [CreateLiveModal] DEBUG - Valores antes de salvar:');
+      console.log('📱 whatsappSearchTerm:', whatsappSearchTerm);
+      console.log('🎯 campaignSearchTerm:', campaignSearchTerm);
+      console.log('👥 selectedGroups:', selectedGroups.length, 'grupos');
+      
       const liveData = {
         name: formData.liveName,
-        live_date: formData.liveStart || undefined,
-        captacao_start: formData.captureStart || undefined,
-        ta_rolando_start: formData.liveStart || undefined,
-        ta_rolando_end: formData.liveEnd || undefined,
+        live_date: formData.liveStart,
+        captacao_start: formData.captureStart,
+        ta_rolando_start: formData.liveStart,
+        ta_rolando_end: formData.liveEnd,
         sales_goal: parseNumericValue(formData.salesTarget),
         leads_goal: parseNumericValue(formData.leadsTarget),
         ad_budget: parseCurrencyValue(formData.adsBudget),
         insights_date_since: dateRange.since,
         insights_date_until: dateRange.until,
-        campaign_search_term: campaignSearchTerm || undefined
+        campaign_search_term: campaignSearchTerm,
+        whatsapp_search_term: whatsappSearchTerm
       };
+
+      // DEBUG: Log do objeto final
+      console.log('💾 [CreateLiveModal] DEBUG - liveData final:', liveData);
 
       const groups = selectedGroups.map(group => ({
         group_id: group.group_id,
@@ -279,6 +315,12 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
       onLiveCreated?.();
       handleClose();
     } catch (error) {
+      console.error('❌ [CreateLiveModal] Erro ao criar/editar live:', error);
+      toast({
+        title: "Erro ao salvar live",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive"
+      });
     }
   };
 
@@ -288,6 +330,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
     setSelectedCampaigns([]);
     setLinkedCampaigns([]);
     setSelectedCampaignsToDelete([]);
+    setWhatsappSearchTerm('');
     setFormData({
       liveName: '',
       captureStart: '',
@@ -684,6 +727,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         onClose={() => setShowGroupSelector(false)}
         onGroupsSelected={handleGroupsSelected}
         currentInstance={currentInstance}
+        initialSearchTerm={whatsappSearchTerm}
       />
 
       {/* Campaign Selector Modal */}
@@ -696,6 +740,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         linkedCampaigns={linkedCampaigns.map(c => c.campaign_id)}
         dateRange={dateRange}
         onDateRangeChange={setDateRange}
+        initialSearchTerm={campaignSearchTerm}
       />
     </>
   );

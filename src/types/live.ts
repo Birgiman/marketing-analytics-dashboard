@@ -18,6 +18,7 @@ export interface Live {
   insights_date_since?: string;
   insights_date_until?: string;
   campaign_search_term?: string; // Termo para buscar campanhas no Meta
+  whatsapp_search_term?: string; // Termo para buscar grupos WhatsApp
   created_at: string;
   updated_at: string;
   // Relações

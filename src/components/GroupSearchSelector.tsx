@@ -23,17 +23,19 @@ interface GroupResult {
 interface GroupSearchSelectorProps {
   isOpen: boolean;
   onClose: () => void;
-  onGroupsSelected: (groups: GroupResult[]) => void;
+  onGroupsSelected: (groups: GroupResult[], searchTerm: string) => void;
   currentInstance: any;
+  initialSearchTerm?: string; // Termo inicial para modo de edição
 }
 
 export function GroupSearchSelector({ 
   isOpen, 
   onClose, 
   onGroupsSelected,
-  currentInstance 
+  currentInstance,
+  initialSearchTerm 
 }: GroupSearchSelectorProps) {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm || '');
   const [searchResults, setSearchResults] = useState<GroupResult[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
   const [isSearching, setIsSearching] = useState(false);
@@ -47,6 +49,14 @@ export function GroupSearchSelector({
       checkGroupsAvailability();
     }
   }, [isOpen]);
+
+  // Atualizar searchTerm quando initialSearchTerm mudar (modo de edição)
+  useEffect(() => {
+    if (initialSearchTerm && initialSearchTerm !== searchTerm) {
+      setSearchTerm(initialSearchTerm);
+      console.log('📱 [GroupSearchSelector] Termo inicial carregado:', initialSearchTerm);
+    }
+  }, [initialSearchTerm]);
 
   const checkGroupsAvailability = async () => {
     try {
@@ -168,7 +178,7 @@ export function GroupSearchSelector({
     const selectedGroupsList = searchResults.filter(group => 
       selectedGroups.has(group.id)
     );
-    onGroupsSelected(selectedGroupsList);
+    onGroupsSelected(selectedGroupsList, searchTerm);
     onClose();
   };
 

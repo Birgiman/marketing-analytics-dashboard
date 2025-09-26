@@ -202,7 +202,8 @@ export async function getLiveData(liveId: string, force: boolean = false): Promi
     const cacheValid = await isCacheValid(liveId);
     if (cacheValid) {
       const cachedData = await getCachedLiveData(liveId);
-      if (cachedData) {
+      // Verificar se o cache tem dados válidos (não apenas se é válido por tempo)
+      if (cachedData && cachedData.cached_metrics && cachedData.cached_group_data && cachedData.cached_meta_data) {
         // Converter dados do cache para o formato LiveDataResult
         const result = {
           campaigns: {
@@ -234,8 +235,14 @@ export async function getLiveData(liveId: string, force: boolean = false): Promi
         await updateLiveCache(liveId, result);
         
         return result;
+      } else {
+        console.log('🔄 [getLiveData] Cache vazio ou inválido, buscando dados frescos...');
       }
+    } else {
+      console.log('⏰ [getLiveData] Cache expirado, buscando dados frescos...');
     }
+  } else {
+    console.log('🔄 [getLiveData] Force=true, buscando dados frescos...');
   }
   // ETAPA 1: Buscar dados da Live no banco
   const { data: live, error: liveError } = await supabase
@@ -247,6 +254,20 @@ export async function getLiveData(liveId: string, force: boolean = false): Promi
   if (liveError || !live) {
     throw new Error(`Live não encontrada: ${liveError?.message}`);
   }
+
+  // ETAPA 1.1: Sincronizar grupos WhatsApp dinamicamente (se houver termo de busca)
+  if (live.whatsapp_search_term) {
+    const newGroupsCount = await syncWhatsAppGroupsWithLive(
+      liveId, 
+      live.user_id, 
+      live.whatsapp_search_term
+    );
+    
+    if (newGroupsCount > 0) {
+      console.log(`🔄 [getLiveData] ${newGroupsCount} novos grupos sincronizados, atualizando cache...`);
+    }
+  }
+
   // ETAPA 2: Buscar campanhas do Meta
   const campaigns = await fetchCampaignsFromMeta(live);
   // ETAPA 3: Buscar insights agregados
@@ -1170,5 +1191,94 @@ export async function getLiveDataFromDatabase(liveId: string): Promise<LiveDatab
     
   } catch (error) {
     return null;
+  }
+}
+
+/**
+ * Sincroniza grupos WhatsApp com a Live baseado no termo de busca
+ * Vincula automaticamente novos grupos que correspondam ao termo
+ * @param liveId ID da Live
+ * @param userId ID do usuário
+ * @param searchTerm Termo de busca para filtrar grupos
+ * @returns Número de novos grupos vinculados
+ */
+export async function syncWhatsAppGroupsWithLive(
+  liveId: string, 
+  userId: string, 
+  searchTerm: string
+): Promise<number> {
+  try {
+    console.log(`🔄 [WhatsApp Sync] Sincronizando grupos para Live ${liveId} com termo: "${searchTerm}"`);
+
+    // 1. Buscar grupos existentes vinculados à live
+    const { data: existingGroups, error: existingError } = await supabase
+      .from('live_groups')
+      .select('group_id')
+      .eq('live_id', liveId);
+
+    if (existingError) {
+      console.error('❌ [WhatsApp Sync] Erro ao buscar grupos existentes:', existingError);
+      return 0;
+    }
+
+    const existingGroupIds = new Set(existingGroups?.map(g => g.group_id) || []);
+    console.log(`📋 [WhatsApp Sync] Grupos existentes: ${existingGroupIds.size}`);
+
+    // 2. Buscar todos os grupos do usuário que correspondem ao termo
+    const { data: matchingGroups, error: matchingError } = await supabase
+      .from('whatsapp_groups')
+      .select('group_id, group_name, group_size')
+      .eq('user_id', userId)
+      .ilike('group_name', `%${searchTerm}%`);
+
+    if (matchingError) {
+      console.error('❌ [WhatsApp Sync] Erro ao buscar grupos correspondentes:', matchingError);
+      return 0;
+    }
+
+    console.log(`🔍 [WhatsApp Sync] Grupos encontrados com termo "${searchTerm}": ${matchingGroups?.length || 0}`);
+
+    // 3. Identificar novos grupos
+    const newGroups = matchingGroups?.filter(group => 
+      !existingGroupIds.has(group.group_id)
+    ) || [];
+
+    console.log(`✨ [WhatsApp Sync] Novos grupos para vincular: ${newGroups.length}`);
+
+    // 4. Vincular novos grupos à live (igual ao processo de criação)
+    if (newGroups.length > 0) {
+      const groupsToInsert = newGroups.map(group => ({
+        live_id: liveId,
+        group_id: group.group_id,
+        group_name: group.group_name,
+        group_size: group.group_size,
+        monitoring: true,
+        user_id: userId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+
+      const { error: insertError } = await supabase
+        .from('live_groups')
+        .insert(groupsToInsert);
+
+      if (insertError) {
+        console.error('❌ [WhatsApp Sync] Erro ao vincular novos grupos:', insertError);
+        return 0;
+      }
+
+      console.log(`✅ [WhatsApp Sync] ${newGroups.length} novos grupos vinculados automaticamente`);
+      
+      // Log dos grupos vinculados
+      newGroups.forEach(group => {
+        console.log(`📱 [WhatsApp Sync] Vinculado: ${group.group_name} (${group.group_size} membros)`);
+      });
+    }
+
+    return newGroups.length;
+
+  } catch (error) {
+    console.error('❌ [WhatsApp Sync] Erro geral na sincronização:', error);
+    return 0;
   }
 }

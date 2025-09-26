@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { fetchAdAccounts, fetchCampaigns, MetaCampaign, MetaAdAccount } from '@/utils/metaApi';
+import { fetchAdAccounts, fetchCampaigns, MetaAdAccount, MetaCampaign } from '@/utils/metaApi';
 import { getUserMetaToken } from '@/utils/metaApiLives';
 import { AlertCircle, ArrowLeft, Building2, Calendar, DollarSign, Loader2, Search, Target } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
@@ -20,6 +20,7 @@ interface CampaignSelectorProps {
     until: string;
   };
   onDateRangeChange?: (dateRange: { since: string; until: string }) => void;
+  initialSearchTerm?: string; // Termo inicial para modo de edição
 }
 
 const CampaignSelector: React.FC<CampaignSelectorProps> = ({
@@ -30,36 +31,37 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   alreadySelected = [],
   linkedCampaigns = [],
   dateRange,
-  onDateRangeChange
+  onDateRangeChange,
+  initialSearchTerm
 }) => {
   const [step, setStep] = useState(1); // 1 = Select Account, 2 = Select Campaigns
   const [adAccounts, setAdAccounts] = useState<MetaAdAccount[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<MetaAdAccount | null>(null);
   const [campaigns, setCampaigns] = useState<MetaCampaign[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm || '');
   const [useSearch, setUseSearch] = useState(false);
   const [useAutoSearch, setUseAutoSearch] = useState(true); // MODIFICADO: Abrir direto na busca automática
   const [hasSearched, setHasSearched] = useState(false); // Controla se já foi feita uma busca
   const [autoSearchTerm, setAutoSearchTerm] = useState('');
 
-  // Chave para armazenamento no localStorage
-  const STORAGE_KEY = 'liveshop_campaign_search_term';
+  // Chave para armazenamento no localStorage - COMENTADO: Migrado para Supabase
+  // const STORAGE_KEY = 'liveshop_campaign_search_term';
 
-  // Função para salvar termo de busca no localStorage
+  // Função para salvar termo de busca no localStorage - COMENTADO: Migrado para Supabase
   const saveSearchTerm = (term: string) => {
     setSearchTerm(term);
-    if (term.trim()) {
-      localStorage.setItem(STORAGE_KEY, term);
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
+    // if (term.trim()) {
+    //   localStorage.setItem(STORAGE_KEY, term);
+    // } else {
+    //   localStorage.removeItem(STORAGE_KEY);
+    // }
   };
 
-  // Função para limpar termo de busca (reset completo)
+  // Função para limpar termo de busca (reset completo) - COMENTADO: Migrado para Supabase
   const clearSearchTerm = () => {
     setSearchTerm('');
-    localStorage.removeItem(STORAGE_KEY);
+    // localStorage.removeItem(STORAGE_KEY);
   };
   const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -102,15 +104,24 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   }, [isOpen, userId]);
 
   useEffect(() => {
-    // Carregar termo de busca salvo do localStorage
+    // Carregar termo de busca salvo do localStorage - COMENTADO: Migrado para Supabase
     if (isOpen) {
-      const savedSearchTerm = localStorage.getItem(STORAGE_KEY);
-      if (savedSearchTerm) {
-        setSearchTerm(savedSearchTerm);
-        setUseSearch(true); // Habilitar busca se há termo salvo
-      }
+      // const savedSearchTerm = localStorage.getItem(STORAGE_KEY);
+      // if (savedSearchTerm) {
+      //   setSearchTerm(savedSearchTerm);
+      //   setUseSearch(true); // Habilitar busca se há termo salvo
+      // }
     }
   }, [isOpen]);
+
+  // Atualizar searchTerm quando initialSearchTerm mudar (modo de edição)
+  useEffect(() => {
+    if (initialSearchTerm && initialSearchTerm !== searchTerm) {
+      setSearchTerm(initialSearchTerm);
+      setUseSearch(true);
+      console.log('🎯 [CampaignSelector] Termo inicial carregado:', initialSearchTerm);
+    }
+  }, [initialSearchTerm]);
 
   useEffect(() => {
     // Reset quando modal abre/fecha (mas preserva termo de busca)

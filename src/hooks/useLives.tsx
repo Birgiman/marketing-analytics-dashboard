@@ -14,6 +14,7 @@ interface LiveData {
   insights_date_since?: string
   insights_date_until?: string
   campaign_search_term?: string
+  whatsapp_search_term?: string
 }
 
 interface LiveGroupInput {
@@ -47,6 +48,12 @@ export function useLives() {
         throw new Error('Usuário não autenticado')
       }
 
+      // DEBUG: Log dos dados antes de salvar
+      console.log('💾 [useLives] createLiveWithGroups - Dados para salvar:', {
+        whatsapp_search_term: liveData.whatsapp_search_term,
+        campaign_search_term: liveData.campaign_search_term
+      });
+
       // Create the live first
       const { data: liveResult, error: liveError } = await supabase
         .from('lives')
@@ -62,7 +69,8 @@ export function useLives() {
           ad_budget: liveData.ad_budget || 0,
           insights_date_since: liveData.insights_date_since || null,
           insights_date_until: liveData.insights_date_until || null,
-          campaign_search_term: liveData.campaign_search_term || null
+          campaign_search_term: liveData.campaign_search_term || null,
+          whatsapp_search_term: liveData.whatsapp_search_term || null
         })
         .select()
         .single()
@@ -233,6 +241,12 @@ export function useLives() {
       if (liveData.campaign_search_term !== undefined && currentLive.campaign_search_term !== liveData.campaign_search_term) {
         updateFields.campaign_search_term = liveData.campaign_search_term
         changes.push(`Termo de Busca: "${currentLive.campaign_search_term || 'não definido'}" → "${liveData.campaign_search_term || 'não definido'}"`)
+      }
+
+      // 🔧 CORREÇÃO: Não alterar whatsapp_search_term se não foi fornecido
+      if (liveData.whatsapp_search_term !== undefined && currentLive.whatsapp_search_term !== liveData.whatsapp_search_term) {
+        updateFields.whatsapp_search_term = liveData.whatsapp_search_term
+        changes.push(`Termo WhatsApp: "${currentLive.whatsapp_search_term || 'não definido'}" → "${liveData.whatsapp_search_term || 'não definido'}"`)
       }
 
       // 🔍 TERCEIRO: Fazer update apenas se houver mudanças

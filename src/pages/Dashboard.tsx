@@ -10,12 +10,12 @@ import { useLives } from "@/hooks/useLives";
 import { useWhatsAppInstances } from "@/hooks/useWhatsAppInstances";
 import { supabase } from "@/integrations/supabase/client";
 import { DEMO_MODE } from "@/lib/demo-mode";
-import { Live, LiveGroup } from "@/types/live";
+import { debounce } from "@/lib/utils";
 import { whatsappService } from "@/services/whatsappService";
+import { Live, LiveGroup } from "@/types/live";
 import { ChevronRight, DollarSign, Edit, Eye, Plus, Search, Trash2, TrendingUp, Users, Video } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { debounce } from "@/lib/utils";
 
 interface DashboardStats {
   totalLives: number;
@@ -193,7 +193,6 @@ const [lives, setLives] = useState<Live[]>([]);
         if (!session?.user) return;
 
         hasExecutedInitialSync.current = true;
-        console.log(`🚀 [Dashboard] Iniciando sincronização única de grupos`);
         
         // Usar setTimeout para executar após o render inicial
         setTimeout(() => {
