@@ -499,10 +499,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Grupos encontrados</Label>
                   <Button 
-                    onClick={() => {
-                      console.log('🔍 [CreateLiveModal] Abrindo GroupSearchSelector...');
-                      setShowGroupSelector(true);
-                    }}
+                    onClick={() => setShowGroupSelector(true)}
                     size="sm"
                     variant="outline"
                   >

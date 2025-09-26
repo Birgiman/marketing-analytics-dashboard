@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -120,7 +119,6 @@ export function GroupSearchSelector({
     try {
       setIsSearching(true);
       setSearchResults([]);
-      setSelectedGroups(new Set());
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
@@ -148,7 +146,7 @@ export function GroupSearchSelector({
       setHasSearched(true);
 
     } catch (error) {
-
+      console.error('Erro na busca de grupos:', error);
     } finally {
       setIsSearching(false);
     }
@@ -167,13 +165,10 @@ export function GroupSearchSelector({
   const handleClose = () => {
     setSearchTerm('');
     setSearchResults([]);
-    setSelectedGroups(new Set());
     setHasSearched(false);
     onClose();
   };
 
-  console.log('🔍 [GroupSearchSelector] Renderizando com isOpen:', isOpen);
-  
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[850px] overflow-y-auto flex flex-col">
