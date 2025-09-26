@@ -70,13 +70,9 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
   });
 
   // Estado para intervalo de datas dos insights das campanhas
-  const [dateRange, setDateRange] = useState(() => {
-    const now = new Date();
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    return {
-      since: firstDayOfMonth.toISOString().split('T')[0], // YYYY-MM-DD
-      until: now.toISOString().split('T')[0] // YYYY-MM-DD
-    };
+  const [dateRange, setDateRange] = useState({
+    since: '', // Vazio para criação
+    until: '' // Vazio para criação
   });
 
   // Get current user
@@ -291,12 +287,10 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
       leadsTarget: '',
       adsBudget: ''
     });
-    // Reset dateRange para valores padrão
-    const now = new Date();
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    // Reset dateRange para valores vazios
     setDateRange({
-      since: firstDayOfMonth.toISOString().split('T')[0],
-      until: now.toISOString().split('T')[0]
+      since: '',
+      until: ''
     });
     onOpenChange(false);
   };
