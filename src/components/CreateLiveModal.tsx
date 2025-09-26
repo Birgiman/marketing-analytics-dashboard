@@ -55,7 +55,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
   const [linkedCampaigns, setLinkedCampaigns] = useState<LiveCampaign[]>([]);
   const [campaignSearchTerm, setCampaignSearchTerm] = useState<string>('');
   const [whatsappSearchTerm, setWhatsappSearchTerm] = useState<string>('');
-  const [selectedCampaignsToDelete, setSelectedCampaignsToDelete] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const { createLiveWithGroups, updateLiveWithGroups, isLoading } = useLives();
   const { toast } = useToast();
@@ -216,50 +215,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
     setSelectedCampaigns(prev => prev.filter(c => c.id !== campaignId));
   };
 
-  const handleToggleCampaignForDeletion = (campaignId: string) => {
-    setSelectedCampaignsToDelete(prev => {
-      if (prev.includes(campaignId)) {
-        return prev.filter(id => id !== campaignId);
-      } else {
-        return [...prev, campaignId];
-      }
-    });
-  };
-
-  const handleDeleteSelectedCampaigns = async () => {
-    if (selectedCampaignsToDelete.length === 0) return;
-
-    try {
-      const { error } = await supabase
-        .from('live_campaigns')
-        .delete()
-        .in('id', selectedCampaignsToDelete);
-
-      if (error) {
-        toast({
-          title: "❌ Erro ao excluir campanhas",
-          description: error.message,
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Remove from local state
-      setLinkedCampaigns(prev => prev.filter(c => !selectedCampaignsToDelete.includes(c.id)));
-      setSelectedCampaignsToDelete([]);
-
-      toast({
-        title: "✅ Campanhas removidas",
-        description: `${selectedCampaignsToDelete.length} campanha(s) removida(s) da Live com sucesso.`
-      });
-    } catch (error) {
-      toast({
-        title: "❌ Erro ao excluir campanhas",
-        description: "Erro desconhecido",
-        variant: "destructive"
-      });
-    }
-  };
 
   const parseNumericValue = (value: string) => {
     const cleaned = value.replace(/[^\d]/g, '');
@@ -326,7 +281,6 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
     setSelectedGroups([]);
     setSelectedCampaigns([]);
     setLinkedCampaigns([]);
-    setSelectedCampaignsToDelete([]);
     setWhatsappSearchTerm('');
     setFormData({
       liveName: '',
