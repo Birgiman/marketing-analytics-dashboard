@@ -3,7 +3,7 @@ import { MetaAdsConnection } from '@/components/MetaAdsConnection';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
 import { Button } from '@/components/ui/button';
 import { WhatsAppAdvancedSettingsWrapper } from '@/components/WhatsAppAdvancedSettingsWrapper';
-import { useMetaAds } from '@/hooks/useMetaAds';
+import { useMetaIntegration } from '@/hooks/useMetaIntegration';
 import { useWhatsAppConnection } from '@/hooks/useWhatsAppConnection';
 import { supabase } from '@/integrations/supabase/client';
 import { DEMO_MODE } from '@/lib/demo-mode';
@@ -32,12 +32,11 @@ export default function Integrations() {
     refreshInstances
   } = useWhatsAppConnection();
 
-  const { 
+  const {
     isConnected: metaAdsConnected,
-    data: metaAdsData,
-    disconnectIntegration: disconnectMetaAdsIntegration,
-    refreshData: refreshMetaAdsData
-  } = useMetaAds();
+    disconnect: disconnectMetaAdsIntegration,
+    validateConnection: refreshMetaAdsData
+  } = useMetaIntegration();
 
   useEffect(() => {
     // Check if user is authenticated
