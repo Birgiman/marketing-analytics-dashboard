@@ -763,12 +763,6 @@ async function enrichDailyInsightsWithGroupData(
     // Ordenar por data e validar mapeamento
     enrichedInsights.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
-    // Log final de validação
-    enrichedInsights.forEach(insight => {
-      if (insight.groupJoin > 0 || insight.groupExit > 0) {
-        console.log(`📊 ${insight.date}: ${insight.groupJoin} entradas, ${insight.groupExit} saídas, CPL Líquido: R$ ${insight.cplLiquido?.toFixed(2) || '0.00'}`);
-      }
-    });
 
     return enrichedInsights;
 
@@ -804,7 +798,6 @@ async function fetchFreshWhatsappData(
     .eq('live_id', liveId);
     
   if (groupsError || !groups || groups.length === 0) {
-    console.log(`⚠️ Nenhum grupo encontrado para Live ${liveId}`);
     return insights.map(insight => ({
       ...insight,
       groupJoin: 0,
@@ -847,9 +840,6 @@ async function fetchFreshWhatsappData(
         groupJoin = exactDayData.reduce((sum, data) => sum + data.entries, 0);
         groupExit = exactDayData.reduce((sum, data) => sum + data.exits, 0);
         
-        console.log(`✅ ${insight.date}: ${groupJoin} entradas, ${groupExit} saídas (dados encontrados)`);
-      } else {
-        console.log(`⚠️ ${insight.date}: Nenhum dado encontrado (entradas=0, saídas=0)`);
       }
 
       // Calcular métricas derivadas
