@@ -779,8 +779,17 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
           <div className="text-sm text-gray-600">
             {step === 1 ?
               `${adAccounts.length} conta(s) de anúncios encontrada(s)` :
-              hasSearched ?
-                `Total de campanhas: ${filteredCampaigns.length}` :
+              hasSearched ? (
+                <div className="space-y-1">
+                  <div>Total de campanhas: {filteredCampaigns.length}</div>
+                  {(!dateRange?.since || !dateRange?.until) && (
+                    <div className="text-orange-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      Preencha as datas para confirmar seleção
+                    </div>
+                  )}
+                </div>
+              ) :
                 `${selectedCampaignIds.length} campanha(s) selecionada(s)`
             }
           </div>
@@ -792,7 +801,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
             {step === 2 && (
               <Button 
                 onClick={handleConfirm}
-                disabled={selectedCampaignIds.length === 0}
+                disabled={selectedCampaignIds.length === 0 || !dateRange?.since || !dateRange?.until}
               >
                 Confirmar Seleção
               </Button>
