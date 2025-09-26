@@ -9,12 +9,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { PublicAudience, PublicAudienceCorrelation } from "@/types/audience";
 import { fetchPublicAudiences, generateAudienceCorrelation } from "@/utils/audienceService";
-import { AdSetData, CampaignData, extractAdSetDataFromInsights, extractCampaignData } from "@/utils/data-extractors-v2";
+// Removido imports legados: AdSetData, CampaignData, extractAdSetDataFromInsights, extractCampaignData
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 import { getLiveDataFromDatabase } from '@/utils/LiveData/getLiveData';
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
-import { fetchAdSetInsights } from "@/utils/metaApi";
-import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
+// Removido import legado: fetchAdSetInsights
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Filter } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
@@ -173,11 +173,31 @@ const TrafficAnalysis = () => {
     };
   } | null>(null);
   
-  // Estados para dados por campanha
-  const [campaignData, setCampaignData] = useState<CampaignData[]>([]);
-  
-  // Estados para dados por conjunto de anúncios
-  const [adSetData, setAdSetData] = useState<AdSetData[]>([]);
+  // Estados para dados hierárquicos de campanhas
+  const [campaignsHierarchy, setCampaignsHierarchy] = useState<{
+    campaigns: Array<{
+      id: string;
+      name: string;
+      totalSpend: number;
+      totalLeads: number;
+      cpl: number;
+      adSets: Array<{
+        id: string;
+        name: string;
+        totalSpend: number;
+        totalLeads: number;
+        cpl: number;
+        insights: Array<{
+          id: string;
+          name: string;
+          spend: number;
+          leads: number;
+          cpl: number;
+          creativeUrl?: string;
+        }>;
+      }>;
+    }>;
+  }>({ campaigns: [] });
   
   // Estados para públicos e correlações
   const [publicAudiences, setPublicAudiences] = useState<PublicAudience[]>([]);
@@ -194,6 +214,16 @@ const TrafficAnalysis = () => {
   // Estados para filtro de públicos
   const [selectedPublico, setSelectedPublico] = useState<string[]>(['todos']);
   const [showPublicoDropdown, setShowPublicoDropdown] = useState(false);
+  
+  // Estados para filtro de níveis hierárquicos
+  const [levelFilters, setLevelFilters] = useState({
+    campaigns: true,
+    adSets: true,
+    insights: true
+  });
+  
+  // Estados para expansão hierárquica
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   
   // Opções de público (dados reais dos públicos da Live) - memoizado para evitar re-renders
   const publicoOptions = useMemo(() => [
@@ -348,9 +378,9 @@ const TrafficAnalysis = () => {
           } else {
           }
           
-          // Carregar dados de ad sets
-          if ((liveData.cached_traffic_data as any).adSetData) {
-            setAdSetData((liveData.cached_traffic_data as any).adSetData);
+          // Carregar dados hierárquicos de campanhas
+          if ((liveData.cached_traffic_data as any).campaignsHierarchy) {
+            setCampaignsHierarchy((liveData.cached_traffic_data as any).campaignsHierarchy);
           }
         } else {
         }
@@ -757,16 +787,21 @@ const TrafficAnalysis = () => {
   }
   
   // Debug: Verificar cálculos dos totais
-  // TESTE: TABELA 2 - CONJUNTOS DE ANÚNCIOS: TEMPORARIAMENTE USANDO MÉDIA SIMPLES
-  // Invertido para validação - antes era média ponderada
-  const cplValues = adSetData.map(adSet => adSet.cpl).filter(val => val > 0);
-  const correctAverageCPL = cplValues.length > 0 ? cplValues.reduce((sum, val) => sum + val, 0) / cplValues.length : 0;
-  
-  // CORRIGIDO: Calcular totais específicos para conjuntos de anúncios
-  const adSetTotals = {
-    totalLeads: adSetData.reduce((sum, adSet) => sum + adSet.totalResults, 0),
-    totalInvestment: adSetData.reduce((sum, adSet) => sum + adSet.totalSpend, 0)
-  };
+  // Calcular totais para a tabela hierárquica de campanhas
+  const campaignTotals = useMemo(() => {
+    const totals = campaignsHierarchy.campaigns.reduce((acc, campaign) => {
+      acc.totalLeads += campaign.totalLeads;
+      acc.totalInvestment += campaign.totalSpend;
+      return acc;
+    }, { totalLeads: 0, totalInvestment: 0 });
+    
+    const averageCPL = totals.totalLeads > 0 ? totals.totalInvestment / totals.totalLeads : 0;
+    
+    return {
+      ...totals,
+      averageCPL
+    };
+  }, [campaignsHierarchy]);
   
 
   // Filtrar dados por data - memoizado para evitar re-renders
@@ -836,6 +871,114 @@ const TrafficAnalysis = () => {
     return `${selectedPublico.length} públicos selecionados`;
   };
 
+  // Funções para expansão hierárquica
+  const toggleExpansion = (itemId: string) => {
+    setExpandedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  const isExpanded = (itemId: string) => expandedItems.has(itemId);
+
+  // Função para renderizar linha hierárquica
+  const renderHierarchicalRow = (item: any, level: number, type: 'campaign' | 'adSet' | 'insight') => {
+    const isItemExpanded = isExpanded(item.id);
+    const hasChildren = type === 'campaign' ? item.adSets.length > 0 : type === 'adSet' ? item.insights.length > 0 : false;
+    
+    return (
+      <TableRow key={item.id} className="hover:bg-muted/50">
+        <TableCell>
+          <div className="flex items-center" style={{ paddingLeft: `${level * 20}px` }}>
+            {hasChildren && (
+              <button
+                onClick={() => toggleExpansion(item.id)}
+                className="mr-2 p-1 hover:bg-muted rounded"
+              >
+                {isItemExpanded ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </button>
+            )}
+            {!hasChildren && <div className="w-6" />}
+            <div>
+              <div className={`font-semibold ${level === 0 ? 'text-base' : level === 1 ? 'text-sm' : 'text-xs'}`}>
+                {item.name}
+              </div>
+              {type === 'adSet' && (
+                <div className="text-xs text-muted-foreground">
+                  {item.campaignName}
+                </div>
+              )}
+            </div>
+          </div>
+        </TableCell>
+        <TableCell className="text-center font-medium">
+          {type === 'campaign' ? item.totalLeads.toLocaleString('pt-BR') : 
+           type === 'adSet' ? item.totalLeads.toLocaleString('pt-BR') : 
+           item.leads.toLocaleString('pt-BR')}
+        </TableCell>
+        <TableCell className="text-center font-medium">
+          R$ {type === 'campaign' ? item.totalSpend.toFixed(2).replace('.', ',') : 
+              type === 'adSet' ? item.totalSpend.toFixed(2).replace('.', ',') : 
+              item.spend.toFixed(2).replace('.', ',')}
+        </TableCell>
+        <TableCell className="text-center font-medium">
+          R$ {type === 'campaign' ? item.cpl.toFixed(2).replace('.', ',') : 
+              type === 'adSet' ? item.cpl.toFixed(2).replace('.', ',') : 
+              item.cpl.toFixed(2).replace('.', ',')}
+        </TableCell>
+        <TableCell className="text-center">
+          {type === 'insight' && item.creativeUrl ? (
+            <Button variant="outline" size="sm" asChild>
+              <a href={item.creativeUrl} target="_blank" rel="noopener noreferrer">
+                Ver Insight
+              </a>
+            </Button>
+          ) : (
+            <span className="text-xs text-muted-foreground">Sem link</span>
+          )}
+        </TableCell>
+      </TableRow>
+    );
+  };
+
+  // Função para renderizar dados hierárquicos
+  const renderHierarchicalData = () => {
+    const rows: JSX.Element[] = [];
+
+    campaignsHierarchy.campaigns.forEach(campaign => {
+      // Renderizar campanha
+      if (levelFilters.campaigns) {
+        rows.push(renderHierarchicalRow(campaign, 0, 'campaign'));
+      }
+
+      // Renderizar ad sets se campanha estiver expandida
+      if (isExpanded(campaign.id) && levelFilters.adSets) {
+        campaign.adSets.forEach(adSet => {
+          const adSetWithCampaign = { ...adSet, campaignName: campaign.name };
+          rows.push(renderHierarchicalRow(adSetWithCampaign, 1, 'adSet'));
+
+          // Renderizar insights se ad set estiver expandido
+          if (isExpanded(adSet.id) && levelFilters.insights) {
+            adSet.insights.forEach(insight => {
+              rows.push(renderHierarchicalRow(insight, 2, 'insight'));
+            });
+          }
+        });
+      }
+    });
+
+    return rows;
+  };
+
   const handleApplyFilters = async () => {
     if (!tempStartDate || !tempEndDate) return;
     
@@ -884,35 +1027,14 @@ const TrafficAnalysis = () => {
         setMetricsV2(result.metrics);
         setExtractedDataV2(result.extractedData);
         
-        // Recalcular dados por campanha
-        const individualCampaignData = extractCampaignData(campaignInsights, completeData.allUserCampaigns);
-        setCampaignData(individualCampaignData);
+        // TODO: Implementar recálculo de dados hierárquicos de campanhas
         
-        // CORRIGIDO: Buscar dados de conjuntos de anúncios diretamente do Meta
-        const accountId = completeData.metaAdAccount?.ad_account_id;
-
-        if (accountId && completeData.metaIntegration?.access_token) {
-          try {
-            const adSetInsights = await fetchAdSetInsights(
-              accountId,
-              completeData.metaIntegration.access_token,
-              {
-                dateRange: {
-                  since: tempStartDate || completeData.live?.insights_date_since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                  until: tempEndDate || completeData.live?.insights_date_until || new Date().toISOString().split('T')[0]
-                },
-                searchTerm: completeData.live?.campaign_search_term
-              }
-            );
-            
-            // Extrair dados individuais por conjunto de anúncios
-            const individualAdSetData = extractAdSetDataFromInsights(adSetInsights);
-            setAdSetData(individualAdSetData);
-          } catch (error) {
-            setAdSetData([]);
-          }
+        // TODO: Implementar busca de dados hierárquicos de campanhas
+        // Por enquanto, usar dados do cache se disponível
+        if (completeData.campaignsHierarchy) {
+          setCampaignsHierarchy(completeData.campaignsHierarchy);
         } else {
-          setAdSetData([]);
+          setCampaignsHierarchy({ campaigns: [] });
         }
       }
       
@@ -1226,7 +1348,7 @@ const TrafficAnalysis = () => {
         <CardHeader>
           <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
             <div>
-              <CardTitle>🏆 Análise Profunda de Conjuntos de Anúncios</CardTitle>
+              <CardTitle>🏆 Análise Profunda de Campanhas</CardTitle>
             </div>
             <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
               <div className="flex items-center space-x-2">
@@ -1243,22 +1365,56 @@ const TrafficAnalysis = () => {
               </Button>
             </div>
           </div>
+          
+          {/* Filtro de Níveis Hierárquicos */}
+          <div className="flex items-center space-x-4 pt-4 border-t">
+            <span className="text-sm font-medium">Exibir níveis:</span>
+            <div className="flex items-center space-x-4">
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={levelFilters.campaigns}
+                  onChange={(e) => setLevelFilters(prev => ({ ...prev, campaigns: e.target.checked }))}
+                  className="rounded"
+                />
+                <span className="text-sm">Campanhas</span>
+              </label>
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={levelFilters.adSets}
+                  onChange={(e) => setLevelFilters(prev => ({ ...prev, adSets: e.target.checked }))}
+                  className="rounded"
+                />
+                <span className="text-sm">Conjuntos de Anúncios</span>
+              </label>
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={levelFilters.insights}
+                  onChange={(e) => setLevelFilters(prev => ({ ...prev, insights: e.target.checked }))}
+                  className="rounded"
+                />
+                <span className="text-sm">Insights</span>
+              </label>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>
-                    <Button variant="ghost" onClick={() => handleSort('ad_set_name')} className="h-auto p-0 font-medium flex items-center gap-1">
-                    Conjunto de Anúncios
-                      {getSortIcon('ad_set_name')}
+                    <Button variant="ghost" onClick={() => handleSort('name')} className="h-auto p-0 font-medium flex items-center gap-1">
+                    Nome
+                      {getSortIcon('name')}
                   </Button>
                 </TableHead>
                 <TableHead className="text-center">
                     <Button variant="ghost" onClick={() => handleSort('total_leads')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
                       <div className="text-center w-full">
                       <div>Leads</div>
-                        <div className="text-xs text-muted-foreground font-normal">Total: {adSetTotals.totalLeads.toLocaleString('pt-BR')}</div>
+                        <div className="text-xs text-muted-foreground font-normal">Total: {campaignTotals.totalLeads.toLocaleString('pt-BR')}</div>
                     </div>
                       {getSortIcon('total_leads')}
                   </Button>
@@ -1267,7 +1423,7 @@ const TrafficAnalysis = () => {
                     <Button variant="ghost" onClick={() => handleSort('total_spent')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
                       <div className="text-center w-full">
                       <div>Investido</div>
-                        <div className="text-xs text-muted-foreground font-normal">Total: R$ {adSetTotals.totalInvestment.toLocaleString('pt-BR', {
+                        <div className="text-xs text-muted-foreground font-normal">Total: R$ {campaignTotals.totalInvestment.toLocaleString('pt-BR', {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2
                         })}</div>
@@ -1279,7 +1435,7 @@ const TrafficAnalysis = () => {
                     <Button variant="ghost" onClick={() => handleSort('cpl')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
                       <div className="text-center w-full">
                       <div>CPL Meta</div>
-                        <div className="text-xs text-muted-foreground font-normal">Média: R$ {correctAverageCPL.toFixed(2).replace('.', ',')}</div>
+                        <div className="text-xs text-muted-foreground font-normal">Média: R$ {campaignTotals.averageCPL.toFixed(2).replace('.', ',')}</div>
                     </div>
                       {getSortIcon('cpl')}
                   </Button>
@@ -1288,52 +1444,14 @@ const TrafficAnalysis = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-                {adSetData.sort((a, b) => {
-                  if (!sortField) return 0;
-                  
-                  if (sortField === 'ad_set_name') {
-                    const aValue = a.ad_set_name || '';
-                    const bValue = b.ad_set_name || '';
-                    return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
-                  }
-                  
-                  if (sortField === 'total_leads') {
-                    return sortDirection === 'asc' ? a.totalResults - b.totalResults : b.totalResults - a.totalResults;
-                  }
-                  
-                  if (sortField === 'total_spent') {
-                    return sortDirection === 'asc' ? a.totalSpend - b.totalSpend : b.totalSpend - a.totalSpend;
-                  }
-                  
-                  if (sortField === 'cpl') {
-                    return sortDirection === 'asc' ? a.cpl - b.cpl : b.cpl - a.cpl;
-                  }
-                  
-                  return 0;
-                }).map((adSet, index) => (
-                  <TableRow key={adSet.ad_set_id}>
-                  <TableCell>
-                    <div>
-                        <div className="font-semibold">{adSet.ad_set_name}</div>
-                        <div className="text-xs text-muted-foreground">{adSet.campaign_name}</div>
-                    </div>
-                  </TableCell>
-                    <TableCell className="text-center font-medium">{adSet.totalResults.toLocaleString('pt-BR')}</TableCell>
-                    <TableCell className="text-center font-medium">R$ {adSet.totalSpend.toFixed(2).replace('.', ',')}</TableCell>
-                  <TableCell className="text-center font-medium">
-                      R$ {adSet.cpl.toFixed(2).replace('.', ',')}
-                  </TableCell>
-                  <TableCell className="text-center">
-                      <span className="text-xs text-muted-foreground">Sem link</span>
-                  </TableCell>
-                </TableRow>
-              ))}
-                {adSetData.length === 0 && (
+                {campaignsHierarchy.campaigns.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      {isLoading ? 'Carregando dados...' : `Nenhum conjunto de anúncios encontrado (${adSetData.length} itens)`}
+                      {isLoading ? 'Carregando dados...' : 'Nenhuma campanha encontrada'}
                   </TableCell>
                 </TableRow>
+              ) : (
+                renderHierarchicalData()
               )}
             </TableBody>
           </Table>
