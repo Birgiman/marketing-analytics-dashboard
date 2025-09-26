@@ -46,13 +46,6 @@ serve(async (req: any) => {
 
     const { instanceName, userId, searchTerm }: StartFetchGroupsRequest = await req.json();
 
-    console.log('🚀 [start-fetch-groups] Iniciando novo job de fetch');
-    console.log('📋 [start-fetch-groups] Parâmetros:', {
-      instanceName,
-      userId: userId ? userId.substring(0, 8) + '...' : 'undefined', // Mascarar userId sensível
-      searchTerm: searchTerm || '(todos os grupos)'
-    });
-
     if (!instanceName || !userId) {
       return new Response(
         JSON.stringify({ success: false, error: 'instanceName and userId are required' }),
@@ -69,7 +62,6 @@ serve(async (req: any) => {
       .single();
 
     if (instanceError || !instanceData?.api_token) {
-      console.error('❌ [start-fetch-groups] Instance not found or no API token');
       return new Response(
         JSON.stringify({ success: false, error: 'Instance not found or no API token' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -87,7 +79,6 @@ serve(async (req: any) => {
       .limit(1);
 
     if (existingJobError) {
-      console.error('❌ [start-fetch-groups] Error checking existing jobs:', existingJobError);
       return new Response(
         JSON.stringify({ success: false, error: 'Error checking existing jobs' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -96,7 +87,6 @@ serve(async (req: any) => {
 
     if (existingJobs && existingJobs.length > 0) {
       const existingJob = existingJobs[0];
-      console.log(`⚠️ [start-fetch-groups] Job já existe: ${existingJob.id} (status: ${existingJob.status})`);
 
       return new Response(
         JSON.stringify({
@@ -130,14 +120,11 @@ serve(async (req: any) => {
       .single();
 
     if (createJobError) {
-      console.error('❌ [start-fetch-groups] Error creating job:', createJobError);
       return new Response(
         JSON.stringify({ success: false, error: 'Error creating job', details: createJobError.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    console.log(`✅ [start-fetch-groups] Job criado com sucesso: ${newJob.id}`);
 
     const response: StartFetchGroupsResponse = {
       success: true,
@@ -156,8 +143,6 @@ serve(async (req: any) => {
     );
 
   } catch (error) {
-    console.error('❌ [start-fetch-groups] Unexpected error:', error);
-
     return new Response(
       JSON.stringify({
         success: false,

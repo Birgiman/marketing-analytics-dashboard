@@ -50,10 +50,10 @@ serve(async (req: any) => {
   const startTime = Date.now();
   const summary = {
     bodyReceived: null,
-    jobsFound: [],
+    jobsFound: [] as string[],
     groupsLoaded: { count: 0, timeMs: 0 },
     totalProcessed: 0,
-    errors: [],
+    errors: [] as string[],
     status: 'success'
   };
 
@@ -207,7 +207,7 @@ serve(async (req: any) => {
       );
     }
 
-    summary.jobsFound = jobs.map(job => job.id);
+    summary.jobsFound = jobs.map((job: any) => job.id);
 
     let processedJobs = 0;
 
@@ -448,7 +448,7 @@ serve(async (req: any) => {
     };
 
     // LOG ÚNICO RESUMIDO
-    console.log(`📊 [process-fetch-groups-job] RESUMO: Body: ${summary.bodyReceived || '{}'} | Jobs: [${summary.jobsFound.join(', ')}] | Grupos: ${summary.groupsLoaded.count} (${summary.groupsLoaded.timeMs}ms) | Processados: ${summary.totalProcessed} | Tempo: ${totalDuration}ms (${(totalDuration/1000).toFixed(2)}s) | Status: ${summary.status}${summary.errors.length > 0 ? ` | Erros: ${summary.errors.join('; ')}` : ''}`);
+    console.log(`📊 [process-fetch-groups-job] RESUMO: Jobs: [${summary.jobsFound.join(', ')}] | Grupos: ${summary.groupsLoaded.count} (${summary.groupsLoaded.timeMs}ms) | Processados: ${summary.totalProcessed} | Tempo: ${totalDuration}ms | Status: ${summary.status}${summary.errors.length > 0 ? ` | Erros: ${summary.errors.join('; ')}` : ''}`);
 
     return new Response(
       JSON.stringify(response),
