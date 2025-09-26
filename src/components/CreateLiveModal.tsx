@@ -569,118 +569,64 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
 
 
               {/* Campaigns Section */}
-              <div className="space-y-4 flex-1 min-h-0">
-                {/* Already Linked Campaigns */}
-                {editingLive && linkedCampaigns.length > 0 && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium">Campanhas já vinculadas</Label>
-                      {selectedCampaignsToDelete.length > 0 && (
-                        <Button
-                          onClick={handleDeleteSelectedCampaigns}
-                          size="sm"
-                          variant="destructive"
-                          className="flex items-center gap-1"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          Excluir ({selectedCampaignsToDelete.length})
-                        </Button>
-                      )}
-                    </div>
+              <div className="space-y-3 flex-1 min-h-0">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Campanhas vinculadas</Label>
+                  <Button
+                    onClick={() => setShowCampaignSelector(true)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    + Buscar campanhas
+                  </Button>
+                </div>
 
-                    <div className="max-h-40 max-w-full overflow-x-auto overflow-y-auto space-y-2 pr-2">
-                      {linkedCampaigns.map((campaign) => (
-                        <div key={campaign.id} className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                          <Checkbox
-                            checked={selectedCampaignsToDelete.includes(campaign.id)}
-                            onCheckedChange={() => handleToggleCampaignForDeletion(campaign.id)}
-                            className="mt-0.5"
-                          />
-
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium break-words leading-tight">{campaign.campaign_name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              ID: {campaign.campaign_id} • Status: {campaign.status}
-                            </p>
-                            {campaign.account_name && (
-                              <p className="text-xs text-blue-600">Conta: {campaign.account_name}</p>
-                            )}
-                          </div>
+                {linkedCampaigns.length === 0 && selectedCampaigns.length === 0 ? (
+                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+                    <Target className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                    <p className="text-sm text-muted-foreground">
+                      Nenhuma campanha vinculada ainda
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Clique em "Buscar campanhas" para vincular
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto rounded-lg p-3">
+                    {/* Campanhas já vinculadas */}
+                    {linkedCampaigns.map((campaign) => (
+                      <div key={campaign.id} className="flex items-start p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium break-words leading-tight">{campaign.campaign_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            ID: {campaign.campaign_id} • Status: {campaign.status}
+                          </p>
+                          {campaign.account_name && (
+                            <p className="text-xs text-blue-600">Conta: {campaign.account_name}</p>
+                          )}
                         </div>
-                      ))}
-                    </div>
-
-                    {selectedCampaignsToDelete.length > 0 && (
-                      <div className="flex items-center gap-1 text-xs text-orange-600">
-                        <AlertTriangle className="h-3 w-3" />
-                        {selectedCampaignsToDelete.length} campanha(s) selecionada(s) para exclusão
                       </div>
-                    )}
+                    ))}
+                    
+                    {/* Novas campanhas selecionadas */}
+                    {selectedCampaigns.map((campaign) => (
+                      <div key={campaign.id} className="flex items-start p-2 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium break-words leading-tight">{campaign.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Status: {campaign.status} • Criada: {new Date(campaign.created_time).toLocaleDateString('pt-BR')}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                {/* New Campaigns to Add */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">
-                      {editingLive ? 'Adicionar novas campanhas' : 'Campanhas vinculadas'}
-                    </Label>
-                    <Button
-                      onClick={() => setShowCampaignSelector(true)}
-                      size="sm"
-                      variant="outline"
-                    >
-                      + Buscar campanhas
-                    </Button>
-                  </div>
-
-                  {selectedCampaigns.length === 0 ? (
-                    <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center">
-                      <Target className="h-6 w-6 mx-auto mb-2 text-muted-foreground/50" />
-                      <p className="text-sm text-muted-foreground">
-                        {editingLive ? 'Nenhuma nova campanha para adicionar' : 'Nenhuma campanha selecionada ainda'}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Clique em "Buscar campanhas" para adicionar
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 max-h-48 max-w-full overflow-x-auto overflow-y-auto pr-2">
-                      {selectedCampaigns.map((campaign) => (
-                        <div key={campaign.id} className="flex items-start justify-between p-2 bg-green-50 border border-green-200 rounded-lg gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium break-words leading-tight">{campaign.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Status: {campaign.status} • Criada: {new Date(campaign.created_time).toLocaleDateString('pt-BR')}
-                            </p>
-                          </div>
-                          <Button
-                            onClick={() => handleRemoveCampaign(campaign.id)}
-                            size="sm"
-                            variant="ghost"
-                            className="text-destructive hover:text-destructive flex-shrink-0"
-                          >
-                            ✕
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Summary */}
-                <div className="flex gap-2">
-                  {editingLive && linkedCampaigns.length > 0 && (
-                    <Badge variant="secondary" className="w-fit">
-                      {pluralize(linkedCampaigns.length, 'já vinculada', 'já vinculadas')}
-                    </Badge>
-                  )}
-                  {selectedCampaigns.length > 0 && (
-                    <Badge variant="outline" className="w-fit border-green-300 text-green-700">
-                      Total: {(linkedCampaigns?.length || 0) + selectedCampaigns.length}
-                    </Badge>
-                  )}
-                </div>
+                {linkedCampaigns.length > 0 && selectedCampaigns.length > 0 && (
+                  <Badge variant="outline" className="w-fit border-blue-300 text-blue-700">
+                    Total: {linkedCampaigns.length + selectedCampaigns.length}
+                  </Badge>
+                )}
               </div>
 
               {/* Test functionality removed for now */}
