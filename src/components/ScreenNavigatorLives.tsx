@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { getLiveData, updateLiveCacheWithoutHierarchy } from "@/utils/LiveData/getLiveData";
+import { getLiveDataWithoutHierarchy } from "@/utils/LiveData/getLiveData";
 import { RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -36,14 +36,10 @@ export function ScreenNavigatorLives({
     }
     
     try {
-      // Chamar nossa nova função getLiveData com force=true
-      // IMPORTANTE: Esta função NÃO atualiza a tabela hierárquica
+      // Chamar função que NÃO gera dados hierárquicos
+      // IMPORTANTE: Esta função NÃO faz requisições para ad sets/ads
       // A tabela hierárquica tem cache independente de 60 minutos
-      const liveDataResult = await getLiveData(liveId, true);
-      
-      // Atualizar cache no banco, mas SEM incluir dados hierárquicos
-      // Os dados hierárquicos são gerenciados separadamente
-      await updateLiveCacheWithoutHierarchy(liveId, liveDataResult);
+      const liveDataResult = await getLiveDataWithoutHierarchy(liveId, true);
       
       // Notificar que os dados foram atualizados
       if (onDataUpdated) {

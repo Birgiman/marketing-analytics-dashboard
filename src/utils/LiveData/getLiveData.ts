@@ -1436,6 +1436,120 @@ export async function updateHierarchicalCache(liveId: string, campaignsHierarchy
 }
 
 /**
+ * Busca dados da Live SEM gerar hierarquia de campanhas (para botão principal)
+ * @param liveId ID da Live
+ * @param force Se deve forçar atualização
+ * @returns Dados da Live sem hierarquia
+ */
+export async function getLiveDataWithoutHierarchy(liveId: string, force: boolean = false): Promise<LiveDataResult> {
+  // Se não forçar, verificar cache primeiro
+  if (!force) {
+    const cacheValid = await isCacheValid(liveId);
+    if (cacheValid) {
+      const cachedData = await getCachedLiveData(liveId);
+      // Verificar se o cache tem dados válidos (não apenas se é válido por tempo)
+      if (cachedData && cachedData.cached_metrics && cachedData.cached_group_data && cachedData.cached_meta_data) {
+        // Converter dados do cache para o formato LiveDataResult
+        const result = {
+          campaigns: {
+            total: cachedData.cached_meta_data?.campaignCount || 0,
+            new: 0,
+            missing: 0,
+            list: cachedData.cached_traffic_data?.campaigns || []
+          },
+          aggregatedInsights: {
+            totalSpend: cachedData.cached_meta_data?.totalSpend || 0,
+            totalLeads: cachedData.cached_meta_data?.totalResults || 0,
+            cplMeta: cachedData.cached_metrics?.cplMeta || 0
+          },
+          dailyInsights: cachedData.cached_traffic_data?.dailyInsights || [],
+          metrics: {
+            cplMeta: cachedData.cached_metrics?.cplMeta || 0,
+            cplLiquido: cachedData.cached_metrics?.cplLiquido || 0,
+            retentionRate: cachedData.cached_metrics?.retentionRate || 0,
+            cplLiquidoPlanejamento: cachedData.cached_metrics?.cplLiquidoPlanejamento || 0
+          },
+          groupData: {
+            totalMembers: cachedData.cached_group_data?.totalMembers || 0,
+            entries: cachedData.cached_group_data?.entries || 0,
+            exits: cachedData.cached_group_data?.exits || 0,
+            activeMembers: cachedData.cached_group_data?.activeMembers || 0
+          }
+        };
+        // Salvar dados convertidos no banco para manter consistência
+        await updateLiveCacheWithoutHierarchy(liveId, result);
+        
+        return result;
+      }
+    }
+  }
+  
+  // ETAPA 1: Buscar dados da Live no banco
+  const { data: live, error: liveError } = await supabase
+    .from('lives')
+    .select('*')
+    .eq('id', liveId)
+    .single();
+    
+  if (liveError || !live) {
+    throw new Error(`Live não encontrada: ${liveError?.message}`);
+  }
+
+  // ETAPA 1.1: Sincronizar grupos WhatsApp dinamicamente (se houver termo de busca)
+  if (live.whatsapp_search_term) {
+    const newGroupsCount = await syncWhatsAppGroupsWithLive(
+      liveId, 
+      live.user_id, 
+      live.whatsapp_search_term
+    );
+    
+    if (newGroupsCount > 0) {
+      // Novos grupos sincronizados
+    }
+  }
+
+  // ETAPA 2: Buscar campanhas do Meta
+  const campaigns = await fetchCampaignsFromMeta(live);
+  // ETAPA 3: Buscar insights agregados
+  const aggregatedInsights = await fetchAggregatedInsights(live);
+  // ETAPA 4: Buscar insights diários (para Traffic Analysis)
+  const dailyInsights = await fetchDailyInsights(live);
+  // ETAPA 4.1: Enriquecer insights diários com dados dos grupos
+  const enrichedDailyInsights = await enrichDailyInsightsWithGroupData(
+    dailyInsights,
+    liveId,
+    live.user_id,
+    live.insights_date_since,
+    live.insights_date_until
+  );
+  // ETAPA 5: Buscar dados dos grupos e calcular métricas
+  const groupData = await fetchGroupDataForCalculations(
+    liveId,
+    live.user_id,
+    live.insights_date_since,
+    live.insights_date_until
+  );
+  const metrics = calculateSimpleMetrics(
+    aggregatedInsights.totalSpend,
+    aggregatedInsights.totalLeads,
+    groupData.totalMembers,
+    live.ad_budget || 0
+  );
+  const result = {
+    campaigns,
+    aggregatedInsights,
+    dailyInsights: enrichedDailyInsights,
+    metrics,
+    groupData
+  };
+
+  // Salvar no cache SEM dados hierárquicos
+  await updateLiveCacheWithoutHierarchy(liveId, result);
+  
+  return result;
+}
+
+/**
  * Atualiza cache SEM gerar dados hierárquicos (para botão principal)
  * @param liveId ID da Live
  * @param liveData Dados completos da Live

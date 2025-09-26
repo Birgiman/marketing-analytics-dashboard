@@ -218,7 +218,6 @@ export async function getWhatsAppGroupsLogByPeriod(
       throw error;
     }
 
-    console.log(`📋 [WhatsApp Groups Log] Encontrados ${rawData?.length || 0} registros brutos`);
 
     // Processar dados manualmente com agrupamento por período
     const periodData = new Map<string, { entries: number; exits: number }>();
@@ -265,12 +264,6 @@ export async function getWhatsAppGroupsLogByPeriod(
     })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     // Log do resultado processado
-    console.log(`✅ [WhatsApp Groups Log] Processados ${result.length} períodos:`);
-    result.forEach(day => {
-      if (day.entries > 0 || day.exits > 0) {
-        console.log(`  📅 ${day.date}: ${day.entries} entradas, ${day.exits} saídas`);
-      }
-    });
 
     const totalEntries = result.reduce((sum, day) => sum + day.entries, 0);
     const totalExits = result.reduce((sum, day) => sum + day.exits, 0);
