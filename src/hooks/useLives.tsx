@@ -15,6 +15,8 @@ interface LiveData {
   insights_date_until?: string
   campaign_search_term?: string
   whatsapp_search_term?: string
+  last_synced_at?: string
+  traffic_last_synced_at?: string
 }
 
 interface LiveGroupInput {
@@ -65,7 +67,10 @@ export function useLives() {
           insights_date_since: liveData.insights_date_since || null,
           insights_date_until: liveData.insights_date_until || null,
           campaign_search_term: liveData.campaign_search_term || null,
-          whatsapp_search_term: liveData.whatsapp_search_term || null
+          whatsapp_search_term: liveData.whatsapp_search_term || null,
+          // Incluir timestamps de sincronização se fornecidos
+          last_synced_at: liveData.last_synced_at || null,
+          traffic_last_synced_at: liveData.traffic_last_synced_at || null
         })
         .select()
         .single()
