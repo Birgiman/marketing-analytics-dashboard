@@ -483,7 +483,32 @@ export function useLives() {
 
       const { data: lives, error } = await supabase
         .from('lives')
-        .select('*')
+        .select(`
+          id,
+          user_id,
+          name,
+          captacao_start,
+          ta_rolando_start,
+          ta_rolando_end,
+          sales_goal,
+          leads_goal,
+          ad_budget,
+          insights_date_since,
+          insights_date_until,
+          campaign_search_term,
+          whatsapp_search_term,
+          created_at,
+          updated_at,
+          live_groups (
+            id,
+            live_id,
+            group_id,
+            group_name,
+            group_size,
+            created_at,
+            updated_at
+          )
+        `)
         .eq('user_id', session.session.user.id)
         .order('created_at', { ascending: false })
 
