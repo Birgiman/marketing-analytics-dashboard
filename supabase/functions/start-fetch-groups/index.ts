@@ -18,7 +18,6 @@ interface StartFetchGroupsRequest {
 
 interface StartFetchGroupsResponse {
   success: boolean;
-  jobId?: string;
   error?: string;
   message?: string;
 }
@@ -140,19 +139,15 @@ serve(async (req: any) => {
       });
 
       if (!processResponse.ok) {
-        console.error('❌ [start-fetch-groups] Erro ao chamar process-fetch-groups-job:', processResponse.status);
-      } else {
-        const processResult = await processResponse.json();
-        console.log('✅ [start-fetch-groups] Process-fetch-groups-job executado:', processResult);
+        console.error('Erro ao processar job:', processResponse.status);
       }
     } catch (error) {
-      console.error('❌ [start-fetch-groups] Erro ao chamar process-fetch-groups-job:', error);
+      console.error('Erro ao processar job:', error);
     }
 
     const response: StartFetchGroupsResponse = {
       success: true,
-      jobId: newJob.id,
-      message: 'Job created successfully. Processing started automatically.'
+      message: 'Sincronização iniciada com sucesso'
     };
 
     return new Response(

@@ -75,7 +75,6 @@ const [lives, setLives] = useState<Live[]>([]);
     setLastSyncAttempt(now);
 
     try {
-      console.log(`🔄 [Dashboard] Iniciando sincronização para instância: ${instanceName}`);
 
       // Verificar status da instância antes de chamar a edge function
       const { data: instanceData } = await supabase
@@ -86,25 +85,16 @@ const [lives, setLives] = useState<Live[]>([]);
         .single();
 
       if (!instanceData?.api_token || instanceData.status !== 'connected') {
-        console.log(`❌ [Dashboard] Instância não conectada ou sem token`);
         return;
       }
 
       // Iniciar sincronização assíncrona usando nova arquitetura de filas
-      whatsappService.syncGroupsWithQueue(instanceName, userId).then((result) => {
-        if (result.success) {
-          console.log(`✅ [Dashboard] Job de sincronização criado: ${result.jobId}`);
-        } else {
-          console.log(`❌ [Dashboard] Falha ao criar job: ${result.error}`);
-        }
-      }).catch((error) => {
-        console.log(`⚠️ [Dashboard] Erro na sincronização com fila:`, error.message);
+      whatsappService.syncGroupsWithQueue(instanceName, userId).catch((error) => {
+        console.error(`Erro na sincronização:`, error.message);
       });
-
-      console.log(`✅ [Dashboard] Sincronização com fila iniciada`);
       
     } catch (error) {
-      console.log(`❌ [Dashboard] Erro na sincronização:`, error);
+      console.error(`Erro na sincronização:`, error);
     } finally {
       syncInProgress.current = false;
       setIsSyncingGroups(false);
