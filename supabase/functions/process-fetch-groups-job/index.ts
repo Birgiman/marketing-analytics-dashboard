@@ -23,6 +23,12 @@ interface ProcessJobRequest {
   jobId?: string; // Opcional: processar job específico
 }
 
+// Função para validar UUID
+function isValidUUID(uuid: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+}
+
 interface ProcessJobResponse {
   success: boolean;
   processedJobs: number;
@@ -31,10 +37,9 @@ interface ProcessJobResponse {
 }
 
 // Configurações
-const REQUEST_TIMEOUT = 55000; // 55 segundos por requisição (teste de timeout)
+const REQUEST_TIMEOUT = 55000; // 55 segundos por requisição
 const RETRY_ATTEMPTS = 2; // 2 tentativas
-const CHUNK_SIZE = 50; // Reduzir chunk size para operações mais rápidas
-// DEBUG_DELAY removido após confirmar que Supabase não tem limite de 60s
+const CHUNK_SIZE = 50; // Processar em chunks de 50
 
 serve(async (req: any) => {
   // Handle CORS preflight requests
@@ -42,13 +47,17 @@ serve(async (req: any) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  try {
-    const startTime = Date.now();
-    console.log('🚀 [process-fetch-groups-job] === INÍCIO DA FUNÇÃO ===');
-    console.log('📝 [process-fetch-groups-job] Method:', req.method);
-    console.log('📝 [process-fetch-groups-job] URL:', req.url);
-    console.log(`⏰ [process-fetch-groups-job] Iniciado em: ${new Date().toISOString()}`);
+  const startTime = Date.now();
+  const summary = {
+    bodyReceived: null,
+    jobsFound: [],
+    groupsLoaded: { count: 0, timeMs: 0 },
+    totalProcessed: 0,
+    errors: [],
+    status: 'success'
+  };
 
+  try {
     const supabase = createClient(
       // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -56,38 +65,99 @@ serve(async (req: any) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    console.log('✅ [process-fetch-groups-job] Cliente Supabase criado com sucesso');
-
-    // Parse do body (se existir)
-    let requestData: ProcessJobRequest = {};
+    // Parse e validação do body (se existir)
+    const requestData: ProcessJobRequest = {};
     try {
       if (req.method === 'POST') {
         const contentLength = req.headers.get('content-length');
-        console.log('📝 [process-fetch-groups-job] Content-Length:', contentLength);
 
         if (contentLength && parseInt(contentLength) > 0) {
           const bodyText = await req.text();
-          console.log('📝 [process-fetch-groups-job] Body recebido:', bodyText);
+          summary.bodyReceived = bodyText;
 
           if (bodyText.trim()) {
-            requestData = JSON.parse(bodyText);
-            console.log('📝 [process-fetch-groups-job] Dados parseados:', requestData);
+            const parsedData = JSON.parse(bodyText);
+
+            // Validação rigorosa do body
+            if (Object.keys(parsedData).length > 0) {
+              // Se tem conteúdo, deve ter APENAS o campo jobId válido
+              const allowedKeys = ['jobId'];
+              const receivedKeys = Object.keys(parsedData);
+              const invalidKeys = receivedKeys.filter(key => !allowedKeys.includes(key));
+
+              if (invalidKeys.length > 0) {
+                summary.status = 'error';
+                summary.errors.push(`Campos inválidos: ${invalidKeys.join(', ')}`);
+                return new Response(
+                  JSON.stringify({ 
+                    success: false, 
+                    error: `Campos inválidos: ${invalidKeys.join(', ')}` 
+                  }),
+                  { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                );
+              }
+
+              // Validar jobId se fornecido
+              if (parsedData.jobId !== undefined) {
+                if (typeof parsedData.jobId !== 'string') {
+                  summary.status = 'error';
+                  summary.errors.push('jobId deve ser string');
+                  return new Response(
+                    JSON.stringify({ 
+                      success: false, 
+                      error: 'jobId deve ser uma string válida' 
+                    }),
+                    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                  );
+                }
+
+                if (parsedData.jobId.trim() === '') {
+                  summary.status = 'error';
+                  summary.errors.push('jobId vazio');
+                  return new Response(
+                    JSON.stringify({ 
+                      success: false, 
+                      error: 'jobId deve ser um UUID válido.' 
+                    }),
+                    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                  );
+                }
+
+                if (!isValidUUID(parsedData.jobId)) {
+                  summary.status = 'error';
+                  summary.errors.push(`UUID inválido: ${parsedData.jobId}`);
+                  return new Response(
+                    JSON.stringify({ 
+                      success: false, 
+                      error: 'jobId deve ser um UUID válido.' 
+                    }),
+                    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                  );
+                }
+
+                requestData.jobId = parsedData.jobId.trim();
+              }
+            }
           }
         }
       }
     } catch (parseError) {
-      console.error('❌ [process-fetch-groups-job] Erro ao parsear body:', parseError);
-      // Continuar mesmo com erro de parse
+      summary.status = 'error';
+      summary.errors.push(`JSON inválido: ${parseError}`);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'JSON inválido. Verifique a documentação da API.' 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
-
-    console.log('🔄 [process-fetch-groups-job] Iniciando processamento de jobs');
 
     let jobs;
     let jobsError;
 
     if (requestData.jobId) {
       // Buscar job específico
-      console.log(`🎯 [process-fetch-groups-job] Buscando job específico: ${requestData.jobId}`);
       const result = await supabase
         .from('whatsapp_group_fetch_jobs')
         .select('*')
@@ -98,7 +168,6 @@ serve(async (req: any) => {
       jobsError = result.error;
     } else {
       // Buscar jobs pendentes, failed ou que estão rodando há muito tempo (> 5 min sem update)
-      console.log('🔍 [process-fetch-groups-job] Buscando jobs pendentes automaticamente');
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
       const result = await supabase
@@ -113,7 +182,8 @@ serve(async (req: any) => {
     }
 
     if (jobsError) {
-      console.error('❌ [process-fetch-groups-job] Error fetching jobs:', jobsError);
+      summary.status = 'error';
+      summary.errors.push(`Erro ao buscar jobs: ${jobsError.message}`);
       return new Response(
         JSON.stringify({ success: false, error: 'Error fetching jobs' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -121,7 +191,7 @@ serve(async (req: any) => {
     }
 
     if (!jobs || jobs.length === 0) {
-      console.log('📭 [process-fetch-groups-job] Nenhum job pendente encontrado');
+      summary.jobsFound = [];
       return new Response(
         JSON.stringify({
           success: true,
@@ -137,28 +207,26 @@ serve(async (req: any) => {
       );
     }
 
-    console.log(`🎯 [process-fetch-groups-job] Encontrados ${jobs.length} jobs para processar`);
+    summary.jobsFound = jobs.map(job => job.id);
 
     let processedJobs = 0;
 
     for (const job of jobs) {
       try {
         const jobStartTime = Date.now();
-        console.log(`🚀 [process-fetch-groups-job] Processando job ${job.id} (status: ${job.status})`);
 
         // Validar se job pode ser executado
         if (job.status === 'completed') {
-          console.log(`⚠️ [process-fetch-groups-job] Job ${job.id} já foi concluído, pulando execução`);
+          processedJobs++; // Contar como processado para dar feedback ao usuário
           continue;
         }
         
         if (job.status === 'failed') {
-          console.log(`🔄 [process-fetch-groups-job] Job ${job.id} falhou anteriormente, reprocessando...`);
+          // Reprocessar job que falhou
         }
 
         // Marcar job como running se ainda estiver pending ou failed
         if (job.status === 'pending' || job.status === 'failed') {
-          console.log(`📝 [process-fetch-groups-job] Marcando job ${job.id} como 'running'`);
           await supabase
             .from('whatsapp_group_fetch_jobs')
             .update({
@@ -170,7 +238,6 @@ serve(async (req: any) => {
         }
 
         // Buscar dados da instância
-        console.log(`🔍 [process-fetch-groups-job] Buscando instância: ${job.instance_name} para user: ${job.user_id}`);
         const { data: instanceData, error: instanceError } = await supabase
           .from('whatsapp_instances')
           .select('api_token')
@@ -179,7 +246,6 @@ serve(async (req: any) => {
           .single();
 
         if (instanceError || !instanceData?.api_token) {
-          console.error(`❌ [process-fetch-groups-job] Instance not found for job ${job.id}:`, instanceError);
           await supabase
             .from('whatsapp_group_fetch_jobs')
             .update({
@@ -192,17 +258,13 @@ serve(async (req: any) => {
         }
 
         const apiKey = instanceData.api_token;
-        console.log(`✅ [process-fetch-groups-job] API Token encontrado para instância ${job.instance_name}`);
 
         // @ts-ignore
         const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'https://evolution-api-2-3-0-production-6d75.up.railway.app';
         const cleanApiUrl = evolutionApiUrl.replace(/\/$/, '');
 
         // A Evolution API retorna todos os grupos de uma vez, não respeita paginação
-        console.log(`📊 [process-fetch-groups-job] Buscando todos os grupos para job ${job.id}`);
-
         const evolutionUrl = `${cleanApiUrl}/group/fetchAllGroups/${job.instance_name}?getParticipants=false`;
-        console.log(`🔗 [process-fetch-groups-job] URL da Evolution API: ${evolutionUrl.replace(apiKey, '***')}`);
 
         let allGroups: GroupData[] = [];
         let requestSuccess = false;
@@ -211,11 +273,8 @@ serve(async (req: any) => {
         // Retry logic para buscar grupos
         for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
           try {
-            console.log(`🔄 [process-fetch-groups-job] Tentativa ${attempt}/${RETRY_ATTEMPTS} para buscar grupos`);
-
             // Delay pequeno antes da primeira tentativa para evitar problemas de timing
             if (attempt === 1) {
-              console.log(`⏳ [process-fetch-groups-job] Aguardando 1s antes da primeira tentativa...`);
               await new Promise(resolve => setTimeout(resolve, 1000));
             }
 
@@ -250,23 +309,20 @@ serve(async (req: any) => {
             requestSuccess = true;
 
             const requestTime = Date.now() - requestStartTime;
-            console.log(`✅ [process-fetch-groups-job] Grupos carregados: ${allGroups.length} grupos (${requestTime}ms)`);
+            summary.groupsLoaded = { count: allGroups.length, timeMs: requestTime };
             break;
 
           } catch (error) {
             lastError = error as Error;
-            console.log(`❌ [process-fetch-groups-job] Tentativa ${attempt} falhou: ${error instanceof Error ? error.message : 'Unknown error'}`);
 
             if (attempt < RETRY_ATTEMPTS) {
               const backoffDelay = 2000 * Math.pow(2, attempt - 1); // 2s, 4s
-              console.log(`⏳ [process-fetch-groups-job] Aguardando ${backoffDelay}ms antes da próxima tentativa...`);
               await new Promise(resolve => setTimeout(resolve, backoffDelay));
             }
           }
         }
 
         if (!requestSuccess) {
-          console.error(`❌ [process-fetch-groups-job] Falha ao buscar grupos após ${RETRY_ATTEMPTS} tentativas`);
           await supabase
             .from('whatsapp_group_fetch_jobs')
             .update({
@@ -293,23 +349,15 @@ serve(async (req: any) => {
             const groupName = (group.subject || '').toLowerCase();
             return groupName.includes(searchLower);
           });
-          console.log(`🔍 [process-fetch-groups-job] Filtro '${job.search_term}': ${filteredGroups.length}/${validGroups.length} grupos`);
         }
 
         let totalGroupsFound = 0;
-        const allSavedGroupIds: string[] = [];
 
         // Fazer UPSERT de todos os grupos (não precisa verificar duplicatas)
         if (filteredGroups.length > 0) {
-          console.log(`💾 [process-fetch-groups-job] Fazendo upsert de ${filteredGroups.length} grupos (insert novos + update existentes)`);
-
-          // Usar CHUNK_SIZE global definido no topo para consistência
-
           // Processar todos os grupos em chunks
           for (let i = 0; i < filteredGroups.length; i += CHUNK_SIZE) {
             const chunk = filteredGroups.slice(i, i + CHUNK_SIZE);
-            
-            console.log(`💾 [process-fetch-groups-job] Upsert chunk ${Math.floor(i/CHUNK_SIZE) + 1}/${Math.ceil(filteredGroups.length/CHUNK_SIZE)} (${chunk.length} grupos)`);
 
             const groupsToUpsert = chunk.map(group => ({
               group_id: group.id,
@@ -333,25 +381,17 @@ serve(async (req: any) => {
                 });
 
               if (upsertError) {
-                console.error(`❌ [process-fetch-groups-job] Erro ao fazer upsert chunk ${Math.floor(i/CHUNK_SIZE) + 1}:`, upsertError);
+                summary.errors.push(`Erro upsert chunk ${Math.floor(i/CHUNK_SIZE) + 1}: ${upsertError.message}`);
               } else {
                 totalGroupsFound += chunk.length;
-                const processedIds = chunk.map(g => g.id);
-                allSavedGroupIds.push(...processedIds);
-                console.log(`✅ [process-fetch-groups-job] Chunk ${Math.floor(i/CHUNK_SIZE) + 1} processado: ${chunk.length} grupos (insert/update)`);
               }
             } catch (error) {
-              console.error(`❌ [process-fetch-groups-job] Erro crítico ao fazer upsert chunk ${Math.floor(i/CHUNK_SIZE) + 1}:`, error);
+              summary.errors.push(`Erro crítico upsert chunk ${Math.floor(i/CHUNK_SIZE) + 1}: ${error}`);
             }
           }
-
-          console.log(`✅ [process-fetch-groups-job] Total processado: ${totalGroupsFound} grupos (novos + atualizados)`);
-          if (allSavedGroupIds.length > 0) {
-            console.log(`🆔 [process-fetch-groups-job] Primeiros IDs processados:`, allSavedGroupIds.slice(0, 5).join(', '), allSavedGroupIds.length > 5 ? `... (+${allSavedGroupIds.length - 5} mais)` : '');
-          }
-        } else {
-          console.log(`ℹ️ [process-fetch-groups-job] Nenhum grupo para processar`);
         }
+
+        summary.totalProcessed += totalGroupsFound;
 
         // Como a Evolution API retorna todos os grupos de uma vez, marcamos como completo
         const jobEndTime = Date.now();
@@ -362,27 +402,15 @@ serve(async (req: any) => {
           .from('whatsapp_group_fetch_jobs')
           .update({
             status: 'completed',
-            current_page: 1,
-            total_pages: 1,
             result_count: totalGroupsFound,
             finished_at: new Date().toISOString()
           })
           .eq('id', job.id);
 
-        console.log(`🎉 [process-fetch-groups-job] Job ${job.id} concluído!`);
-        console.log(`📊 [process-fetch-groups-job] Estatísticas do job:`);
-        console.log(`   • Total de grupos da Evolution API: ${allGroups.length}`);
-        console.log(`   • Grupos após filtros: ${filteredGroups.length}`);
-        console.log(`   • Total de grupos processados (insert/update): ${totalGroupsFound}`);
-        console.log(`   • Tempo de processamento: ${jobDuration}ms (${(jobDuration / 1000).toFixed(2)}s)`);
-        if (allSavedGroupIds.length > 0) {
-          console.log(`🆔 [process-fetch-groups-job] IDs processados:`, allSavedGroupIds.slice(0, 10).join(', '), allSavedGroupIds.length > 10 ? `... (+${allSavedGroupIds.length - 10} mais)` : '');
-        }
-
         processedJobs++;
 
       } catch (jobError) {
-        console.error(`❌ [process-fetch-groups-job] Erro ao processar job ${job.id}:`, jobError);
+        summary.errors.push(`Erro job ${job.id}: ${jobError instanceof Error ? jobError.message : 'Unknown error'}`);
 
         await supabase
           .from('whatsapp_group_fetch_jobs')
@@ -398,17 +426,29 @@ serve(async (req: any) => {
     const endTime = Date.now();
     const totalDuration = endTime - startTime;
 
+    // Criar mensagem mais descritiva
+    let message = '';
+    if (processedJobs === 0) {
+      message = 'Nenhum job encontrado para processar';
+    } else if (processedJobs === 1) {
+      // Verificar se o job específico já estava completed
+      if (requestData.jobId && jobs && jobs.length > 0 && jobs[0].status === 'completed') {
+        message = 'Job já foi processado anteriormente com sucesso';
+      } else {
+        message = 'Job processado com sucesso';
+      }
+    } else {
+      message = `Processados ${processedJobs} jobs com sucesso`;
+    }
+
     const response: ProcessJobResponse = {
       success: true,
       processedJobs,
-      message: `Processados ${processedJobs} jobs`
+      message
     };
 
-    console.log(`✅ [process-fetch-groups-job] === FIM DA FUNÇÃO ===`);
-    console.log(`📊 [process-fetch-groups-job] Resumo da execução:`);
-    console.log(`   • Jobs processados: ${processedJobs}`);
-    console.log(`   • Tempo total: ${totalDuration}ms (${(totalDuration / 1000).toFixed(2)}s)`);
-    console.log(`⏰ [process-fetch-groups-job] Finalizado em: ${new Date().toISOString()}`);
+    // LOG ÚNICO RESUMIDO
+    console.log(`📊 [process-fetch-groups-job] RESUMO: Body: ${summary.bodyReceived || '{}'} | Jobs: [${summary.jobsFound.join(', ')}] | Grupos: ${summary.groupsLoaded.count} (${summary.groupsLoaded.timeMs}ms) | Processados: ${summary.totalProcessed} | Tempo: ${totalDuration}ms (${(totalDuration/1000).toFixed(2)}s) | Status: ${summary.status}${summary.errors.length > 0 ? ` | Erros: ${summary.errors.join('; ')}` : ''}`);
 
     return new Response(
       JSON.stringify(response),
@@ -421,7 +461,11 @@ serve(async (req: any) => {
     );
 
   } catch (error) {
-    console.error('❌ [process-fetch-groups-job] Unexpected error:', error);
+    summary.status = 'error';
+    summary.errors.push(`Erro crítico: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+    // LOG ÚNICO DE ERRO
+    console.log(`❌ [process-fetch-groups-job] ERRO: ${summary.errors.join('; ')}`);
 
     return new Response(
       JSON.stringify({

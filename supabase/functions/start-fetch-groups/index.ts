@@ -49,7 +49,7 @@ serve(async (req: any) => {
     console.log('🚀 [start-fetch-groups] Iniciando novo job de fetch');
     console.log('📋 [start-fetch-groups] Parâmetros:', {
       instanceName,
-      userId: userId.substring(0, 8) + '...', // Mascarar userId sensível
+      userId: userId ? userId.substring(0, 8) + '...' : 'undefined', // Mascarar userId sensível
       searchTerm: searchTerm || '(todos os grupos)'
     });
 
@@ -124,7 +124,6 @@ serve(async (req: any) => {
         status: 'pending',
         chunk_size: 10, // Valor legacy (não usado mais, mas mantido para compatibilidade)
         page_delay: 500, // Valor legacy (não usado mais, mas mantido para compatibilidade)
-        current_page: 0,
         result_count: 0
       })
       .select()
