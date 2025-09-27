@@ -74,59 +74,98 @@ console.log('Sync Live Meta Data function loaded');
 // Função para agregar dados do WhatsApp por data
 async function aggregateWhatsAppData(
   supabaseClient: any,
-  groupIds: string[],
+  liveGroups: any[],
   timeRange: { since: string; until: string }
 ): Promise<{
   groups: { groupId: string; groupName: string; total_joins: number; total_exits: number }[];
   dailyData: { [date: string]: { joins: number; exits: number } };
 }> {
-  if (groupIds.length === 0) {
+  if (liveGroups.length === 0) {
     return { groups: [], dailyData: {} };
   }
+
+  const groupIds = liveGroups.map(g => g.group_id);
 
   try {
     console.log(`🔍 [WhatsApp] Buscando dados para ${groupIds.length} grupos no período ${timeRange.since} a ${timeRange.until}`);
     console.log(`🔍 [WhatsApp] Group IDs:`, groupIds);
 
-    // Buscar dados totais por grupo
-    const { data: totalJoins, error: joinsError } = await supabaseClient
-      .from('whatsapp_groups_log')
-      .select('id_grupo')
-      .in('id_grupo', groupIds)
-      .eq('event', 'join')
-      .gte('created_at', timeRange.since)
-      .lte('created_at', timeRange.until);
+    // Buscar dados completos com paginação (Supabase limita em 1000 registros por página)
+    console.log(`🔄 [WhatsApp] Buscando joins com paginação...`);
+    let allJoins: any[] = [];
+    let page = 0;
+    const pageSize = 1000;
 
-    const { data: totalExits, error: exitsError } = await supabaseClient
-      .from('whatsapp_groups_log')
-      .select('id_grupo')
-      .in('id_grupo', groupIds)
-      .eq('event', 'leave')
-      .gte('created_at', timeRange.since)
-      .lte('created_at', timeRange.until);
+    while (true) {
+      const { data: joinsPage, error: joinsError } = await supabaseClient
+        .from('whatsapp_groups_log')
+        .select('id_grupo, created_at')
+        .in('id_grupo', groupIds)
+        .eq('event', 'join')
+        .gte('created_at', timeRange.since)
+        .lte('created_at', timeRange.until)
+        .order('created_at', { ascending: true })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
 
-    console.log(`📊 [WhatsApp] Encontrados ${totalJoins?.length || 0} joins e ${totalExits?.length || 0} exits`);
-    if (joinsError) console.error(`❌ [WhatsApp] Erro ao buscar joins:`, joinsError);
-    if (exitsError) console.error(`❌ [WhatsApp] Erro ao buscar exits:`, exitsError);
+      if (joinsError) {
+        console.error(`❌ [WhatsApp] Erro ao buscar joins página ${page}:`, joinsError);
+        break;
+      }
 
-    // Buscar dados por data (agregação manual)
-    const { data: rawJoins } = await supabaseClient
-      .from('whatsapp_groups_log')
-      .select('created_at')
-      .in('id_grupo', groupIds)
-      .eq('event', 'join')
-      .gte('created_at', timeRange.since)
-      .lte('created_at', timeRange.until);
+      if (!joinsPage || joinsPage.length === 0) {
+        break;
+      }
 
-    const { data: rawExits } = await supabaseClient
-      .from('whatsapp_groups_log')
-      .select('created_at')
-      .in('id_grupo', groupIds)
-      .eq('event', 'leave')
-      .gte('created_at', timeRange.since)
-      .lte('created_at', timeRange.until);
+      allJoins = allJoins.concat(joinsPage);
+      console.log(`📄 [WhatsApp] Página ${page}: ${joinsPage.length} joins encontrados`);
 
-    // Processar dados diários
+      if (joinsPage.length < pageSize) {
+        break; // Última página
+      }
+
+      page++;
+    }
+
+    console.log(`🔄 [WhatsApp] Buscando exits com paginação...`);
+    let allExits: any[] = [];
+    page = 0;
+
+    while (true) {
+      const { data: exitsPage, error: exitsError } = await supabaseClient
+        .from('whatsapp_groups_log')
+        .select('id_grupo, created_at')
+        .in('id_grupo', groupIds)
+        .eq('event', 'leave')
+        .gte('created_at', timeRange.since)
+        .lte('created_at', timeRange.until)
+        .order('created_at', { ascending: true })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (exitsError) {
+        console.error(`❌ [WhatsApp] Erro ao buscar exits página ${page}:`, exitsError);
+        break;
+      }
+
+      if (!exitsPage || exitsPage.length === 0) {
+        break;
+      }
+
+      allExits = allExits.concat(exitsPage);
+      console.log(`📄 [WhatsApp] Página ${page}: ${exitsPage.length} exits encontrados`);
+
+      if (exitsPage.length < pageSize) {
+        break; // Última página
+      }
+
+      page++;
+    }
+
+    const rawJoins = allJoins;
+    const rawExits = allExits;
+
+    console.log(`📊 [WhatsApp] TOTAL encontrado: ${rawJoins?.length || 0} joins e ${rawExits?.length || 0} exits`);
+
+    // Processar dados diários (agregação geral por data)
     const dailyData: { [date: string]: { joins: number; exits: number } } = {};
 
     // Agregar entradas por data
@@ -143,11 +182,37 @@ async function aggregateWhatsAppData(
       dailyData[date].exits++;
     });
 
+    // Processar dados por grupo individual
+    const groupData: { [groupId: string]: { joins: number; exits: number } } = {};
+
+    // Agregar entradas por grupo
+    rawJoins?.forEach((record: any) => {
+      const groupId = record.id_grupo;
+      if (!groupData[groupId]) groupData[groupId] = { joins: 0, exits: 0 };
+      groupData[groupId].joins++;
+    });
+
+    // Agregar saídas por grupo
+    rawExits?.forEach((record: any) => {
+      const groupId = record.id_grupo;
+      if (!groupData[groupId]) groupData[groupId] = { joins: 0, exits: 0 };
+      groupData[groupId].exits++;
+    });
+
+    // Criar array de grupos com dados individuais usando nomes reais
+    const groups = liveGroups.map(group => ({
+      groupId: group.group_id,
+      groupName: group.group_name,
+      total_joins: groupData[group.group_id]?.joins || 0,
+      total_exits: groupData[group.group_id]?.exits || 0
+    }));
+
     console.log(`📊 [WhatsApp] Processados ${Object.keys(dailyData).length} dias de dados`);
     console.log(`📊 [WhatsApp] Dados por dia:`, dailyData);
+    console.log(`📊 [WhatsApp] Dados por grupo:`, groups);
 
     return {
-      groups: [], // Será preenchido com dados dos grupos
+      groups,
       dailyData
     };
 
@@ -230,9 +295,12 @@ Deno.serve(async (req: Request) => {
       timeRange = { since, until };
       console.log(`📅 [Time Range] Caso 1 (futuro): ${since} → ${until}`);
     } else if (since <= hoje && hoje <= until) {
-      // Caso 2: since <= hoje <= until - usar até hoje
-      timeRange = { since, until: hoje };
-      console.log(`📅 [Time Range] Caso 2 (ativo): ${since} → ${hoje}`);
+      // Caso 2: since <= hoje <= until - usar até hoje + 1 dia para incluir registros do dia atual
+      const amanha = new Date();
+      amanha.setDate(amanha.getDate() + 1);
+      const amanhaStr = amanha.toISOString().split('T')[0];
+      timeRange = { since, until: amanhaStr };
+      console.log(`📅 [Time Range] Caso 2 (ativo): ${since} → ${amanhaStr} (incluindo dia atual completo)`);
     } else {
       // Caso 3: hoje > until - usar intervalo original
       timeRange = { since, until };
@@ -279,11 +347,10 @@ Deno.serve(async (req: Request) => {
       console.warn(`⚠️ [WhatsApp] Erro ao buscar grupos da live: ${groupsError.message}`);
     }
 
-    const groupIds = liveGroups?.map(g => g.group_id) || [];
-    console.log(`📊 [WhatsApp] Encontrados ${groupIds.length} grupos para processar`);
+    console.log(`📊 [WhatsApp] Encontrados ${liveGroups?.length || 0} grupos para processar`);
 
     // Agregar dados de WhatsApp
-    const whatsappData = await aggregateWhatsAppData(supabaseClient, groupIds, timeRange);
+    const whatsappData = await aggregateWhatsAppData(supabaseClient, liveGroups || [], timeRange);
     console.log(`🔄 [WhatsApp] Resultado da agregação:`, whatsappData);
 
     // Adicionar dados de WhatsApp aos dados incrementais
@@ -313,12 +380,7 @@ Deno.serve(async (req: Request) => {
       .update({
         cached_traffic_data: {
           campaign: globalHierarchy.campaigns,
-          groups: liveGroups?.map(group => ({
-            groupId: group.group_id,
-            groupName: group.group_name,
-            total_joins: whatsappData.dailyData ? Object.values(whatsappData.dailyData).reduce((sum, day) => sum + day.joins, 0) : 0,
-            total_exits: whatsappData.dailyData ? Object.values(whatsappData.dailyData).reduce((sum, day) => sum + day.exits, 0) : 0
-          })) || [],
+          groups: whatsappData.groups || [],
           lastUpdated: new Date().toISOString(),
           requestTime: Date.now(),
           campaignCount: globalHierarchy.campaigns.length,
