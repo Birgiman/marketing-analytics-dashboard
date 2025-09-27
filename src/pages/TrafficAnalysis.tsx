@@ -501,9 +501,9 @@ const TrafficAnalysis = () => {
             setHierarchicalCacheValid(false);
           }
         }
-      }
 
-      setIsLoading(false);
+        setIsLoading(false);
+      }
     } catch (error) {
       console.error('❌ [TrafficAnalysis] Erro ao carregar dados:', error);
       setIsLoading(false);
