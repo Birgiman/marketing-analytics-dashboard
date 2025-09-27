@@ -4,6 +4,7 @@ import PerformanceAnalysis from "@/components/PerformanceAnalysis";
 import { ScreenNavigatorLives } from "@/components/ScreenNavigatorLives";
 import { Button } from "@/components/ui/button";
 import { getLiveData, getLiveDataFromDatabase } from '@/utils/LiveData/getLiveData';
+import { supabase } from '@/integrations/supabase/client';
 import { AlertCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -52,6 +53,32 @@ const Details = () => {
       totalResults: number;
     };
   } | null>(null);
+
+  // Função para chamar a Edge Function syncLiveMetaData
+  const syncLiveMetaData = useCallback(async (liveId: string) => {
+    try {
+      console.log(`🚀 [Details] Chamando Edge Function syncLiveMetaData para Live: ${liveId}`);
+      
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      const response = await supabase.functions.invoke('sync-live-meta-data', {
+        body: { liveId }
+      });
+
+      if (response.error) {
+        throw new Error(`Erro na Edge Function: ${response.error.message}`);
+      }
+
+      console.log(`✅ [Details] Edge Function executada com sucesso:`, response.data);
+      return response.data;
+    } catch (error) {
+      console.error(`❌ [Details] Erro ao chamar Edge Function:`, error);
+      throw error;
+    }
+  }, []);
 
   // Função para carregar dados do banco
   const loadDataFromDatabase = useCallback(async () => {
@@ -108,6 +135,15 @@ const Details = () => {
         }
       }
 
+      // Chamar Edge Function para sincronizar dados do Meta
+      try {
+        await syncLiveMetaData(liveId);
+        console.log(`✅ [Details] Edge Function executada com sucesso`);
+      } catch (edgeError) {
+        console.warn(`⚠️ [Details] Edge Function falhou, continuando com dados do cache:`, edgeError);
+        // Não interromper o fluxo se a Edge Function falhar
+      }
+
       // Agora, usar getLiveData para validar cache e buscar dados frescos se necessário
       const liveDataResult = await getLiveData(liveId, false); // false = verificar cache primeiro
       
@@ -144,7 +180,7 @@ const Details = () => {
     } finally {
       setIsButtonRefreshing(false);
     }
-  }, [liveId]);
+  }, [liveId, syncLiveMetaData]);
 
   // Navegar para /dashboard se não há liveId
   useEffect(() => {
@@ -165,6 +201,15 @@ const Details = () => {
   const handleRefreshStart = async () => {
     setIsButtonRefreshing(true);
     try {
+      // Chamar Edge Function para forçar sincronização
+      try {
+        await syncLiveMetaData(liveId!);
+        console.log(`✅ [Details] Edge Function executada no refresh`);
+      } catch (edgeError) {
+        console.warn(`⚠️ [Details] Edge Function falhou no refresh, continuando:`, edgeError);
+        // Não interromper o fluxo se a Edge Function falhar
+      }
+
       const liveDataResult = await getLiveData(liveId!, true); // true = force refresh
       
       // Atualizar dados com os resultados mais recentes
