@@ -229,12 +229,7 @@ const TrafficAnalysis = () => {
   
   // Estados para expansão hierárquica
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-  
-  // Estados para cache independente da tabela hierárquica
-  const [isHierarchicalRefreshing, setIsHierarchicalRefreshing] = useState(false);
-  const [hierarchicalCacheValid, setHierarchicalCacheValid] = useState(false);
 
-  
   // Opções de público (dados reais dos públicos da Live) - memoizado para evitar re-renders
   const publicoOptions = useMemo(() => [
     { value: 'todos', label: 'Todos os Públicos' },
@@ -336,6 +331,13 @@ const TrafficAnalysis = () => {
       }
       
       if (liveData) {
+        console.log('🔍 [DEBUG] liveData do banco:', {
+          id: liveData.id,
+          cached_traffic_data_incremented: liveData.cached_traffic_data_incremented ? 'existe' : 'não existe',
+          cached_traffic_data: liveData.cached_traffic_data ? 'existe' : 'não existe',
+          traffic_last_synced_at: liveData.traffic_last_synced_at
+        });
+
         // Atualizar dados básicos da Live
         setLive({
           id: liveData.id,
@@ -347,6 +349,7 @@ const TrafficAnalysis = () => {
           cached_group_data: liveData.cached_group_data || undefined,
           cached_traffic_data: liveData.cached_traffic_data || undefined,
           cached_traffic_metrics: liveData.cached_traffic_metrics as any || undefined,
+          cached_traffic_data_incremented: liveData.cached_traffic_data_incremented || undefined,
           traffic_last_synced_at: liveData.traffic_last_synced_at
         });
         
@@ -930,27 +933,43 @@ const TrafficAnalysis = () => {
     const dailyInsights: any[] = [];
     Object.keys(campaignsByDate).forEach(date => {
       const dayCampaigns = campaignsByDate[date];
-      
+
+      if (!Array.isArray(dayCampaigns) || dayCampaigns.length === 0) {
+        return;
+      }
+
       // Agregar dados do dia (apenas campanhas, nível 1)
       const dayTotal = dayCampaigns.reduce((acc: { spend: number; leads: number }, campaign: any) => {
-        acc.spend += campaign.spend;
-        acc.leads += campaign.leads;
+        acc.spend += campaign.spend || 0;
+        acc.leads += campaign.leads || 0;
         return acc;
       }, { spend: 0, leads: 0 });
 
       // Calcular CPL Meta
       const cplMeta = dayTotal.leads > 0 ? dayTotal.spend / dayTotal.leads : 0;
 
+
+      // FIXME: Dados de WhatsApp não estão disponíveis por dia
+      // Por enquanto, zerando esses campos até implementarmos dados diários reais
+      const dayGroupJoin = 0; // Não temos dados diários de entrada no grupo
+      const dayGroupExit = 0; // Não temos dados diários de saída do grupo
+
+      // CPL Líquido: sem dados de grupo, usar dados gerais do cache
+      const dayCplLiquido = live?.cached_metrics?.cplLiquido || 0;
+
+      // Taxa de retenção: usar dados gerais do cache (dividir por 100 se necessário)
+      const cachedRetention = live?.cached_metrics?.retentionRate || 0;
+      const dayRetention = cachedRetention > 100 ? Math.round(cachedRetention / 100) : Math.round(cachedRetention);
+
       dailyInsights.push({
         date,
         spend: dayTotal.spend,
         leads: dayTotal.leads,
         cplMeta,
-        // Campos que não temos nos dados incrementais (serão 0)
-        groupJoin: 0,
-        groupExit: 0,
-        cplLiquido: 0,
-        retention: 0
+        groupJoin: dayGroupJoin,
+        groupExit: dayGroupExit,
+        cplLiquido: dayCplLiquido,
+        retention: dayRetention
       });
     });
 
@@ -1003,13 +1022,13 @@ const TrafficAnalysis = () => {
       date: insight.date,
       investment: insight.spend,
       cadastros: insight.leads,
-      group: (insight as any).groupJoin || 0,
-      groupExit: (insight as any).groupExit || 0,
+      group: insight.groupJoin,
+      groupExit: insight.groupExit,
       cplMeta: insight.cplMeta,
-      cplLiquido: (insight as any).cplLiquido || 0,
-      retention: (insight as any).retention || 0
+      cplLiquido: insight.cplLiquido,
+      retention: insight.retention
     })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    
+
     return result;
   }, [live?.cached_traffic_data_incremented?.campaignsByDate, selectedPublico, publicAudiences, groups]);
   
@@ -1728,12 +1747,6 @@ const TrafficAnalysis = () => {
           <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
             <div>
               <CardTitle>🏆 Análise Profunda de Campanhas</CardTitle>
-              <div className="text-xs text-muted-foreground mt-1">
-                Cache independente • Atualização a cada 60 minutos
-                {hierarchicalCacheValid && (
-                  <span className="text-green-600 ml-2">✓ Cache válido</span>
-                )}
-              </div>
             </div>
             <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
               <div className="flex items-center space-x-2">
