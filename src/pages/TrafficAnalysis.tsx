@@ -13,7 +13,7 @@ import { fetchPublicAudiences, generateAudienceCorrelation } from "@/utils/audie
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
 // Funções antigas removidas - agora usando Edge Function syncLiveMetaData
 // Removido import legado: fetchAdSetInsights
-import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Filter, RefreshCw } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Filter } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
@@ -105,6 +105,13 @@ const TrafficAnalysis = () => {
       cplMeta: number;
       retentionRate: number;
       cplLiquidoPlanejamento: number;
+    };
+    cached_traffic_data_incremented?: {
+      campaignsByDate: Record<string, any[]>;
+      lastUpdated: string;
+      requestTime: number;
+      totalDays: number;
+      dateRange: { since: string; until: string };
     };
     traffic_last_synced_at?: string;
   } | null>(null);
@@ -227,8 +234,6 @@ const TrafficAnalysis = () => {
   const [isHierarchicalRefreshing, setIsHierarchicalRefreshing] = useState(false);
   const [hierarchicalCacheValid, setHierarchicalCacheValid] = useState(false);
 
-  // Estados para teste das funções de análise
-  const [isTestingAnalysis, setIsTestingAnalysis] = useState(false);
   
   // Opções de público (dados reais dos públicos da Live) - memoizado para evitar re-renders
   const publicoOptions = useMemo(() => [
@@ -535,107 +540,6 @@ const TrafficAnalysis = () => {
     }
   }, [liveId]);
 
-  // Função para testar Edge Function
-  const handleTestAnalysis = useCallback(async () => {
-    if (!liveId) return;
-
-    setIsTestingAnalysis(true);
-
-    try {
-      console.log('🧪 [TEST] ===== INICIANDO TESTE DA EDGE FUNCTION =====');
-      console.log('🧪 [TEST] Live ID:', liveId);
-
-      // Buscar dados da Live antes da execução
-      const { data: liveDataBefore, error: beforeError } = await supabase
-        .from('lives')
-        .select('*')
-        .eq('id', liveId)
-        .single();
-
-      if (beforeError || !liveDataBefore) {
-        console.error('[TEST] Erro ao buscar Live antes do teste:', beforeError);
-        return;
-      }
-
-      console.log('📊 [TEST] Dados ANTES da Edge Function:');
-      console.log('  - Última sincronização:', liveDataBefore.traffic_last_synced_at);
-      console.log('  - Campanhas no cache:', liveDataBefore.cached_traffic_data?.campaign?.length || 0);
-      console.log('  - Dias incrementais:', liveDataBefore.cached_traffic_data_incremented?.totalDays || 0);
-
-      // Executar Edge Function
-      console.log('🚀 [TEST] Executando Edge Function syncLiveMetaData...');
-      const { data: session } = await supabase.auth.getSession();
-      if (!session?.session?.user) {
-        throw new Error('Usuário não autenticado');
-      }
-
-      const response = await supabase.functions.invoke('sync-live-meta-data', {
-        body: { liveId }
-      });
-
-      if (response.error) {
-        throw new Error(`Erro na Edge Function: ${response.error.message}`);
-      }
-
-      console.log('✅ [TEST] Edge Function executada com sucesso:', response.data);
-
-      // Buscar dados atualizados após a execução
-      const { data: liveDataAfter, error: afterError } = await supabase
-        .from('lives')
-        .select('*')
-        .eq('id', liveId)
-        .single();
-
-      if (afterError || !liveDataAfter) {
-        console.error('[TEST] Erro ao buscar Live após o teste:', afterError);
-        return;
-      }
-
-      console.log('📊 [TEST] Dados APÓS a Edge Function:');
-      console.log('  - Última sincronização:', liveDataAfter.traffic_last_synced_at);
-      console.log('  - Campanhas no cache:', liveDataAfter.cached_traffic_data?.campaign?.length || 0);
-      console.log('  - Dias incrementais:', liveDataAfter.cached_traffic_data_incremented?.totalDays || 0);
-
-      // Comparar dados
-      console.log('🔄 [TEST] ===== COMPARAÇÃO ANTES/APÓS =====');
-      const beforeCampaigns = liveDataBefore.cached_traffic_data?.campaign?.length || 0;
-      const afterCampaigns = liveDataAfter.cached_traffic_data?.campaign?.length || 0;
-      const beforeDays = liveDataBefore.cached_traffic_data_incremented?.totalDays || 0;
-      const afterDays = liveDataAfter.cached_traffic_data_incremented?.totalDays || 0;
-
-      console.log(`📈 Campanhas: ${beforeCampaigns} → ${afterCampaigns} (${afterCampaigns - beforeCampaigns > 0 ? '+' : ''}${afterCampaigns - beforeCampaigns})`);
-      console.log(`📅 Dias incrementais: ${beforeDays} → ${afterDays} (${afterDays - beforeDays > 0 ? '+' : ''}${afterDays - beforeDays})`);
-
-      // Mostrar estrutura dos dados
-      if (liveDataAfter.cached_traffic_data?.campaign) {
-        console.log('🏗️ [TEST] Estrutura dos dados hierárquicos:');
-        liveDataAfter.cached_traffic_data.campaign.forEach((campaign: any, index: number) => {
-          console.log(`  ${index + 1}. ${campaign.name}:`);
-          console.log(`     - Spend: R$ ${campaign.spend.toFixed(2)}`);
-          console.log(`     - Leads: ${campaign.leads}`);
-          console.log(`     - CPL: R$ ${campaign.cpl_meta.toFixed(2)}`);
-          console.log(`     - AdSets: ${campaign.adsets.length}`);
-          campaign.adsets.forEach((adSet: any, adSetIndex: number) => {
-            console.log(`       ${adSetIndex + 1}. ${adSet.name} (${adSet.ads.length} ads)`);
-            adSet.ads.forEach((ad: any, adIndex: number) => {
-              console.log(`         ${adIndex + 1}. ${ad.name} - ${ad.creative_url}`);
-            });
-          });
-        });
-      }
-
-      // Recarregar dados na página
-      console.log('🔄 [TEST] Recarregando dados na página...');
-      await loadDataFromDatabase(true);
-
-      console.log('🧪 [TEST] ===== TESTE CONCLUÍDO =====');
-
-    } catch (error) {
-      console.error('❌ [TEST] Erro no teste da Edge Function:', error);
-    } finally {
-      setIsTestingAnalysis(false);
-    }
-  }, [liveId, loadDataFromDatabase]);
 
   // CACHE SYSTEM - Funções de cache
   const fetchTrafficDataWithCache = useCallback(async () => {
@@ -834,6 +738,7 @@ const TrafficAnalysis = () => {
       });
       
     } catch (error) {
+      console.error('❌ [TrafficAnalysis] Erro ao carregar dados:', error);
     } finally {
       setCacheStatus(prev => ({ ...prev, isLoading: false }));
       setIsLoading(false);
@@ -900,14 +805,68 @@ const TrafficAnalysis = () => {
 
   // Debug: Log dos dados que serão exibidos nos cards
   // Debug: Log do timezone do servidor
-  // Calcular dados diários usando dailyInsights do cache - memoizado para evitar re-renders
+  // Calcular dados diários usando dados incrementais do cache - memoizado para evitar re-renders
   const calculateDailyData = useMemo(() => {
-    // Verificar se temos dailyInsights do cache
-    const dailyInsights = live?.cached_traffic_data?.dailyInsights;
+    // Verificar se temos dados incrementais do cache
+    const campaignsByDate = live?.cached_traffic_data_incremented?.campaignsByDate;
 
-    if (!dailyInsights || dailyInsights.length === 0) {
+    console.log('🔍 [DEBUG] Dados incrementais disponíveis:', {
+      hasIncrementalData: !!live?.cached_traffic_data_incremented,
+      campaignsByDate: campaignsByDate,
+      keys: campaignsByDate ? Object.keys(campaignsByDate) : [],
+      totalDays: live?.cached_traffic_data_incremented?.totalDays
+    });
+
+    if (!campaignsByDate || Object.keys(campaignsByDate).length === 0) {
+      console.log('⚠️ [DEBUG] Nenhum dado incremental encontrado');
       return [];
     }
+
+    // Converter campaignsByDate para formato dailyInsights
+    const dailyInsights: any[] = [];
+    Object.keys(campaignsByDate).forEach(date => {
+      const dayCampaigns = campaignsByDate[date];
+      
+      console.log(`🔍 [DEBUG] Processando data ${date}:`, {
+        dayCampaigns: dayCampaigns,
+        length: dayCampaigns.length,
+        firstCampaign: dayCampaigns[0]
+      });
+      
+      // Agregar dados do dia
+      const dayTotal = dayCampaigns.reduce((acc: { spend: number; leads: number }, campaign: any) => {
+        console.log(`🔍 [DEBUG] Agregando campanha:`, {
+          campaignName: campaign.name,
+          spend: campaign.spend,
+          leads: campaign.leads,
+          cpl_meta: campaign.cpl_meta
+        });
+        acc.spend += campaign.spend;
+        acc.leads += campaign.leads;
+        return acc;
+      }, { spend: 0, leads: 0 });
+
+      // Calcular CPL Meta
+      const cplMeta = dayTotal.leads > 0 ? dayTotal.spend / dayTotal.leads : 0;
+
+      console.log(`🔍 [DEBUG] Total do dia ${date}:`, {
+        spend: dayTotal.spend,
+        leads: dayTotal.leads,
+        cplMeta
+      });
+
+      dailyInsights.push({
+        date,
+        spend: dayTotal.spend,
+        leads: dayTotal.leads,
+        cplMeta,
+        // Campos que não temos nos dados incrementais (serão 0)
+        groupJoin: 0,
+        groupExit: 0,
+        cplLiquido: 0,
+        retention: 0
+      });
+    });
 
     let filteredInsights = dailyInsights;
 
@@ -964,8 +923,16 @@ const TrafficAnalysis = () => {
       cplLiquido: (insight as any).cplLiquido || 0,
       retention: (insight as any).retention || 0
     })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    console.log('🔍 [DEBUG] Resultado final da tabela diária:', {
+      totalInsights: dailyInsights.length,
+      totalResult: result.length,
+      firstResult: result[0],
+      allResults: result
+    });
+    
     return result;
-  }, [live?.cached_traffic_data?.dailyInsights, selectedPublico, publicAudiences, groups]);
+  }, [live?.cached_traffic_data_incremented?.campaignsByDate, selectedPublico, publicAudiences, groups]);
   
   // Calcular totais e médias para os cabeçalhos das colunas - memoizado para evitar re-renders
   const calculateTotals = useMemo(() => {
@@ -1418,19 +1385,6 @@ const TrafficAnalysis = () => {
         showRefreshButton={true}
       />
       
-      {/* Botão flutuante para teste das análises */}
-      <div className="fixed top-20 right-4 z-50">
-        <Button
-          onClick={handleTestAnalysis}
-          disabled={isTestingAnalysis}
-          variant="secondary"
-          size="sm"
-          className="shadow-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800 gap-2"
-        >
-          <RefreshCw className={`h-4 w-4 ${isTestingAnalysis ? 'animate-spin' : ''}`} />
-          {isTestingAnalysis ? 'Testando...' : 'Testar Análises'}
-        </Button>
-      </div>
 
       <div className="container mx-auto p-6 space-y-8 relative">
         {/* Overlay de loading quando está atualizando */}
