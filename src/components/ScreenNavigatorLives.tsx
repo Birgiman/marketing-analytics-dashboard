@@ -10,7 +10,7 @@ interface ScreenNavigatorLivesProps {
   isRefreshing?: boolean;
   showRefreshButton?: boolean;
   onDataUpdated?: () => void; // Callback quando dados são atualizados
-  onRefreshStart?: () => void; // Callback quando refresh inicia
+  onRefreshStart?: () => Promise<void> | void; // Callback quando refresh inicia
 }
 
 export function ScreenNavigatorLives({ 
@@ -30,14 +30,11 @@ export function ScreenNavigatorLives({
 
     setIsButtonLoading(true);
 
-    // Notificar que o refresh começou (isso vai chamar onRefreshStart que força a Edge Function)
-    if (onRefreshStart) {
-      onRefreshStart();
-    }
-
     try {
-      // Aguardar um momento para a Edge Function completar
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Notificar que o refresh começou e aguardar a Edge Function completar
+      if (onRefreshStart) {
+        await onRefreshStart();
+      }
 
       // Notificar que os dados foram atualizados
       if (onDataUpdated) {

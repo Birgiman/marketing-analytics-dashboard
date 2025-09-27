@@ -753,10 +753,12 @@ const TrafficAnalysis = () => {
 
   // Função para iniciar o refresh (chamada pelo botão)
   const handleRefreshStart = async () => {
+    console.log(`🔄 [TrafficAnalysis] Botão refresh acionado!`);
     setIsButtonRefreshing(true);
     try {
       // Chamar Edge Function para forçar sincronização (ignorar cache)
       try {
+        console.log(`🚀 [TrafficAnalysis] Chamando Edge Function com forceRefresh=true`);
         await syncLiveMetaData(liveId!, true); // true = forçar refresh
         console.log(`✅ [TrafficAnalysis] Edge Function executada no refresh`);
       } catch (edgeError) {
@@ -839,6 +841,8 @@ const TrafficAnalysis = () => {
   // Função para chamar a Edge Function syncLiveMetaData com verificação de cache
   const syncLiveMetaData = useCallback(async (liveId: string, forceRefresh = false) => {
     try {
+      console.log(`🔍 [TrafficAnalysis] syncLiveMetaData chamada com forceRefresh=${forceRefresh}`);
+
       // Verificar cache apenas se não for refresh forçado
       if (!forceRefresh) {
         const cacheIsValid = await isCacheValid(liveId);
@@ -846,6 +850,8 @@ const TrafficAnalysis = () => {
           console.log(`✅ [TrafficAnalysis] Cache válido - pulando Edge Function para Live: ${liveId}`);
           return { status: 'cache_valid' };
         }
+      } else {
+        console.log(`🚀 [TrafficAnalysis] Refresh forçado - ignorando cache`);
       }
 
       console.log(`🚀 [TrafficAnalysis] Chamando Edge Function syncLiveMetaData para Live: ${liveId}`);
