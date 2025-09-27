@@ -45,6 +45,9 @@ interface CampaignHierarchy {
   spend: number;
   leads: number;
   cpl_meta: number;
+  whatsapp_joins?: number;
+  whatsapp_exits?: number;
+  whatsapp_active?: number;
   adsets: Array<{
     id: string;
     name: string;
@@ -67,6 +70,102 @@ console.log('Sync Live Meta Data function loaded');
 // NOTA: Esta Edge Function deve ser chamada com verificação de cache no frontend.
 // O frontend deve verificar traffic_last_synced_at e apenas chamar esta função
 // se o cache tiver mais de 30 minutos ou se for um refresh forçado.
+
+// Função para agregar dados do WhatsApp por data
+async function aggregateWhatsAppData(
+  supabaseClient: any,
+  groupIds: string[],
+  timeRange: { since: string; until: string }
+): Promise<{
+  groups: { groupId: string; groupName: string; total_joins: number; total_exits: number }[];
+  dailyData: { [date: string]: { joins: number; exits: number } };
+}> {
+  if (groupIds.length === 0) {
+    return { groups: [], dailyData: {} };
+  }
+
+  try {
+    // Buscar dados totais por grupo
+    const { data: totalJoins } = await supabaseClient
+      .from('whatsapp_groups_log')
+      .select('group_id')
+      .in('group_id', groupIds)
+      .eq('event_type', 'join')
+      .gte('timestamp', timeRange.since)
+      .lte('timestamp', timeRange.until);
+
+    const { data: totalExits } = await supabaseClient
+      .from('whatsapp_groups_log')
+      .select('group_id')
+      .in('group_id', groupIds)
+      .eq('event_type', 'leave')
+      .gte('timestamp', timeRange.since)
+      .lte('timestamp', timeRange.until);
+
+    // Buscar dados por data
+    const { data: dailyJoins } = await supabaseClient
+      .rpc('aggregate_whatsapp_by_date', {
+        group_ids: groupIds,
+        event_type: 'join',
+        start_date: timeRange.since,
+        end_date: timeRange.until
+      });
+
+    const { data: dailyExits } = await supabaseClient
+      .rpc('aggregate_whatsapp_by_date', {
+        group_ids: groupIds,
+        event_type: 'leave',
+        start_date: timeRange.since,
+        end_date: timeRange.until
+      });
+
+    // Processar dados diários
+    const dailyData: { [date: string]: { joins: number; exits: number } } = {};
+
+    // Se não temos função RPC, fazer agregação manual
+    if (!dailyJoins) {
+      const { data: rawJoins } = await supabaseClient
+        .from('whatsapp_groups_log')
+        .select('timestamp')
+        .in('group_id', groupIds)
+        .eq('event_type', 'join')
+        .gte('timestamp', timeRange.since)
+        .lte('timestamp', timeRange.until);
+
+      const { data: rawExits } = await supabaseClient
+        .from('whatsapp_groups_log')
+        .select('timestamp')
+        .in('group_id', groupIds)
+        .eq('event_type', 'leave')
+        .gte('timestamp', timeRange.since)
+        .lte('timestamp', timeRange.until);
+
+      // Agregar por data
+      rawJoins?.forEach((record: any) => {
+        const date = record.timestamp.split('T')[0];
+        if (!dailyData[date]) dailyData[date] = { joins: 0, exits: 0 };
+        dailyData[date].joins++;
+      });
+
+      rawExits?.forEach((record: any) => {
+        const date = record.timestamp.split('T')[0];
+        if (!dailyData[date]) dailyData[date] = { joins: 0, exits: 0 };
+        dailyData[date].exits++;
+      });
+    }
+
+    console.log(`📊 [WhatsApp] Processados ${Object.keys(dailyData).length} dias de dados`);
+
+    return {
+      groups: [], // Será preenchido com dados dos grupos
+      dailyData
+    };
+
+  } catch (error) {
+    console.error(`❌ [WhatsApp] Erro ao agregar dados:`, error);
+    return { groups: [], dailyData: {} };
+  }
+}
 
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight requests
@@ -177,14 +276,53 @@ Deno.serve(async (req: Request) => {
     console.log(`💾 [Final Data] Snapshot Global:`, JSON.stringify(globalHierarchy, null, 2));
     console.log(`💾 [Final Data] Dados Incrementais:`, JSON.stringify(incrementalHierarchy, null, 2));
 
-    // STEP 8: Salvar no Supabase
+    // STEP 8: Processar dados do WhatsApp
+    console.log(`🔄 [WhatsApp] Processando dados do WhatsApp...`);
+
+    // Buscar grupos da live
+    const { data: liveGroups, error: groupsError } = await supabaseClient
+      .from('live_groups')
+      .select('group_id, group_name')
+      .eq('live_id', liveId);
+
+    if (groupsError) {
+      console.warn(`⚠️ [WhatsApp] Erro ao buscar grupos da live: ${groupsError.message}`);
+    }
+
+    const groupIds = liveGroups?.map(g => g.group_id) || [];
+    console.log(`📊 [WhatsApp] Encontrados ${groupIds.length} grupos para processar`);
+
+    // Agregar dados de WhatsApp
+    const whatsappData = await aggregateWhatsAppData(supabaseClient, groupIds, timeRange);
+
+    // Adicionar dados de WhatsApp aos dados incrementais
+    if (whatsappData.dailyData && Object.keys(whatsappData.dailyData).length > 0) {
+      Object.keys(incrementalHierarchy.campaignsByDate).forEach(date => {
+        const dayWhatsApp = whatsappData.dailyData[date] || { joins: 0, exits: 0 };
+
+        // Adicionar dados de WhatsApp a cada campanha do dia
+        incrementalHierarchy.campaignsByDate[date].forEach(campaign => {
+          campaign.whatsapp_joins = dayWhatsApp.joins;
+          campaign.whatsapp_exits = dayWhatsApp.exits;
+          campaign.whatsapp_active = dayWhatsApp.joins - dayWhatsApp.exits;
+        });
+      });
+      console.log(`✅ [WhatsApp] Dados de WhatsApp adicionados aos dados incrementais`);
+    }
+
+    // STEP 9: Salvar no Supabase
     console.log(`💾 [Database] Salvando no banco...`);
     const { error: updateError } = await supabaseClient
       .from('lives')
       .update({
         cached_traffic_data: {
           campaign: globalHierarchy.campaigns,
-          groups: [], // Será preenchido por outras funções
+          groups: liveGroups?.map(group => ({
+            groupId: group.group_id,
+            groupName: group.group_name,
+            total_joins: whatsappData.dailyData ? Object.values(whatsappData.dailyData).reduce((sum, day) => sum + day.joins, 0) : 0,
+            total_exits: whatsappData.dailyData ? Object.values(whatsappData.dailyData).reduce((sum, day) => sum + day.exits, 0) : 0
+          })) || [],
           lastUpdated: new Date().toISOString(),
           requestTime: Date.now(),
           campaignCount: globalHierarchy.campaigns.length,
@@ -488,7 +626,6 @@ async function fetchCreativeUrl(adId: string, accessToken: string): Promise<stri
         return `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
       }
       // Outros erros (500, 503, etc.) - logar como warning
-      console.warn(`⚠️ [Creative URL] Erro HTTP ${adResponse.status} ao buscar ad ${adId}`);
       return `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
     }
     
@@ -524,8 +661,6 @@ async function fetchCreativeUrl(adId: string, accessToken: string): Promise<stri
     
     // Construir permalink: https://www.facebook.com/{pageId}/posts/{postId}
     const permalinkUrl = `https://www.facebook.com/${pageId}/posts/${postId}`;
-    // Log apenas quando conseguir gerar permalink com sucesso
-    console.log(`✅ [Creative URL] Permalink gerado para ad ${adId}: ${permalinkUrl}`);
     return permalinkUrl;
     
   } catch (error) {

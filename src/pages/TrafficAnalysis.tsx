@@ -949,17 +949,15 @@ const TrafficAnalysis = () => {
       const cplMeta = dayTotal.leads > 0 ? dayTotal.spend / dayTotal.leads : 0;
 
 
-      // FIXME: Dados de WhatsApp não estão disponíveis por dia
-      // Por enquanto, zerando esses campos até implementarmos dados diários reais
-      const dayGroupJoin = 0; // Não temos dados diários de entrada no grupo
-      const dayGroupExit = 0; // Não temos dados diários de saída do grupo
+      // Dados de WhatsApp vindos da Edge Function
+      const dayGroupJoin = dayCampaigns[0]?.whatsapp_joins || 0;
+      const dayGroupExit = dayCampaigns[0]?.whatsapp_exits || 0;
 
-      // CPL Líquido: sem dados de grupo, usar dados gerais do cache
-      const dayCplLiquido = live?.cached_metrics?.cplLiquido || 0;
+      // CPL Líquido baseado nos dados reais do dia
+      const dayCplLiquido = dayGroupJoin > 0 ? dayTotal.spend / dayGroupJoin : (live?.cached_metrics?.cplLiquido || 0);
 
-      // Taxa de retenção: usar dados gerais do cache (dividir por 100 se necessário)
-      const cachedRetention = live?.cached_metrics?.retentionRate || 0;
-      const dayRetention = cachedRetention > 100 ? Math.round(cachedRetention / 100) : Math.round(cachedRetention);
+      // Taxa de retenção do dia
+      const dayRetention = dayTotal.leads > 0 ? Math.round((dayGroupJoin / dayTotal.leads) * 100) : 0;
 
       dailyInsights.push({
         date,
