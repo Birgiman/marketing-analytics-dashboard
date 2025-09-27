@@ -2102,6 +2102,371 @@ export async function getDeepCampaignAnalysis(live: Live): Promise<{
 }
 
 /**
+ * Busca dados completos de campanhas com time_increment para análise por data
+ * Versão incrementada da getDeepCampaignAnalysis com dados organizados por dia
+ * @param live Dados da Live
+ * @returns Estrutura hierárquica completa das campanhas organizadas por data
+ */
+export async function getDeepCampaignAnalysisIncremented(live: Live): Promise<{
+  campaignsByDate: Record<string, Array<{
+    id: string;
+    name: string;
+    spend: number;
+    leads: number;
+    cpl: number;
+    adSets: Array<{
+      id: string;
+      name: string;
+      spend: number;
+      leads: number;
+      cpl: number;
+      ads: Array<{
+        id: string;
+        name: string;
+        spend: number;
+        leads: number;
+        cpl: number;
+        creativeUrl?: string;
+      }>;
+    }>;
+  }>>;
+  requestTime: number;
+  payloadSize: number;
+  dateRange: {
+    since: string;
+    until: string;
+  };
+  totalDays: number;
+}> {
+  const startTime = Date.now();
+
+  try {
+    console.log('🚀 [Deep Campaign Analysis Incremented] Iniciando busca de dados nested com time_increment...');
+
+    // Buscar integração Meta do usuário
+    const { data: metaIntegration, error: metaError } = await supabase
+      .from('meta_integrations')
+      .select('*')
+      .eq('user_id', live.user_id)
+      .eq('is_active', true)
+      .single();
+
+    if (metaError || !metaIntegration) {
+      throw new Error(`Integração Meta não encontrada: ${metaError?.message}`);
+    }
+
+    // Buscar conta Meta selecionada
+    const { data: liveCampaigns } = await supabase
+      .from('live_campaigns')
+      .select('account_id')
+      .eq('live_id', live.id)
+      .limit(1);
+
+    const accountId = liveCampaigns?.[0]?.account_id;
+    if (!accountId) {
+      throw new Error('Account ID não encontrado');
+    }
+
+    console.log(`📊 [Incremented Analysis] Fazendo requisição para conta: ${accountId}`);
+
+    // Montar query fields nested (sem time_range dentro dos fields)
+    const fields = [
+      'id,name,status,',
+      'insights{spend,impressions,clicks,actions,date_start},',
+      'adsets{id,name,',
+      'insights{spend,impressions,clicks,actions,date_start},',
+      'ads{id,name,',
+      'creative{effective_object_story_id,object_story_id,thumbnail_url},',
+      'insights{spend,impressions,clicks,actions,date_start}',
+      '}}'
+    ].join('');
+
+    // Montar filtering dinâmico
+    const filtering = [
+      {
+        field: 'campaign.effective_status',
+        operator: 'IN',
+        value: ['ACTIVE', 'PAUSED']
+      },
+      {
+        field: 'campaign.name',
+        operator: 'CONTAIN',
+        value: live.campaign_search_term
+      }
+    ];
+
+    const params = new URLSearchParams({
+      fields: fields,
+      access_token: metaIntegration.access_token,
+      time_range: JSON.stringify({
+        since: live.insights_date_since,
+        until: live.insights_date_until
+      }),
+      time_increment: '1', // NOVO: Incremento de 1 dia
+      filtering: JSON.stringify(filtering),
+      limit: '100'
+    });
+
+    console.log(`🔗 [Incremented Analysis] URL construída:`, `https://graph.facebook.com/v23.0/${accountId}/campaigns?${params}`);
+
+    // Fazer requisição única consolidada
+    const response = await fetch(`https://graph.facebook.com/v23.0/${accountId}/campaigns?${params}`);
+
+    if (!response.ok) {
+      throw new Error(`Erro na requisição Graph API: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const requestTime = Date.now() - startTime;
+
+    // Calcular métricas da resposta
+    const payloadSize = JSON.stringify(data).length;
+    const campaigns = data.data || [];
+
+    console.log(`📦 [Incremented Analysis] Dados recebidos:`, {
+      campaigns: campaigns.length,
+      payload: `${(payloadSize / 1024).toFixed(2)} KB`,
+      tempo: `${requestTime}ms`
+    });
+
+    // Coletar todos os effective_object_story_ids para buscar permalink_urls
+    const objectStoryIds = new Set<string>();
+
+    campaigns.forEach((campaign: any) => {
+      campaign.adsets?.data?.forEach((adSet: any) => {
+        adSet.ads?.data?.forEach((ad: any) => {
+          const storyId = ad.creative?.effective_object_story_id || ad.creative?.object_story_id;
+          if (storyId) {
+            objectStoryIds.add(storyId);
+          }
+        });
+      });
+    });
+
+    console.log(`🔗 [Incremented Batch Fetch] Encontrados ${objectStoryIds.size} object_story_ids únicos`);
+
+    // Buscar dados dos criativos usando batch API (reutilizando lógica existente)
+    const creativeDataMap = new Map<string, { permalink_url: string }>();
+
+    if (objectStoryIds.size > 0) {
+      console.log(`🚀 [Incremented Batch Fetch] Iniciando busca via batch API...`);
+
+      const batchStartTime = Date.now();
+      const storyIdsArray = Array.from(objectStoryIds);
+
+      // Criar sub-requests para cada story_id
+      const subRequests = storyIdsArray.map((storyId, index) => ({
+        method: 'GET',
+        relative_url: `${storyId}?fields=permalink_url`
+      }));
+
+      // Dividir em chunks de 50 (limite do Meta)
+      const BATCH_SIZE = 50;
+      const batches = [];
+      for (let i = 0; i < subRequests.length; i += BATCH_SIZE) {
+        batches.push(subRequests.slice(i, i + BATCH_SIZE));
+      }
+
+      // Executar batches sequencialmente
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+        console.log(`🔄 [Incremented Batch ${batchIndex + 1}/${batches.length}] Processando ${batch.length} sub-requests...`);
+
+        try {
+          const batchParams = new URLSearchParams({
+            access_token: metaIntegration.access_token,
+            batch: JSON.stringify(batch)
+          });
+
+          const batchResponse = await fetch(`https://graph.facebook.com/v23.0/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: batchParams
+          });
+
+          if (batchResponse.ok) {
+            const batchData = await batchResponse.json();
+
+            // Processar resultados do batch
+            batchData.forEach((result: any, index: number) => {
+              const storyId = storyIdsArray[batchIndex * BATCH_SIZE + index];
+
+              if (result.code === 200) {
+                try {
+                  const resultData = JSON.parse(result.body);
+                  if (resultData.permalink_url) {
+                    // Permalink real obtido com sucesso
+                    creativeDataMap.set(storyId, {
+                      permalink_url: resultData.permalink_url
+                    });
+                  } else {
+                    // Sem permalink, gerar fallback
+                    const fallbackLink = generateFallbackLink(storyId);
+                    creativeDataMap.set(storyId, {
+                      permalink_url: fallbackLink
+                    });
+                  }
+                } catch (parseError) {
+                  // Erro ao parsear, gerar fallback
+                  const fallbackLink = generateFallbackLink(storyId);
+                  creativeDataMap.set(storyId, {
+                    permalink_url: fallbackLink
+                  });
+                }
+              } else {
+                // Qualquer erro → gerar fallback sem logar erro detalhado
+                const fallbackLink = generateFallbackLink(storyId);
+                creativeDataMap.set(storyId, {
+                  permalink_url: fallbackLink
+                });
+              }
+            });
+          }
+        } catch (error) {
+          console.log(`❌ [Incremented Batch ${batchIndex + 1}] Erro ao processar:`, error);
+        }
+
+        // Pequeno delay entre batches para evitar rate limits
+        if (batchIndex < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
+      const batchTime = Date.now() - batchStartTime;
+      console.log(`⏱️ [Incremented Batch Fetch] Concluído em ${batchTime}ms - ${creativeDataMap.size}/${objectStoryIds.size} criativos processados`);
+    }
+
+    // Organizar dados por data
+    const campaignsByDate: Record<string, Array<any>> = {};
+
+    campaigns.forEach((campaign: any) => {
+      const campaignInsights = campaign.insights?.data || [];
+
+      campaignInsights.forEach((insight: any) => {
+        const date = insight.date_start;
+        if (!campaignsByDate[date]) {
+          campaignsByDate[date] = [];
+        }
+
+        const campaignSpend = parseFloat(insight.spend || '0');
+        const campaignLeads = insight.actions?.find((action: any) => action.action_type === 'lead')?.value ?
+          parseInt(insight.actions.find((action: any) => action.action_type === 'lead')!.value) : 0;
+        const campaignCpl = campaignLeads > 0 ? campaignSpend / campaignLeads : 0;
+
+        const processedAdSets = (campaign.adsets?.data || []).map((adSet: any) => {
+          const adSetInsight = adSet.insights?.data?.find((ins: any) => ins.date_start === date);
+
+          if (!adSetInsight) {
+            return null; // Pular adSet sem dados para esta data
+          }
+
+          const adSetSpend = parseFloat(adSetInsight.spend || '0');
+          const adSetLeads = adSetInsight.actions?.find((action: any) => action.action_type === 'lead')?.value ?
+            parseInt(adSetInsight.actions.find((action: any) => action.action_type === 'lead')!.value) : 0;
+          const adSetCpl = adSetLeads > 0 ? adSetSpend / adSetLeads : 0;
+
+          const processedAds = (adSet.ads?.data || []).map((ad: any) => {
+            const adInsight = ad.insights?.data?.find((ins: any) => ins.date_start === date);
+
+            if (!adInsight) {
+              return null; // Pular ad sem dados para esta data
+            }
+
+            const adSpend = parseFloat(adInsight.spend || '0');
+            const adLeads = adInsight.actions?.find((action: any) => action.action_type === 'lead')?.value ?
+              parseInt(adInsight.actions.find((action: any) => action.action_type === 'lead')!.value) : 0;
+            const adCpl = adLeads > 0 ? adSpend / adLeads : 0;
+
+            // Buscar permalink do mapa ou gerar fallback se necessário
+            const storyId = ad.creative?.effective_object_story_id || ad.creative?.object_story_id;
+            let permalinkUrl: string | undefined;
+
+            if (storyId) {
+              const creativeData = creativeDataMap.get(storyId);
+              if (creativeData) {
+                permalinkUrl = creativeData.permalink_url;
+              } else {
+                // Se não encontrou no mapa, gerar fallback
+                permalinkUrl = generateFallbackLink(storyId);
+              }
+            }
+
+            return {
+              id: ad.id,
+              name: ad.name,
+              spend: adSpend,
+              leads: adLeads,
+              cpl: adCpl,
+              creativeUrl: permalinkUrl
+            };
+          }).filter((ad: any) => ad !== null); // Remover ads sem dados para esta data
+
+          return {
+            id: adSet.id,
+            name: adSet.name,
+            spend: adSetSpend,
+            leads: adSetLeads,
+            cpl: adSetCpl,
+            ads: processedAds
+          };
+        }).filter((adSet: any) => adSet !== null); // Remover adSets sem dados para esta data
+
+        campaignsByDate[date].push({
+          id: campaign.id,
+          name: campaign.name,
+          spend: campaignSpend,
+          leads: campaignLeads,
+          cpl: campaignCpl,
+          adSets: processedAdSets
+        });
+      });
+    });
+
+    const totalDays = Object.keys(campaignsByDate).length;
+
+    // Log para validação antes do salvamento
+    console.log(`📝 [Incremented Analysis] DADOS COMPLETOS ANTES DO SALVAMENTO:`);
+    console.log(`📊 [Incremented Analysis] Total de dias processados: ${totalDays}`);
+    console.log(`📅 [Incremented Analysis] Datas encontradas:`, Object.keys(campaignsByDate).sort());
+    console.log(`🔍 [Incremented Analysis] Estrutura completa por data:`, campaignsByDate);
+
+    // Debug logs finais
+    console.log(`⏱️ [Incremented Analysis] Tempo total de execução: ${requestTime}ms`);
+    console.log(`📦 [Incremented Analysis] Tamanho do payload: ${(payloadSize / 1024).toFixed(2)} KB`);
+    console.log(`📊 [Incremented Analysis] Campanhas base retornadas: ${campaigns.length}`);
+    console.log(`🔗 [Incremented Analysis] Dados dos criativos obtidos: ${creativeDataMap.size}/${objectStoryIds.size}`);
+
+    return {
+      campaignsByDate,
+      requestTime,
+      payloadSize,
+      dateRange: {
+        since: live.insights_date_since,
+        until: live.insights_date_until
+      },
+      totalDays
+    };
+
+  } catch (error) {
+    const requestTime = Date.now() - startTime;
+    console.error(`❌ [Incremented Analysis] Erro após ${requestTime}ms:`, error);
+
+    return {
+      campaignsByDate: {},
+      requestTime,
+      payloadSize: 0,
+      dateRange: {
+        since: live.insights_date_since,
+        until: live.insights_date_until
+      },
+      totalDays: 0
+    };
+  }
+}
+
+/**
  * Sincroniza grupos WhatsApp com a Live baseado no termo de busca
  * Vincula automaticamente novos grupos que correspondam ao termo
  * @param liveId ID da Live
