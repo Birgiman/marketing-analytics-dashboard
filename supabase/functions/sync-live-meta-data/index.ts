@@ -1,5 +1,5 @@
 // @ts-ignore
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -44,27 +44,27 @@ interface CampaignHierarchy {
   name: string;
   spend: number;
   leads: number;
-  cpl: number;
-  adSets: Array<{
+  cpl_meta: number;
+  adsets: Array<{
     id: string;
     name: string;
     spend: number;
     leads: number;
-    cpl: number;
+    cpl_meta: number;
     ads: Array<{
       id: string;
       name: string;
       spend: number;
       leads: number;
-      cpl: number;
-      creativeUrl?: string;
+      cpl_meta: number;
+      creative_url?: string;
     }>;
   }>;
 }
 
 console.log('Sync Live Meta Data function loaded');
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -179,14 +179,14 @@ Deno.serve(async (req) => {
       .from('lives')
       .update({
         cached_traffic_data: {
-          campaigns: globalHierarchy.campaigns,
+          campaign: globalHierarchy.campaigns,
           groups: [], // Será preenchido por outras funções
           lastUpdated: new Date().toISOString(),
           requestTime: Date.now(),
           campaignCount: globalHierarchy.campaigns.length,
-          adSetCount: globalHierarchy.campaigns.reduce((sum, c) => sum + c.adSets.length, 0),
+          adSetCount: globalHierarchy.campaigns.reduce((sum, c) => sum + c.adsets.length, 0),
           adCount: globalHierarchy.campaigns.reduce((sum, c) =>
-            sum + c.adSets.reduce((adSum, adSet) => adSum + adSet.ads.length, 0), 0
+            sum + c.adsets.reduce((adSum, adSet) => adSum + adSet.ads.length, 0), 0
           )
         },
         cached_traffic_data_incremented: {
@@ -220,7 +220,7 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        error: error.message || 'Erro interno do servidor',
+        error: (error as Error).message || 'Erro interno do servidor',
         status: 'error'
       }),
       {
@@ -244,17 +244,19 @@ async function fetchGlobalSnapshot(
 
   const allData: any[] = [];
 
-  // Buscar em 3 níveis: campaign, adset, ad
-  const levels = ['campaign', 'adset', 'ad'];
+  // Definir campos específicos para cada nível (sem duplicação)
+  const levelConfigs = {
+    campaign: 'campaign_id,campaign_name,spend,actions',
+    adset: 'campaign_id,campaign_name,adset_id,adset_name,spend,actions',
+    ad: 'campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,actions'
+  };
 
-  for (const level of levels) {
+  for (const [level, fields] of Object.entries(levelConfigs)) {
     console.log(`📊 [Global ${level}] Buscando dados...`);
 
     const params = new URLSearchParams({
       level,
-      fields: level === 'ad'
-        ? 'campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,actions,creative{effective_object_story_id,object_story_id}'
-        : `${level}_id,${level}_name,${level === 'campaign' ? 'campaign' : 'adset'}_id,${level === 'campaign' ? 'campaign' : 'adset'}_name,spend,actions`,
+      fields,
       access_token: accessToken,
       time_range: JSON.stringify(timeRange),
       filtering: JSON.stringify([
@@ -306,17 +308,19 @@ async function fetchIncrementalData(
 
   const allData: any[] = [];
 
-  // Buscar em 3 níveis com time_increment=1
-  const levels = ['campaign', 'adset', 'ad'];
+  // Definir campos específicos para cada nível (sem duplicação)
+  const levelConfigs = {
+    campaign: 'campaign_id,campaign_name,spend,actions,date_start',
+    adset: 'campaign_id,campaign_name,adset_id,adset_name,spend,actions,date_start',
+    ad: 'campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,actions,date_start'
+  };
 
-  for (const level of levels) {
+  for (const [level, fields] of Object.entries(levelConfigs)) {
     console.log(`📅 [Incremental ${level}] Buscando dados diários...`);
 
     const params = new URLSearchParams({
       level,
-      fields: level === 'ad'
-        ? 'campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,actions,date_start,creative{effective_object_story_id,object_story_id}'
-        : `${level}_id,${level}_name,${level === 'campaign' ? 'campaign' : 'adset'}_id,${level === 'campaign' ? 'campaign' : 'adset'}_name,spend,actions,date_start`,
+      fields,
       access_token: accessToken,
       time_range: JSON.stringify(timeRange),
       time_increment: '1', // Dados diários
@@ -377,8 +381,8 @@ function buildHierarchy(globalData: any[]): { campaigns: CampaignHierarchy[] } {
       name: item.campaign_name,
       spend,
       leads,
-      cpl,
-      adSets: []
+      cpl_meta: cpl,
+      adsets: []
     });
   });
 
@@ -394,7 +398,7 @@ function buildHierarchy(globalData: any[]): { campaigns: CampaignHierarchy[] } {
       name: item.adset_name,
       spend,
       leads,
-      cpl,
+      cpl_meta: cpl,
       ads: []
     };
 
@@ -403,7 +407,7 @@ function buildHierarchy(globalData: any[]): { campaigns: CampaignHierarchy[] } {
     // Adicionar ao campaign correspondente
     const campaign = campaignMap.get(item.campaign_id);
     if (campaign) {
-      campaign.adSets.push(adSet);
+      campaign.adsets.push(adSet);
     }
   });
 
@@ -414,21 +418,16 @@ function buildHierarchy(globalData: any[]): { campaigns: CampaignHierarchy[] } {
       parseInt(item.actions.find((a: any) => a.action_type === 'lead')!.value) : 0;
     const cpl = leads > 0 ? spend / leads : 0;
 
-    // Extrair URL do criativo
-    let creativeUrl = undefined;
-    if (item.creative?.effective_object_story_id) {
-      creativeUrl = `https://www.facebook.com/${item.creative.effective_object_story_id}`;
-    } else if (item.creative?.object_story_id) {
-      creativeUrl = `https://www.facebook.com/${item.creative.object_story_id}`;
-    }
+    // Gerar URL simples para o ad (sem dados de creative do insights)
+    const creative_url = `https://www.facebook.com/ads/manage/ads/?act=${item.account_id || ''}&selected_ad_ids=${item.ad_id}`;
 
     const ad = {
       id: item.ad_id,
       name: item.ad_name,
       spend,
       leads,
-      cpl,
-      creativeUrl
+      cpl_meta: cpl,
+      creative_url
     };
 
     // Adicionar ao adSet correspondente
