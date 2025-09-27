@@ -85,76 +85,66 @@ async function aggregateWhatsAppData(
   }
 
   try {
+    console.log(`🔍 [WhatsApp] Buscando dados para ${groupIds.length} grupos no período ${timeRange.since} a ${timeRange.until}`);
+    console.log(`🔍 [WhatsApp] Group IDs:`, groupIds);
+
     // Buscar dados totais por grupo
-    const { data: totalJoins } = await supabaseClient
+    const { data: totalJoins, error: joinsError } = await supabaseClient
       .from('whatsapp_groups_log')
-      .select('group_id')
-      .in('group_id', groupIds)
-      .eq('event_type', 'join')
-      .gte('timestamp', timeRange.since)
-      .lte('timestamp', timeRange.until);
+      .select('id_grupo')
+      .in('id_grupo', groupIds)
+      .eq('event', 'join')
+      .gte('created_at', timeRange.since)
+      .lte('created_at', timeRange.until);
 
-    const { data: totalExits } = await supabaseClient
+    const { data: totalExits, error: exitsError } = await supabaseClient
       .from('whatsapp_groups_log')
-      .select('group_id')
-      .in('group_id', groupIds)
-      .eq('event_type', 'leave')
-      .gte('timestamp', timeRange.since)
-      .lte('timestamp', timeRange.until);
+      .select('id_grupo')
+      .in('id_grupo', groupIds)
+      .eq('event', 'leave')
+      .gte('created_at', timeRange.since)
+      .lte('created_at', timeRange.until);
 
-    // Buscar dados por data
-    const { data: dailyJoins } = await supabaseClient
-      .rpc('aggregate_whatsapp_by_date', {
-        group_ids: groupIds,
-        event_type: 'join',
-        start_date: timeRange.since,
-        end_date: timeRange.until
-      });
+    console.log(`📊 [WhatsApp] Encontrados ${totalJoins?.length || 0} joins e ${totalExits?.length || 0} exits`);
+    if (joinsError) console.error(`❌ [WhatsApp] Erro ao buscar joins:`, joinsError);
+    if (exitsError) console.error(`❌ [WhatsApp] Erro ao buscar exits:`, exitsError);
 
-    const { data: dailyExits } = await supabaseClient
-      .rpc('aggregate_whatsapp_by_date', {
-        group_ids: groupIds,
-        event_type: 'leave',
-        start_date: timeRange.since,
-        end_date: timeRange.until
-      });
+    // Buscar dados por data (agregação manual)
+    const { data: rawJoins } = await supabaseClient
+      .from('whatsapp_groups_log')
+      .select('created_at')
+      .in('id_grupo', groupIds)
+      .eq('event', 'join')
+      .gte('created_at', timeRange.since)
+      .lte('created_at', timeRange.until);
+
+    const { data: rawExits } = await supabaseClient
+      .from('whatsapp_groups_log')
+      .select('created_at')
+      .in('id_grupo', groupIds)
+      .eq('event', 'leave')
+      .gte('created_at', timeRange.since)
+      .lte('created_at', timeRange.until);
 
     // Processar dados diários
     const dailyData: { [date: string]: { joins: number; exits: number } } = {};
 
-    // Se não temos função RPC, fazer agregação manual
-    if (!dailyJoins) {
-      const { data: rawJoins } = await supabaseClient
-        .from('whatsapp_groups_log')
-        .select('timestamp')
-        .in('group_id', groupIds)
-        .eq('event_type', 'join')
-        .gte('timestamp', timeRange.since)
-        .lte('timestamp', timeRange.until);
+    // Agregar entradas por data
+    rawJoins?.forEach((record: any) => {
+      const date = record.created_at.split('T')[0];
+      if (!dailyData[date]) dailyData[date] = { joins: 0, exits: 0 };
+      dailyData[date].joins++;
+    });
 
-      const { data: rawExits } = await supabaseClient
-        .from('whatsapp_groups_log')
-        .select('timestamp')
-        .in('group_id', groupIds)
-        .eq('event_type', 'leave')
-        .gte('timestamp', timeRange.since)
-        .lte('timestamp', timeRange.until);
-
-      // Agregar por data
-      rawJoins?.forEach((record: any) => {
-        const date = record.timestamp.split('T')[0];
-        if (!dailyData[date]) dailyData[date] = { joins: 0, exits: 0 };
-        dailyData[date].joins++;
-      });
-
-      rawExits?.forEach((record: any) => {
-        const date = record.timestamp.split('T')[0];
-        if (!dailyData[date]) dailyData[date] = { joins: 0, exits: 0 };
-        dailyData[date].exits++;
-      });
-    }
+    // Agregar saídas por data
+    rawExits?.forEach((record: any) => {
+      const date = record.created_at.split('T')[0];
+      if (!dailyData[date]) dailyData[date] = { joins: 0, exits: 0 };
+      dailyData[date].exits++;
+    });
 
     console.log(`📊 [WhatsApp] Processados ${Object.keys(dailyData).length} dias de dados`);
+    console.log(`📊 [WhatsApp] Dados por dia:`, dailyData);
 
     return {
       groups: [], // Será preenchido com dados dos grupos
@@ -294,11 +284,15 @@ Deno.serve(async (req: Request) => {
 
     // Agregar dados de WhatsApp
     const whatsappData = await aggregateWhatsAppData(supabaseClient, groupIds, timeRange);
+    console.log(`🔄 [WhatsApp] Resultado da agregação:`, whatsappData);
 
     // Adicionar dados de WhatsApp aos dados incrementais
     if (whatsappData.dailyData && Object.keys(whatsappData.dailyData).length > 0) {
+      console.log(`🔄 [WhatsApp] Adicionando dados a ${Object.keys(incrementalHierarchy.campaignsByDate).length} dias`);
+
       Object.keys(incrementalHierarchy.campaignsByDate).forEach(date => {
         const dayWhatsApp = whatsappData.dailyData[date] || { joins: 0, exits: 0 };
+        console.log(`📅 [WhatsApp] Data ${date}: ${dayWhatsApp.joins} joins, ${dayWhatsApp.exits} exits`);
 
         // Adicionar dados de WhatsApp a cada campanha do dia
         incrementalHierarchy.campaignsByDate[date].forEach(campaign => {
@@ -308,6 +302,8 @@ Deno.serve(async (req: Request) => {
         });
       });
       console.log(`✅ [WhatsApp] Dados de WhatsApp adicionados aos dados incrementais`);
+    } else {
+      console.log(`⚠️ [WhatsApp] Nenhum dado diário encontrado para adicionar`);
     }
 
     // STEP 9: Salvar no Supabase
