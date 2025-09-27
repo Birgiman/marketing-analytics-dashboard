@@ -31,6 +31,7 @@ const Details = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isButtonRefreshing, setIsButtonRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Estados para métricas
   const [metrics, setMetrics] = useState<{
@@ -166,39 +167,39 @@ const Details = () => {
   }, [liveId, navigate]);
 
   // Carregar dados do banco quando a página carrega
-  // Função para inicializar dados (chama Edge Function + carrega cache)
-  const initializeData = useCallback(async () => {
-    if (!liveId) return;
-    
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Chamar Edge Function para sincronizar dados do Meta
-      try {
-        await syncLiveMetaData(liveId);
-        console.log(`✅ [Details] Edge Function executada com sucesso`);
-      } catch (edgeError) {
-        console.warn(`⚠️ [Details] Edge Function falhou, continuando com dados do cache:`, edgeError);
-        // Não interromper o fluxo se a Edge Function falhar
-      }
-
-      // Carregar dados do cache atualizado
-      await loadDataFromDatabase();
-      
-    } catch (error) {
-      console.error('❌ [Details] Erro ao inicializar dados:', error);
-      setError(`Erro ao inicializar dados: ${error}`);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [liveId, syncLiveMetaData, loadDataFromDatabase]);
-
+  // Carregar dados na inicialização
   useEffect(() => {
-    if (liveId) {
-      initializeData();
-    }
-  }, [liveId, initializeData]);
+    if (!liveId || isInitialized) return;
+    
+    const initializeData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Chamar Edge Function para sincronizar dados do Meta
+        try {
+          await syncLiveMetaData(liveId);
+          console.log(`✅ [Details] Edge Function executada com sucesso`);
+        } catch (edgeError) {
+          console.warn(`⚠️ [Details] Edge Function falhou, continuando com dados do cache:`, edgeError);
+          // Não interromper o fluxo se a Edge Function falhar
+        }
+
+        // Carregar dados do cache atualizado
+        await loadDataFromDatabase();
+        
+        setIsInitialized(true);
+        
+      } catch (error) {
+        console.error('❌ [Details] Erro ao inicializar dados:', error);
+        setError(`Erro ao inicializar dados: ${error}`);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeData();
+  }, [liveId, isInitialized]); // Apenas liveId e isInitialized como dependências
 
   // Função para iniciar o refresh (chamada pelo botão)
   const handleRefreshStart = async () => {
