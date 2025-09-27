@@ -331,12 +331,6 @@ const TrafficAnalysis = () => {
       }
       
       if (liveData) {
-        console.log('🔍 [DEBUG] liveData do banco:', {
-          id: liveData.id,
-          cached_traffic_data_incremented: liveData.cached_traffic_data_incremented ? 'existe' : 'não existe',
-          cached_traffic_data: liveData.cached_traffic_data ? 'existe' : 'não existe',
-          traffic_last_synced_at: liveData.traffic_last_synced_at
-        });
 
         // Atualizar dados básicos da Live
         setLive({
@@ -357,9 +351,7 @@ const TrafficAnalysis = () => {
         if (liveData.cached_traffic_data) {
           // DEBUG: Verificar se campaign (dados hierárquicos) existe e tem dados
           if ((liveData.cached_traffic_data as any).campaign) {
-            console.log('✅ [TrafficAnalysis] campaign (dados hierárquicos) encontrado no cache');
-          } else {
-            console.log('⚠️ [TrafficAnalysis] campaign (dados hierárquicos) não encontrado no cache');
+            // Dados hierárquicos disponíveis no cache
           }
           
           // Carregar grupos
@@ -414,10 +406,6 @@ const TrafficAnalysis = () => {
             });
             
             setCampaignsWithInsights(Array.from(campaignMap.values()));
-            console.log('✅ [TrafficAnalysis] campaignsWithInsights gerado a partir dos dados incrementais');
-          } else {
-            console.log('⚠️ [TrafficAnalysis] Dados incrementais não disponíveis no cache');
-          }
 
           // Carregar dados hierárquicos de campanhas (usar estrutura da Edge Function)
           if ((liveData.cached_traffic_data as any).campaign) {
@@ -446,11 +434,7 @@ const TrafficAnalysis = () => {
               }))
             };
             setCampaignsHierarchy(formattedHierarchy);
-            console.log('✅ [TrafficAnalysis] Dados hierárquicos carregados da Edge Function');
           }
-        } else {
-          console.log('⚠️ [TrafficAnalysis] cached_traffic_data não disponível');
-        }
         
         // Carregar públicos após carregar dados básicos
         try {
@@ -463,12 +447,10 @@ const TrafficAnalysis = () => {
         // Atualizar dados hierárquicos se chamado pelo botão principal (isFromButton = true)
         if (isFromButton) {
           try {
-            console.log('🔄 [Global Refresh] Atualizando dados hierárquicos junto com cache global...');
             setIsHierarchicalRefreshing(true);
 
             // Edge Function já foi chamada automaticamente
             // Usar dados do cache atualizado
-            console.log('🔄 [Global Refresh] Dados hierárquicos serão carregados do cache da Edge Function');
 
             // Dados hierárquicos já estão no cache da Edge Function
             // Carregar do cache atualizado
@@ -500,14 +482,6 @@ const TrafficAnalysis = () => {
 
             setCampaignsHierarchy(formattedHierarchy);
             setHierarchicalCacheValid(true);
-
-              console.log(`✅ [Global Refresh] Dados hierárquicos carregados do cache:`, {
-                campanhas: formattedHierarchy.campaigns.length,
-                adSets: formattedHierarchy.campaigns.reduce((sum: number, c: any) => sum + c.adSets.length, 0),
-                ads: formattedHierarchy.campaigns.reduce((sum: number, c: any) => 
-                  sum + c.adSets.reduce((adSum: number, adSet: any) => adSum + adSet.insights.length, 0), 0
-                )
-              });
             }
 
           } catch (error) {
@@ -527,12 +501,8 @@ const TrafficAnalysis = () => {
             setHierarchicalCacheValid(false);
           }
         }
-        
+
         setIsLoading(false);
-        
-      } else {
-        setIsLoading(false);
-      }
     } catch (error) {
       setIsLoading(false);
     } finally {
@@ -626,8 +596,7 @@ const TrafficAnalysis = () => {
           throw new Error(`Erro na Edge Function: ${response.error.message}`);
         }
         
-        console.log(`✅ [TrafficAnalysis] Edge Function executada com sucesso:`, response.data);
-        
+          
         // Recarregar dados do cache atualizado
         const { data: updatedLive, error: reloadError } = await supabase
           .from('lives')
@@ -753,16 +722,12 @@ const TrafficAnalysis = () => {
 
   // Função para iniciar o refresh (chamada pelo botão)
   const handleRefreshStart = async () => {
-    console.log(`🔄 [TrafficAnalysis] Botão refresh acionado!`);
     setIsButtonRefreshing(true);
     try {
       // Chamar Edge Function para forçar sincronização (ignorar cache)
       try {
-        console.log(`🚀 [TrafficAnalysis] Chamando Edge Function com forceRefresh=true`);
         await syncLiveMetaData(liveId!, true); // true = forçar refresh
-        console.log(`✅ [TrafficAnalysis] Edge Function executada no refresh`);
       } catch (edgeError) {
-        console.warn(`⚠️ [TrafficAnalysis] Edge Function falhou no refresh, continuando:`, edgeError);
         // Não interromper o fluxo se a Edge Function falhar
       }
 
@@ -808,6 +773,7 @@ const TrafficAnalysis = () => {
 
   // Estados para controle de inicialização
   const [isInitialized, setIsInitialized] = useState(false);
+  const [hierarchicalCacheValid, setHierarchicalCacheValid] = useState(false);
 
   // Função para verificar se o cache ainda é válido (30 minutos)
   const isCacheValid = useCallback(async (liveId: string): Promise<boolean> => {
@@ -819,7 +785,6 @@ const TrafficAnalysis = () => {
         .single();
 
       if (error || !liveData?.traffic_last_synced_at) {
-        console.log(`📅 [TrafficAnalysis] Sem cache válido para Live: ${liveId}`);
         return false;
       }
 
@@ -829,7 +794,6 @@ const TrafficAnalysis = () => {
       const CACHE_DURATION_MINUTES = 30;
 
       const isValid = diffMinutes < CACHE_DURATION_MINUTES;
-      console.log(`📅 [TrafficAnalysis] Cache ${isValid ? 'VÁLIDO' : 'EXPIRADO'} - Última sincronização: ${diffMinutes} min atrás`);
 
       return isValid;
     } catch (error) {
@@ -841,20 +805,14 @@ const TrafficAnalysis = () => {
   // Função para chamar a Edge Function syncLiveMetaData com verificação de cache
   const syncLiveMetaData = useCallback(async (liveId: string, forceRefresh = false) => {
     try {
-      console.log(`🔍 [TrafficAnalysis] syncLiveMetaData chamada com forceRefresh=${forceRefresh}`);
 
       // Verificar cache apenas se não for refresh forçado
       if (!forceRefresh) {
         const cacheIsValid = await isCacheValid(liveId);
         if (cacheIsValid) {
-          console.log(`✅ [TrafficAnalysis] Cache válido - pulando Edge Function para Live: ${liveId}`);
           return { status: 'cache_valid' };
         }
-      } else {
-        console.log(`🚀 [TrafficAnalysis] Refresh forçado - ignorando cache`);
       }
-
-      console.log(`🚀 [TrafficAnalysis] Chamando Edge Function syncLiveMetaData para Live: ${liveId}`);
 
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.user) {
@@ -869,7 +827,6 @@ const TrafficAnalysis = () => {
         throw new Error(`Erro na Edge Function: ${response.error.message}`);
       }
 
-      console.log(`✅ [TrafficAnalysis] Edge Function executada com sucesso:`, response.data);
       return response.data;
     } catch (error) {
       console.error('❌ [TrafficAnalysis] Erro ao chamar Edge Function:', error);
@@ -889,9 +846,7 @@ const TrafficAnalysis = () => {
         // Chamar Edge Function para sincronizar dados do Meta (com verificação de cache)
         try {
           await syncLiveMetaData(liveId, false); // false = não forçar refresh
-          console.log(`✅ [TrafficAnalysis] Sincronização concluída`);
         } catch (edgeError) {
-          console.warn(`⚠️ [TrafficAnalysis] Edge Function falhou, continuando com dados do cache:`, edgeError);
           // Não interromper o fluxo se a Edge Function falhar
         }
 
