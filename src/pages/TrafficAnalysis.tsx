@@ -557,6 +557,65 @@ const TrafficAnalysis = () => {
         });
       });
 
+      console.log('🧪 [TEST] ===== OBJETO COMPLETO PARA SALVAMENTO NO BANCO =====');
+      console.log('💾 [TEST] Objeto que será salvo em cached_traffic_data_incremented:');
+      console.log(JSON.stringify(incrementedAnalysis, null, 2));
+
+      console.log('🧪 [TEST] ===== TAMANHO E VALIDAÇÃO DO OBJETO =====');
+      const jsonString = JSON.stringify(incrementedAnalysis);
+      const jsonSize = new Blob([jsonString]).size;
+      console.log(`📏 [TEST] Tamanho do JSON: ${(jsonSize / 1024).toFixed(2)} KB`);
+      console.log(`📊 [TEST] Caracteres: ${jsonString.length}`);
+      console.log(`📊 [TEST] Estrutura do objeto:`, {
+        temCampaignsByDate: !!incrementedAnalysis.campaignsByDate,
+        quantidadeDatas: Object.keys(incrementedAnalysis.campaignsByDate).length,
+        requestTime: incrementedAnalysis.requestTime,
+        payloadSize: incrementedAnalysis.payloadSize,
+        dateRange: incrementedAnalysis.dateRange,
+        totalDays: incrementedAnalysis.totalDays
+      });
+
+      console.log('🧪 [TEST] ===== DADOS PARA REDUÇÃO (OPCIONAL) =====');
+      // Simular uma versão reduzida só com dados essenciais
+      const reducedVersion = {
+        campaignsByDate: Object.keys(incrementedAnalysis.campaignsByDate).reduce((acc, date) => {
+          acc[date] = incrementedAnalysis.campaignsByDate[date].map(campaign => ({
+            id: campaign.id,
+            name: campaign.name,
+            spend: campaign.spend,
+            leads: campaign.leads,
+            cpl: campaign.cpl,
+            adSets: campaign.adSets.map(adSet => ({
+              id: adSet.id,
+              name: adSet.name,
+              spend: adSet.spend,
+              leads: adSet.leads,
+              cpl: adSet.cpl,
+              ads: adSet.ads.map(ad => ({
+                id: ad.id,
+                name: ad.name,
+                spend: ad.spend,
+                leads: ad.leads,
+                cpl: ad.cpl,
+                creativeUrl: ad.creativeUrl
+              }))
+            }))
+          }));
+          return acc;
+        }, {} as any),
+        metadata: {
+          requestTime: incrementedAnalysis.requestTime,
+          totalDays: incrementedAnalysis.totalDays,
+          dateRange: incrementedAnalysis.dateRange,
+          generatedAt: new Date().toISOString()
+        }
+      };
+
+      const reducedJsonString = JSON.stringify(reducedVersion);
+      const reducedJsonSize = new Blob([reducedJsonString]).size;
+      console.log(`💾 [TEST] Versão reduzida (só dados essenciais):`, reducedVersion);
+      console.log(`📏 [TEST] Tamanho reduzido: ${(reducedJsonSize / 1024).toFixed(2)} KB (economia: ${((jsonSize - reducedJsonSize) / 1024).toFixed(2)} KB)`);
+
       console.log('🧪 [TEST] ===== TESTE CONCLUÍDO =====');
 
     } catch (error) {
