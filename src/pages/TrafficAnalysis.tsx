@@ -11,7 +11,7 @@ import { PublicAudience, PublicAudienceCorrelation } from "@/types/audience";
 import { fetchPublicAudiences, generateAudienceCorrelation } from "@/utils/audienceService";
 // Removido imports legados: AdSetData, CampaignData, extractAdSetDataFromInsights, extractCampaignData
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
-import { getLiveDataFromDatabase, isHierarchicalCacheValid, updateHierarchicalCache, generateCampaignsHierarchy } from '@/utils/LiveData/getLiveData';
+import { getLiveDataFromDatabase, isHierarchicalCacheValid, updateHierarchicalCache, generateCampaignsHierarchy, getDeepCampaignAnalysis } from '@/utils/LiveData/getLiveData';
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 // Removido import legado: fetchAdSetInsights
 import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Filter, RefreshCw } from "lucide-react";
@@ -421,35 +421,79 @@ const TrafficAnalysis = () => {
     }
   }, [liveId]);
 
-  // Função para atualizar cache da tabela hierárquica
+  // Função para atualizar cache da tabela hierárquica usando nova implementação
   const handleHierarchicalRefresh = useCallback(async () => {
     if (!liveId) return;
-    
+
     setIsHierarchicalRefreshing(true);
-    
+
     try {
-      // Buscar dados da Live para obter campanhas e insights
+      // Buscar dados da Live
       const liveData = await getLiveDataFromDatabase(liveId);
       if (!liveData) {
         throw new Error('Live não encontrada');
       }
-      
-      // Gerar nova hierarquia de campanhas
-      const campaignsHierarchy = await generateCampaignsHierarchy(
-        liveData.cached_traffic_data?.campaigns || [],
-        liveData.cached_traffic_data?.dailyInsights || [],
-        liveId
-      );
-      
+
+      // Usar nova função getDeepCampaignAnalysis
+      const deepAnalysis = await getDeepCampaignAnalysis({
+        id: liveData.id,
+        name: liveData.name,
+        user_id: liveData.user_id,
+        campaign_search_term: liveData.campaign_search_term,
+        insights_date_since: liveData.insights_date_since,
+        insights_date_until: liveData.insights_date_until,
+        ad_budget: parseFloat(liveData.ad_budget)
+      });
+
+      // Converter para formato esperado pela tabela hierárquica
+      const formattedHierarchy = {
+        campaigns: deepAnalysis.campaigns.map(campaign => ({
+          id: campaign.id,
+          name: campaign.name,
+          totalSpend: campaign.insights.spend,
+          totalLeads: campaign.insights.actions?.find(action => action.action_type === 'lead')?.value ?
+            parseInt(campaign.insights.actions.find(action => action.action_type === 'lead')!.value) : 0,
+          cpl: campaign.insights.spend > 0 && campaign.insights.actions?.find(action => action.action_type === 'lead') ?
+            campaign.insights.spend / parseInt(campaign.insights.actions.find(action => action.action_type === 'lead')!.value || '0') : 0,
+          adSets: campaign.adSets.map(adSet => ({
+            id: adSet.id,
+            name: adSet.name,
+            totalSpend: adSet.insights.spend,
+            totalLeads: adSet.insights.actions?.find(action => action.action_type === 'lead')?.value ?
+              parseInt(adSet.insights.actions.find(action => action.action_type === 'lead')!.value) : 0,
+            cpl: adSet.insights.spend > 0 && adSet.insights.actions?.find(action => action.action_type === 'lead') ?
+              adSet.insights.spend / parseInt(adSet.insights.actions.find(action => action.action_type === 'lead')!.value || '0') : 0,
+            insights: adSet.ads.map(ad => ({
+              id: ad.id,
+              name: ad.name,
+              spend: ad.insights.spend,
+              leads: ad.insights.actions?.find(action => action.action_type === 'lead')?.value ?
+                parseInt(ad.insights.actions.find(action => action.action_type === 'lead')!.value) : 0,
+              cpl: ad.insights.spend > 0 && ad.insights.actions?.find(action => action.action_type === 'lead') ?
+                ad.insights.spend / parseInt(ad.insights.actions.find(action => action.action_type === 'lead')!.value || '0') : 0,
+              creativeUrl: ad.creative.permalink_url
+            }))
+          }))
+        }))
+      };
+
       // Atualizar cache no banco
-      await updateHierarchicalCache(liveId, campaignsHierarchy);
-      
+      await updateHierarchicalCache(liveId, formattedHierarchy);
+
       // Atualizar estado local
-      setCampaignsHierarchy(campaignsHierarchy);
+      setCampaignsHierarchy(formattedHierarchy);
       setHierarchicalCacheValid(true);
-      
+
+      console.log(`✅ [Deep Campaign Analysis] Análise concluída:`, {
+        tempo: `${deepAnalysis.requestTime}ms`,
+        payload: `${(deepAnalysis.payloadSize / 1024).toFixed(2)} KB`,
+        campanhas: deepAnalysis.campaignCount,
+        adSets: deepAnalysis.adSetCount,
+        ads: deepAnalysis.adCount
+      });
+
     } catch (error) {
-      console.error('❌ [HierarchicalRefresh] Erro ao atualizar cache hierárquico:', error);
+      console.error('❌ [Deep Campaign Analysis] Erro ao atualizar análise hierárquica:', error);
     } finally {
       setIsHierarchicalRefreshing(false);
     }
@@ -986,11 +1030,13 @@ const TrafficAnalysis = () => {
           {type === 'insight' && item.creativeUrl ? (
             <Button variant="outline" size="sm" asChild>
               <a href={item.creativeUrl} target="_blank" rel="noopener noreferrer">
-                Ver Insight
+                Ver Criativo
               </a>
             </Button>
-          ) : (
+          ) : type === 'insight' ? (
             <span className="text-xs text-muted-foreground">Sem link</span>
+          ) : (
+            <span className="text-xs text-muted-foreground">-</span>
           )}
         </TableCell>
       </TableRow>
@@ -1417,9 +1463,9 @@ const TrafficAnalysis = () => {
                 Filtrar
               </Button>
               {/* Botão de atualização independente */}
-              <Button 
+              <Button
                 onClick={handleHierarchicalRefresh}
-                disabled={isHierarchicalRefreshing || hierarchicalCacheValid}
+                disabled={isHierarchicalRefreshing}
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-2"
@@ -1504,7 +1550,7 @@ const TrafficAnalysis = () => {
                       {getSortIcon('cpl')}
                   </Button>
                 </TableHead>
-                <TableHead className="text-center">Link do Criativo</TableHead>
+                <TableHead className="text-center">Criativo</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

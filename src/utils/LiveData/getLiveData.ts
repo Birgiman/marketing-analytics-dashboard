@@ -1662,6 +1662,446 @@ export async function getLiveDataFromDatabase(liveId: string): Promise<LiveDatab
 }
 
 /**
+ * Gera link de fallback para criativos baseado no effective_object_story_id
+ * Formato: https://www.facebook.com/{pageId}/posts/{postId}
+ * @param storyId effective_object_story_id no formato pageId_postId
+ * @returns URL de fallback para o post
+ */
+function generateFallbackLink(storyId: string): string {
+  try {
+    const parts = storyId.split('_');
+    if (parts.length === 2) {
+      const [pageId, postId] = parts;
+      return `https://www.facebook.com/${pageId}/posts/${postId}`;
+    }
+    // Fallback do fallback - usar o formato antigo se não conseguir separar
+    return `https://www.facebook.com/${storyId}`;
+  } catch (error) {
+    // Último recurso
+    return `https://www.facebook.com/${storyId}`;
+  }
+}
+
+/**
+ * Busca dados completos de campanhas com estrutura nested em uma única requisição
+ * Reduz drasticamente o número de chamadas ao Graph API do Meta
+ * @param live Dados da Live
+ * @returns Estrutura hierárquica completa das campanhas
+ */
+export async function getDeepCampaignAnalysis(live: Live): Promise<{
+  campaigns: Array<{
+    id: string;
+    name: string;
+    status: string;
+    insights: {
+      spend: number;
+      impressions: number;
+      clicks: number;
+      actions: Array<{
+        action_type: string;
+        value: string;
+      }>;
+    };
+    adSets: Array<{
+      id: string;
+      name: string;
+      insights: {
+        spend: number;
+        impressions: number;
+        clicks: number;
+        actions: Array<{
+          action_type: string;
+          value: string;
+        }>;
+      };
+      ads: Array<{
+        id: string;
+        name: string;
+        creative: {
+          effective_object_story_id?: string;
+          object_story_id?: string;
+          permalink_url?: string;
+          thumbnail_url?: string;
+        };
+        insights: {
+          spend: number;
+          impressions: number;
+          clicks: number;
+          actions: Array<{
+            action_type: string;
+            value: string;
+          }>;
+        };
+      }>;
+    }>;
+  }>;
+  requestTime: number;
+  payloadSize: number;
+  campaignCount: number;
+  adSetCount: number;
+  adCount: number;
+}> {
+  const startTime = Date.now();
+
+  try {
+    console.log('🚀 [Deep Campaign Analysis] Iniciando busca de dados nested...');
+
+    // Buscar integração Meta do usuário
+    const { data: metaIntegration, error: metaError } = await supabase
+      .from('meta_integrations')
+      .select('*')
+      .eq('user_id', live.user_id)
+      .eq('is_active', true)
+      .single();
+
+    if (metaError || !metaIntegration) {
+      throw new Error(`Integração Meta não encontrada: ${metaError?.message}`);
+    }
+
+    // Buscar conta Meta selecionada
+    const { data: liveCampaigns } = await supabase
+      .from('live_campaigns')
+      .select('account_id')
+      .eq('live_id', live.id)
+      .limit(1);
+
+    const accountId = liveCampaigns?.[0]?.account_id;
+    if (!accountId) {
+      throw new Error('Account ID não encontrado');
+    }
+
+    console.log(`📊 [Deep Campaign Analysis] Fazendo requisição para conta: ${accountId}`);
+
+    // Montar query fields nested (sem time_range dentro dos fields)
+    const fields = [
+      'id,name,status,',
+      'insights{spend,impressions,clicks,actions},',
+      'adsets{id,name,',
+      'insights{spend,impressions,clicks,actions},',
+      'ads{id,name,',
+      'creative{effective_object_story_id,object_story_id,thumbnail_url},',
+      'insights{spend,impressions,clicks,actions}',
+      '}}'
+    ].join('');
+
+    // Montar filtering dinâmico
+    const filtering = [
+      {
+        field: 'campaign.effective_status',
+        operator: 'IN',
+        value: ['ACTIVE', 'PAUSED']
+      },
+      {
+        field: 'campaign.name',
+        operator: 'CONTAIN',
+        value: live.campaign_search_term
+      }
+    ];
+
+    const params = new URLSearchParams({
+      fields: fields,
+      access_token: metaIntegration.access_token,
+      time_range: JSON.stringify({
+        since: live.insights_date_since,
+        until: live.insights_date_until
+      }),
+      filtering: JSON.stringify(filtering),
+      limit: '100'
+    });
+
+    console.log(`🔗 [Deep Campaign Analysis] URL construída:`, `https://graph.facebook.com/v23.0/${accountId}/campaigns?${params}`);
+
+    // Fazer requisição única consolidada
+    const response = await fetch(`https://graph.facebook.com/v23.0/${accountId}/campaigns?${params}`);
+
+    if (!response.ok) {
+      throw new Error(`Erro na requisição Graph API: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const requestTime = Date.now() - startTime;
+
+    // Calcular métricas da resposta
+    const payloadSize = JSON.stringify(data).length;
+    const campaigns = data.data || [];
+
+    let adSetCount = 0;
+    let adCount = 0;
+
+    // Coletar todos os effective_object_story_ids para buscar permalink_urls
+    const objectStoryIds = new Set<string>();
+
+    campaigns.forEach((campaign: any) => {
+      campaign.adsets?.data?.forEach((adSet: any) => {
+        adSet.ads?.data?.forEach((ad: any) => {
+          const storyId = ad.creative?.effective_object_story_id || ad.creative?.object_story_id;
+          if (storyId) {
+            objectStoryIds.add(storyId);
+          }
+        });
+      });
+    });
+
+    console.log(`🔗 [Batch Fetch] Encontrados ${objectStoryIds.size} object_story_ids únicos para buscar dados dos criativos`);
+
+    // Buscar dados dos criativos usando batch API (se existirem object_story_ids)
+    const creativeDataMap = new Map<string, { permalink_url: string }>();
+
+    if (objectStoryIds.size > 0) {
+      console.log(`🚀 [Batch Fetch] Iniciando busca via batch API...`);
+
+      const batchStartTime = Date.now();
+      const storyIdsArray = Array.from(objectStoryIds);
+
+      // Criar sub-requests para cada story_id (apenas permalink_url para reduzir erros)
+      const subRequests = storyIdsArray.map((storyId, index) => ({
+        method: 'GET',
+        relative_url: `${storyId}?fields=permalink_url`
+      }));
+
+      console.log(`📦 [Batch Fetch] Criados ${subRequests.length} sub-requests para dados dos criativos`);
+
+      // Dividir em chunks de 50 (limite do Meta)
+      const BATCH_SIZE = 50;
+      const batches = [];
+      for (let i = 0; i < subRequests.length; i += BATCH_SIZE) {
+        batches.push(subRequests.slice(i, i + BATCH_SIZE));
+      }
+
+      console.log(`📊 [Batch Fetch] Dividido em ${batches.length} batches (máximo ${BATCH_SIZE} por batch)`);
+
+      // Executar batches sequencialmente
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+        console.log(`🔄 [Batch ${batchIndex + 1}/${batches.length}] Processando ${batch.length} sub-requests...`);
+
+        try {
+          const batchParams = new URLSearchParams({
+            access_token: metaIntegration.access_token,
+            batch: JSON.stringify(batch)
+          });
+
+          const batchResponse = await fetch(`https://graph.facebook.com/v23.0/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: batchParams
+          });
+
+          if (batchResponse.ok) {
+            const batchData = await batchResponse.json();
+
+            // Processar resultados do batch
+            batchData.forEach((result: any, index: number) => {
+              const storyId = storyIdsArray[batchIndex * BATCH_SIZE + index];
+
+              if (result.code === 200) {
+                try {
+                  const resultData = JSON.parse(result.body);
+                  if (resultData.permalink_url) {
+                    // Permalink real obtido com sucesso
+                    creativeDataMap.set(storyId, {
+                      permalink_url: resultData.permalink_url
+                    });
+                    console.log(`✅ [Real Link] ${storyId}: ${resultData.permalink_url}`);
+                  } else {
+                    // Sem permalink, gerar fallback
+                    const fallbackLink = generateFallbackLink(storyId);
+                    creativeDataMap.set(storyId, {
+                      permalink_url: fallbackLink
+                    });
+                    console.log(`🔄 [Fallback] ${storyId}: ${fallbackLink}`);
+                  }
+                } catch (parseError) {
+                  // Erro ao parsear, gerar fallback
+                  const fallbackLink = generateFallbackLink(storyId);
+                  creativeDataMap.set(storyId, {
+                    permalink_url: fallbackLink
+                  });
+                  console.log(`🔄 [Parse Error → Fallback] ${storyId}: ${fallbackLink}`);
+                }
+              } else {
+                // Qualquer erro (400, 403, etc.) → gerar fallback sem logar erro detalhado
+                const fallbackLink = generateFallbackLink(storyId);
+                creativeDataMap.set(storyId, {
+                  permalink_url: fallbackLink
+                });
+                console.log(`🔄 [Error ${result.code} → Fallback] ${storyId}: ${fallbackLink}`);
+              }
+            });
+
+            console.log(`✅ [Batch ${batchIndex + 1}] Concluído com sucesso`);
+          } else {
+            console.log(`❌ [Batch ${batchIndex + 1}] Erro HTTP: ${batchResponse.status} ${batchResponse.statusText}`);
+          }
+        } catch (error) {
+          console.log(`❌ [Batch ${batchIndex + 1}] Erro ao processar:`, error);
+        }
+
+        // Pequeno delay entre batches para evitar rate limits
+        if (batchIndex < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
+      const batchTime = Date.now() - batchStartTime;
+      console.log(`⏱️ [Batch Fetch] Concluído em ${batchTime}ms - ${creativeDataMap.size}/${objectStoryIds.size} criativos processados`);
+    }
+
+    // Processar dados e contar elementos
+    const processedCampaigns = campaigns.map((campaign: any) => {
+      const campaignInsights = campaign.insights?.data?.[0] || {
+        spend: 0,
+        impressions: 0,
+        clicks: 0,
+        actions: []
+      };
+
+      const processedAdSets = (campaign.adsets?.data || []).map((adSet: any) => {
+        adSetCount++;
+
+        const adSetInsights = adSet.insights?.data?.[0] || {
+          spend: 0,
+          impressions: 0,
+          clicks: 0,
+          actions: []
+        };
+
+        const processedAds = (adSet.ads?.data || []).map((ad: any) => {
+          adCount++;
+
+          const adInsights = ad.insights?.data?.[0] || {
+            spend: 0,
+            impressions: 0,
+            clicks: 0,
+            actions: []
+          };
+
+          // Buscar permalink do mapa ou gerar fallback se necessário
+          const storyId = ad.creative?.effective_object_story_id || ad.creative?.object_story_id;
+          let permalinkUrl: string | undefined;
+
+          if (storyId) {
+            const creativeData = creativeDataMap.get(storyId);
+            if (creativeData) {
+              permalinkUrl = creativeData.permalink_url;
+            } else {
+              // Se não encontrou no mapa, gerar fallback
+              permalinkUrl = generateFallbackLink(storyId);
+              console.log(`🔄 [Missing from Map → Fallback] ${storyId}: ${permalinkUrl}`);
+            }
+          }
+
+          return {
+            id: ad.id,
+            name: ad.name,
+            creative: {
+              effective_object_story_id: ad.creative?.effective_object_story_id,
+              object_story_id: ad.creative?.object_story_id,
+              permalink_url: permalinkUrl,
+              thumbnail_url: ad.creative?.thumbnail_url
+            },
+            insights: {
+              spend: parseFloat(adInsights.spend || '0'),
+              impressions: parseInt(adInsights.impressions || '0'),
+              clicks: parseInt(adInsights.clicks || '0'),
+              actions: adInsights.actions || []
+            }
+          };
+        });
+
+        return {
+          id: adSet.id,
+          name: adSet.name,
+          insights: {
+            spend: parseFloat(adSetInsights.spend || '0'),
+            impressions: parseInt(adSetInsights.impressions || '0'),
+            clicks: parseInt(adSetInsights.clicks || '0'),
+            actions: adSetInsights.actions || []
+          },
+          ads: processedAds
+        };
+      });
+
+      return {
+        id: campaign.id,
+        name: campaign.name,
+        status: campaign.status,
+        insights: {
+          spend: parseFloat(campaignInsights.spend || '0'),
+          impressions: parseInt(campaignInsights.impressions || '0'),
+          clicks: parseInt(campaignInsights.clicks || '0'),
+          actions: campaignInsights.actions || []
+        },
+        adSets: processedAdSets
+      };
+    });
+
+    // Debug logs finais
+    console.log(`⏱️ [Deep Campaign Analysis] Tempo total de execução: ${requestTime}ms`);
+    console.log(`📦 [Deep Campaign Analysis] Tamanho do payload: ${(payloadSize / 1024).toFixed(2)} KB`);
+    console.log(`📊 [Deep Campaign Analysis] Campanhas retornadas: ${campaigns.length}`);
+    console.log(`📊 [Deep Campaign Analysis] Ad Sets retornados: ${adSetCount}`);
+    console.log(`📊 [Deep Campaign Analysis] Ads retornados: ${adCount}`);
+    console.log(`🔗 [Deep Campaign Analysis] Dados dos criativos obtidos: ${creativeDataMap.size}/${objectStoryIds.size}`);
+
+    // Log detalhado dos dados enriquecidos (para debug)
+    if (creativeDataMap.size > 0) {
+      console.log(`📝 [Creative Links Summary] Resumo dos links obtidos:`);
+
+      let realLinkCount = 0;
+      let fallbackCount = 0;
+
+      creativeDataMap.forEach((data, storyId) => {
+        if (data.permalink_url) {
+          // Detectar se é link real (contem /posts/, /videos/, etc.) ou fallback
+          if (data.permalink_url.includes('/posts/') || data.permalink_url.includes('/videos/') || data.permalink_url.includes('/reel/')) {
+            realLinkCount++;
+            console.log(`✅ [Real Link] ${storyId}: ${data.permalink_url}`);
+          } else {
+            fallbackCount++;
+            console.log(`🔄 [Fallback] ${storyId}: ${data.permalink_url}`);
+          }
+        }
+      });
+
+      console.log(`📊 [Link Stats] Total: ${creativeDataMap.size} criativos processados`);
+      console.log(`📊 [Link Types] Real links: ${realLinkCount}, Fallback links: ${fallbackCount}`);
+
+      // Log apenas uma amostra dos dados para não poluir
+      if (creativeDataMap.size > 3) {
+        console.log(`📝 [Sample] Primeiros 3 criativos:`, Object.fromEntries(Array.from(creativeDataMap.entries()).slice(0, 3)));
+      } else {
+        console.log(`📝 [All Data] Todos os criativos:`, Object.fromEntries(creativeDataMap));
+      }
+    }
+
+    return {
+      campaigns: processedCampaigns,
+      requestTime,
+      payloadSize,
+      campaignCount: campaigns.length,
+      adSetCount,
+      adCount
+    };
+
+  } catch (error) {
+    const requestTime = Date.now() - startTime;
+    console.error(`❌ [Deep Campaign Analysis] Erro após ${requestTime}ms:`, error);
+
+    return {
+      campaigns: [],
+      requestTime,
+      payloadSize: 0,
+      campaignCount: 0,
+      adSetCount: 0,
+      adCount: 0
+    };
+  }
+}
+
+/**
  * Sincroniza grupos WhatsApp com a Live baseado no termo de busca
  * Vincula automaticamente novos grupos que correspondam ao termo
  * @param liveId ID da Live
@@ -1670,8 +2110,8 @@ export async function getLiveDataFromDatabase(liveId: string): Promise<LiveDatab
  * @returns Número de novos grupos vinculados
  */
 export async function syncWhatsAppGroupsWithLive(
-  liveId: string, 
-  userId: string, 
+  liveId: string,
+  userId: string,
   searchTerm: string
 ): Promise<number> {
   try {
@@ -1703,7 +2143,7 @@ export async function syncWhatsAppGroupsWithLive(
 
 
     // 3. Identificar novos grupos
-    const newGroups = matchingGroups?.filter(group => 
+    const newGroups = matchingGroups?.filter(group =>
       !existingGroupIds.has(group.group_id)
     ) || [];
 
