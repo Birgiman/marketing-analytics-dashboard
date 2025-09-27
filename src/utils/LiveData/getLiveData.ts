@@ -1695,24 +1695,14 @@ export async function getDeepCampaignAnalysis(live: Live): Promise<{
     status: string;
     insights: {
       spend: number;
-      impressions: number;
-      clicks: number;
-      actions: Array<{
-        action_type: string;
-        value: string;
-      }>;
+      leads: number;
     };
     adSets: Array<{
       id: string;
       name: string;
       insights: {
         spend: number;
-        impressions: number;
-        clicks: number;
-        actions: Array<{
-          action_type: string;
-          value: string;
-        }>;
+        leads: number;
       };
       ads: Array<{
         id: string;
@@ -1721,16 +1711,10 @@ export async function getDeepCampaignAnalysis(live: Live): Promise<{
           effective_object_story_id?: string;
           object_story_id?: string;
           permalink_url?: string;
-          thumbnail_url?: string;
         };
         insights: {
           spend: number;
-          impressions: number;
-          clicks: number;
-          actions: Array<{
-            action_type: string;
-            value: string;
-          }>;
+          leads: number;
         };
       }>;
     }>;
@@ -1775,12 +1759,12 @@ export async function getDeepCampaignAnalysis(live: Live): Promise<{
     // Montar query fields nested (sem time_range dentro dos fields)
     const fields = [
       'id,name,status,',
-      'insights{spend,impressions,clicks,actions},',
+      'insights{spend,actions},',
       'adsets{id,name,',
-      'insights{spend,impressions,clicks,actions},',
+      'insights{spend,actions},',
       'ads{id,name,',
-      'creative{effective_object_story_id,object_story_id,thumbnail_url},',
-      'insights{spend,impressions,clicks,actions}',
+      'creative{effective_object_story_id,object_story_id},',
+      'insights{spend,actions}',
       '}}'
     ].join('');
 
@@ -1841,8 +1825,6 @@ export async function getDeepCampaignAnalysis(live: Live): Promise<{
         });
       });
     });
-
-    console.log(`🔗 [Batch Fetch] Encontrados ${objectStoryIds.size} object_story_ids únicos para buscar dados dos criativos`);
 
     // Buscar dados dos criativos usando batch API (se existirem object_story_ids)
     const creativeDataMap = new Map<string, { permalink_url: string }>();
@@ -1927,7 +1909,6 @@ export async function getDeepCampaignAnalysis(live: Live): Promise<{
                 creativeDataMap.set(storyId, {
                   permalink_url: fallbackLink
                 });
-                console.log(`🔄 [Error ${result.code} → Fallback] ${storyId}: ${fallbackLink}`);
               }
             });
 
@@ -1953,30 +1934,36 @@ export async function getDeepCampaignAnalysis(live: Live): Promise<{
     const processedCampaigns = campaigns.map((campaign: any) => {
       const campaignInsights = campaign.insights?.data?.[0] || {
         spend: 0,
-        impressions: 0,
-        clicks: 0,
         actions: []
       };
+
+      // Extrair apenas leads do actions
+      const campaignLeads = campaignInsights.actions?.find((action: any) => action.action_type === 'lead')?.value ?
+        parseInt(campaignInsights.actions.find((action: any) => action.action_type === 'lead')!.value) : 0;
 
       const processedAdSets = (campaign.adsets?.data || []).map((adSet: any) => {
         adSetCount++;
 
         const adSetInsights = adSet.insights?.data?.[0] || {
           spend: 0,
-          impressions: 0,
-          clicks: 0,
           actions: []
         };
+
+        // Extrair apenas leads do actions
+        const adSetLeads = adSetInsights.actions?.find((action: any) => action.action_type === 'lead')?.value ?
+          parseInt(adSetInsights.actions.find((action: any) => action.action_type === 'lead')!.value) : 0;
 
         const processedAds = (adSet.ads?.data || []).map((ad: any) => {
           adCount++;
 
           const adInsights = ad.insights?.data?.[0] || {
             spend: 0,
-            impressions: 0,
-            clicks: 0,
             actions: []
           };
+
+          // Extrair apenas leads do actions
+          const adLeads = adInsights.actions?.find((action: any) => action.action_type === 'lead')?.value ?
+            parseInt(adInsights.actions.find((action: any) => action.action_type === 'lead')!.value) : 0;
 
           // Buscar permalink do mapa ou gerar fallback se necessário
           const storyId = ad.creative?.effective_object_story_id || ad.creative?.object_story_id;
@@ -1999,14 +1986,11 @@ export async function getDeepCampaignAnalysis(live: Live): Promise<{
             creative: {
               effective_object_story_id: ad.creative?.effective_object_story_id,
               object_story_id: ad.creative?.object_story_id,
-              permalink_url: permalinkUrl,
-              thumbnail_url: ad.creative?.thumbnail_url
+              permalink_url: permalinkUrl
             },
             insights: {
               spend: parseFloat(adInsights.spend || '0'),
-              impressions: parseInt(adInsights.impressions || '0'),
-              clicks: parseInt(adInsights.clicks || '0'),
-              actions: adInsights.actions || []
+              leads: adLeads
             }
           };
         });
@@ -2016,9 +2000,7 @@ export async function getDeepCampaignAnalysis(live: Live): Promise<{
           name: adSet.name,
           insights: {
             spend: parseFloat(adSetInsights.spend || '0'),
-            impressions: parseInt(adSetInsights.impressions || '0'),
-            clicks: parseInt(adSetInsights.clicks || '0'),
-            actions: adSetInsights.actions || []
+            leads: adSetLeads
           },
           ads: processedAds
         };
@@ -2030,9 +2012,7 @@ export async function getDeepCampaignAnalysis(live: Live): Promise<{
         status: campaign.status,
         insights: {
           spend: parseFloat(campaignInsights.spend || '0'),
-          impressions: parseInt(campaignInsights.impressions || '0'),
-          clicks: parseInt(campaignInsights.clicks || '0'),
-          actions: campaignInsights.actions || []
+          leads: campaignLeads
         },
         adSets: processedAdSets
       };
@@ -2058,10 +2038,8 @@ export async function getDeepCampaignAnalysis(live: Live): Promise<{
           // Detectar se é link real (contem /posts/, /videos/, etc.) ou fallback
           if (data.permalink_url.includes('/posts/') || data.permalink_url.includes('/videos/') || data.permalink_url.includes('/reel/')) {
             realLinkCount++;
-            console.log(`✅ [Real Link] ${storyId}: ${data.permalink_url}`);
           } else {
             fallbackCount++;
-            console.log(`🔄 [Fallback] ${storyId}: ${data.permalink_url}`);
           }
         }
       });
@@ -2069,12 +2047,6 @@ export async function getDeepCampaignAnalysis(live: Live): Promise<{
       console.log(`📊 [Link Stats] Total: ${creativeDataMap.size} criativos processados`);
       console.log(`📊 [Link Types] Real links: ${realLinkCount}, Fallback links: ${fallbackCount}`);
 
-      // Log apenas uma amostra dos dados para não poluir
-      if (creativeDataMap.size > 3) {
-        console.log(`📝 [Sample] Primeiros 3 criativos:`, Object.fromEntries(Array.from(creativeDataMap.entries()).slice(0, 3)));
-      } else {
-        console.log(`📝 [All Data] Todos os criativos:`, Object.fromEntries(creativeDataMap));
-      }
     }
 
     return {
@@ -2172,12 +2144,12 @@ export async function getDeepCampaignAnalysisIncremented(live: Live): Promise<{
     // Montar query fields nested (sem time_range dentro dos fields)
     const fields = [
       'id,name,status,',
-      'insights{spend,impressions,clicks,actions,date_start},',
+      'insights{spend,actions,date_start},',
       'adsets{id,name,',
-      'insights{spend,impressions,clicks,actions,date_start},',
+      'insights{spend,actions,date_start},',
       'ads{id,name,',
-      'creative{effective_object_story_id,object_story_id,thumbnail_url},',
-      'insights{spend,impressions,clicks,actions,date_start}',
+      'creative{effective_object_story_id,object_story_id},',
+      'insights{spend,actions,date_start}',
       '}}'
     ].join('');
 
@@ -2227,6 +2199,18 @@ export async function getDeepCampaignAnalysisIncremented(live: Live): Promise<{
       campaigns: campaigns.length,
       payload: `${(payloadSize / 1024).toFixed(2)} KB`,
       tempo: `${requestTime}ms`
+    });
+
+
+    // Debug: Verificar insights de campanha
+    campaigns.forEach((campaign: any, index: number) => {
+      console.log(`🔍 [DEBUG] Campanha ${index + 1} (${campaign.name}):`, {
+        totalInsights: campaign.insights?.data?.length || 0,
+        insights: campaign.insights?.data?.map((insight: any) => ({
+          date_start: insight.date_start,
+          spend: insight.spend
+        }))
+      });
     });
 
     // Coletar todos os effective_object_story_ids para buscar permalink_urls

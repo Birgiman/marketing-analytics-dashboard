@@ -422,26 +422,20 @@ const TrafficAnalysis = () => {
                 id: campaign.id,
                 name: campaign.name,
                 totalSpend: campaign.insights.spend,
-                totalLeads: campaign.insights.actions?.find(action => action.action_type === 'lead')?.value ?
-                  parseInt(campaign.insights.actions.find(action => action.action_type === 'lead')!.value) : 0,
-                cpl: campaign.insights.spend > 0 && campaign.insights.actions?.find(action => action.action_type === 'lead') ?
-                  campaign.insights.spend / parseInt(campaign.insights.actions.find(action => action.action_type === 'lead')!.value || '0') : 0,
+                totalLeads: campaign.insights.leads,
+                cpl: campaign.insights.leads > 0 ? campaign.insights.spend / campaign.insights.leads : 0,
                 adSets: campaign.adSets.map(adSet => ({
                   id: adSet.id,
                   name: adSet.name,
                   totalSpend: adSet.insights.spend,
-                  totalLeads: adSet.insights.actions?.find(action => action.action_type === 'lead')?.value ?
-                    parseInt(adSet.insights.actions.find(action => action.action_type === 'lead')!.value) : 0,
-                  cpl: adSet.insights.spend > 0 && adSet.insights.actions?.find(action => action.action_type === 'lead') ?
-                    adSet.insights.spend / parseInt(adSet.insights.actions.find(action => action.action_type === 'lead')!.value || '0') : 0,
+                  totalLeads: adSet.insights.leads,
+                  cpl: adSet.insights.leads > 0 ? adSet.insights.spend / adSet.insights.leads : 0,
                   insights: adSet.ads.map(ad => ({
                     id: ad.id,
                     name: ad.name,
                     spend: ad.insights.spend,
-                    leads: ad.insights.actions?.find(action => action.action_type === 'lead')?.value ?
-                      parseInt(ad.insights.actions.find(action => action.action_type === 'lead')!.value) : 0,
-                    cpl: ad.insights.spend > 0 && ad.insights.actions?.find(action => action.action_type === 'lead') ?
-                      ad.insights.spend / parseInt(ad.insights.actions.find(action => action.action_type === 'lead')!.value || '0') : 0,
+                    leads: ad.insights.leads,
+                    cpl: ad.insights.leads > 0 ? ad.insights.spend / ad.insights.leads : 0,
                     creativeUrl: ad.creative.permalink_url
                   }))
                 }))
@@ -526,6 +520,9 @@ const TrafficAnalysis = () => {
 
       console.log('🧪 [TEST] ===== 1. TESTANDO ANÁLISE NORMAL (sem time_increment) =====');
       const normalAnalysis = await getDeepCampaignAnalysis(liveForAnalysis);
+
+      console.log('💾 [TEST] OBJETO COMPLETO DA ANÁLISE NORMAL:');
+      console.log(JSON.stringify(normalAnalysis, null, 2));
 
       console.log('🧪 [TEST] ===== 2. TESTANDO ANÁLISE INCREMENTADA (com time_increment=1) =====');
       const incrementedAnalysis = await getDeepCampaignAnalysisIncremented(liveForAnalysis);
