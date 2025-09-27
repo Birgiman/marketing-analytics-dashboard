@@ -11,7 +11,7 @@ import { PublicAudience, PublicAudienceCorrelation } from "@/types/audience";
 import { fetchPublicAudiences, generateAudienceCorrelation } from "@/utils/audienceService";
 // Removido imports legados: AdSetData, CampaignData, extractAdSetDataFromInsights, extractCampaignData
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
-import { getLiveDataFromDatabase, isHierarchicalCacheValid, updateHierarchicalCache, getDeepCampaignAnalysis } from '@/utils/LiveData/getLiveData';
+import { getLiveDataFromDatabase, isHierarchicalCacheValid, updateHierarchicalCache, getDeepCampaignAnalysis, getDeepCampaignAnalysisIncremented } from '@/utils/LiveData/getLiveData';
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 // Removido import legado: fetchAdSetInsights
 import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Filter, RefreshCw } from "lucide-react";
@@ -227,6 +227,9 @@ const TrafficAnalysis = () => {
   // Estados para cache independente da tabela hierárquica
   const [isHierarchicalRefreshing, setIsHierarchicalRefreshing] = useState(false);
   const [hierarchicalCacheValid, setHierarchicalCacheValid] = useState(false);
+
+  // Estados para teste das funções de análise
+  const [isTestingAnalysis, setIsTestingAnalysis] = useState(false);
   
   // Opções de público (dados reais dos públicos da Live) - memoizado para evitar re-renders
   const publicoOptions = useMemo(() => [
@@ -492,6 +495,76 @@ const TrafficAnalysis = () => {
     }
   }, [liveId]);
 
+  // Função para testar ambas as análises de campanh
+  const handleTestAnalysis = useCallback(async () => {
+    if (!liveId) return;
+
+    setIsTestingAnalysis(true);
+
+    try {
+      // Buscar dados da Live
+      const liveData = await getLiveDataFromDatabase(liveId);
+      if (!liveData) {
+        throw new Error('Live não encontrada');
+      }
+
+      console.log('🧪 [TEST] ===== INICIANDO TESTE COMPARATIVO =====');
+      console.log('🧪 [TEST] Live:', liveData.name);
+      console.log('🧪 [TEST] Período:', `${liveData.insights_date_since} até ${liveData.insights_date_until}`);
+      console.log('🧪 [TEST] Termo de busca:', liveData.campaign_search_term);
+
+      // Preparar dados da Live para as funções
+      const liveForAnalysis = {
+        id: liveData.id,
+        name: liveData.name,
+        user_id: liveData.user_id,
+        campaign_search_term: liveData.campaign_search_term,
+        insights_date_since: liveData.insights_date_since,
+        insights_date_until: liveData.insights_date_until,
+        ad_budget: parseFloat(liveData.ad_budget)
+      };
+
+      console.log('🧪 [TEST] ===== 1. TESTANDO ANÁLISE NORMAL (sem time_increment) =====');
+      const normalAnalysis = await getDeepCampaignAnalysis(liveForAnalysis);
+
+      console.log('🧪 [TEST] ===== 2. TESTANDO ANÁLISE INCREMENTADA (com time_increment=1) =====');
+      const incrementedAnalysis = await getDeepCampaignAnalysisIncremented(liveForAnalysis);
+
+      console.log('🧪 [TEST] ===== COMPARAÇÃO DOS RESULTADOS =====');
+      console.log('📊 [TEST] Análise Normal:', {
+        campanhas: normalAnalysis.campaignCount,
+        adSets: normalAnalysis.adSetCount,
+        ads: normalAnalysis.adCount,
+        tempo: `${normalAnalysis.requestTime}ms`,
+        payload: `${(normalAnalysis.payloadSize / 1024).toFixed(2)} KB`
+      });
+
+      console.log('📊 [TEST] Análise Incrementada:', {
+        diasProcessados: incrementedAnalysis.totalDays,
+        datasEncontradas: Object.keys(incrementedAnalysis.campaignsByDate).length,
+        tempo: `${incrementedAnalysis.requestTime}ms`,
+        payload: `${(incrementedAnalysis.payloadSize / 1024).toFixed(2)} KB`,
+        periodo: incrementedAnalysis.dateRange
+      });
+
+      console.log('🧪 [TEST] ===== ESTRUTURA DA ANÁLISE INCREMENTADA =====');
+      console.log('📅 [TEST] Datas processadas:', Object.keys(incrementedAnalysis.campaignsByDate).sort());
+      Object.keys(incrementedAnalysis.campaignsByDate).forEach(date => {
+        const campaigns = incrementedAnalysis.campaignsByDate[date];
+        console.log(`📅 [TEST] ${date}: ${campaigns.length} campanhas`);
+        campaigns.forEach(campaign => {
+          console.log(`   📈 ${campaign.name}: R$ ${campaign.spend.toFixed(2)} | ${campaign.leads} leads | CPL R$ ${campaign.cpl.toFixed(2)}`);
+        });
+      });
+
+      console.log('🧪 [TEST] ===== TESTE CONCLUÍDO =====');
+
+    } catch (error) {
+      console.error('❌ [TEST] Erro no teste comparativo:', error);
+    } finally {
+      setIsTestingAnalysis(false);
+    }
+  }, [liveId]);
 
   // CACHE SYSTEM - Funções de cache
   const fetchTrafficDataWithCache = useCallback(async () => {
@@ -1138,6 +1211,20 @@ const TrafficAnalysis = () => {
         showRefreshButton={true}
       />
       
+      {/* Botão flutuante para teste das análises */}
+      <div className="fixed top-20 right-4 z-50">
+        <Button
+          onClick={handleTestAnalysis}
+          disabled={isTestingAnalysis}
+          variant="secondary"
+          size="sm"
+          className="shadow-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800 gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isTestingAnalysis ? 'animate-spin' : ''}`} />
+          {isTestingAnalysis ? 'Testando...' : 'Testar Análises'}
+        </Button>
+      </div>
+
       <div className="container mx-auto p-6 space-y-8 relative">
         {/* Overlay de loading quando está atualizando */}
         {(cacheStatus.isLoading || isButtonRefreshing) && (
