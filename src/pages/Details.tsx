@@ -4,7 +4,7 @@ import PerformanceAnalysis from "@/components/PerformanceAnalysis";
 import { ScreenNavigatorLives } from "@/components/ScreenNavigatorLives";
 import { Button } from "@/components/ui/button";
 import { supabase } from '@/integrations/supabase/client';
-import { getLiveData, getLiveDataFromDatabase } from '@/utils/LiveData/getLiveData';
+// Funções antigas removidas - agora usando Edge Function syncLiveMetaData
 import { AlertCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -85,7 +85,17 @@ const Details = () => {
     if (!liveId) return;
     try {
       // Primeiro, buscar dados básicos da Live
-      const liveData = await getLiveDataFromDatabase(liveId);
+      // Buscar dados básicos da Live diretamente do Supabase
+      const { data: liveData, error } = await supabase
+        .from('lives')
+        .select('*')
+        .eq('id', liveId)
+        .single();
+
+      if (error || !liveData) {
+        console.error('[Details] Erro ao buscar Live:', error);
+        return;
+      }
       if (liveData) {
         // Atualizar dados básicos da Live
         setLive({
@@ -210,32 +220,11 @@ const Details = () => {
         // Não interromper o fluxo se a Edge Function falhar
       }
 
-      const liveDataResult = await getLiveData(liveId!, true); // true = force refresh
+      // Edge Function já foi chamada automaticamente no carregamento
+      // Recarregar dados do cache atualizado
+      await loadDataFromDatabase();
       
-      // Atualizar dados com os resultados mais recentes
-      if (liveDataResult) {
-        setMetrics({
-          cplMeta: liveDataResult.metrics.cplMeta,
-          cplLiquido: liveDataResult.metrics.cplLiquido,
-          retentionRate: liveDataResult.metrics.retentionRate,
-          cplLiquidoPlanejamento: liveDataResult.metrics.cplLiquidoPlanejamento
-        });
-        
-        setExtractedData({
-          metaData: {
-            totalSpend: liveDataResult.aggregatedInsights.totalSpend,
-            totalResults: liveDataResult.aggregatedInsights.totalLeads,
-            campaignCount: liveDataResult.campaigns.total
-          },
-          groupData: {
-            totalGroups: 0, // Será calculado baseado nos dados
-            totalMembers: liveDataResult.groupData.totalMembers,
-            entries: liveDataResult.groupData.entries,
-            exits: liveDataResult.groupData.exits,
-            activeMembers: liveDataResult.groupData.activeMembers
-          }
-        });
-      }
+      // Dados já foram atualizados pelo loadDataFromDatabase()
     } catch (error) {
       console.error('❌ [Details] Erro ao atualizar dados:', error);
       setError(`Erro ao atualizar dados: ${error}`);
@@ -244,15 +233,7 @@ const Details = () => {
     }
   };
 
-  // Função para testar getLiveData
-  const handleTestGetLiveData = async () => {
-    if (!liveId) {
-      return;
-    }
-    try {
-      const result = await getLiveData(liveId); // Sem force = verifica cache primeiro
-    } catch (error) {}
-  };
+  // Função removida - agora usando Edge Function syncLiveMetaData
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">

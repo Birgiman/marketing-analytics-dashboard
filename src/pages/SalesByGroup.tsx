@@ -26,7 +26,7 @@ import {
   fetchPublicAudiences,
   generateAudienceCorrelation
 } from "@/utils/audienceService";
-import { getLiveData, getLiveDataFromDatabase } from '@/utils/LiveData/getLiveData';
+// Funções antigas removidas - agora usando Edge Function syncLiveMetaData
 import { MetaCampaign } from '@/utils/metaApi';
 import { fetchMetaCampaignsForLive } from '@/utils/metaCampaignsService';
 // Public cache removed - functionality integrated into other services
@@ -198,7 +198,17 @@ const SalesByGroup = () => {
           return;
         }
       }
-      const liveData = await getLiveDataFromDatabase(liveId);
+      // Buscar dados básicos da Live diretamente do Supabase
+      const { data: liveData, error } = await supabase
+        .from('lives')
+        .select('*')
+        .eq('id', liveId)
+        .single();
+
+      if (error || !liveData) {
+        console.error('[SalesByGroup] Erro ao buscar Live:', error);
+        return;
+      }
       
       if (liveData) {
         // Atualizar dados básicos da Live
@@ -342,9 +352,8 @@ const SalesByGroup = () => {
     setCacheStatus(prev => ({ ...prev, isLoading: true }));
     
     try {
-      // Usar getLiveData para buscar dados atualizados
-      const result = await getLiveData(liveId, true); // force = true
-      // Recarregar dados do banco após atualização
+      // Edge Function já foi chamada automaticamente
+      // Recarregar dados do cache atualizado
       await loadDataFromDatabase();
     } catch (error) {
     } finally {

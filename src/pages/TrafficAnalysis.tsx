@@ -11,7 +11,7 @@ import { PublicAudience, PublicAudienceCorrelation } from "@/types/audience";
 import { fetchPublicAudiences, generateAudienceCorrelation } from "@/utils/audienceService";
 // Removido imports legados: AdSetData, CampaignData, extractAdSetDataFromInsights, extractCampaignData
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
-import { getLiveDataFromDatabase, isHierarchicalCacheValid, updateHierarchicalCache, getDeepCampaignAnalysis, getDeepCampaignAnalysisIncremented, getLiveDataOptimized } from '@/utils/LiveData/getLiveData';
+// Funções antigas removidas - agora usando Edge Function syncLiveMetaData
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 // Removido import legado: fetchAdSetInsights
 import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Filter, RefreshCw } from "lucide-react";
@@ -319,7 +319,17 @@ const TrafficAnalysis = () => {
     
     
     try {
-      const liveData = await getLiveDataFromDatabase(liveId);
+      // Buscar dados básicos da Live diretamente do Supabase
+      const { data: liveData, error } = await supabase
+        .from('lives')
+        .select('*')
+        .eq('id', liveId)
+        .single();
+
+      if (error || !liveData) {
+        console.error('[TrafficAnalysis] Erro ao buscar Live:', error);
+        return;
+      }
       
       if (liveData) {
         // Atualizar dados básicos da Live
@@ -497,7 +507,17 @@ const TrafficAnalysis = () => {
 
     try {
       // Buscar dados da Live
-      const liveData = await getLiveDataFromDatabase(liveId);
+      // Buscar dados básicos da Live diretamente do Supabase
+      const { data: liveData, error } = await supabase
+        .from('lives')
+        .select('*')
+        .eq('id', liveId)
+        .single();
+
+      if (error || !liveData) {
+        console.error('[TrafficAnalysis] Erro ao buscar Live:', error);
+        return;
+      }
       if (!liveData) {
         throw new Error('Live não encontrada');
       }
@@ -690,11 +710,11 @@ const TrafficAnalysis = () => {
       }
 
       // Cache vencido ou inexistente - buscar dados frescos
-      const completeData = await getLiveDataOptimized(liveId, true);
-      // Buscar dados da live do banco
-      const liveFromDb = await getLiveDataFromDatabase(liveId);
-      // Atualizar estados com dados frescos
-      if (liveFromDb) {
+      // Edge Function já foi chamada automaticamente
+      // Recarregar dados do cache atualizado
+      await loadDataFromDatabase();
+      // Dados já foram carregados pelo loadDataFromDatabase()
+      // Dados já foram atualizados pelo loadDataFromDatabase()
         setLive({
           id: liveFromDb.id,
           name: liveFromDb.name,
@@ -733,7 +753,7 @@ const TrafficAnalysis = () => {
         setEndDate(liveFromDb.insights_date_until);
       }
 
-      console.log('✅ [Optimized] Dados carregados com nova função getLiveDataOptimized');
+      console.log('✅ [Optimized] Dados carregados com Edge Function syncLiveMetaData');
       
       // Atualizar status do cache após salvar
       setCacheStatus({
@@ -1203,7 +1223,7 @@ const TrafficAnalysis = () => {
         // Por enquanto, vamos manter o comportamento simples
         // TODO: Implementar filtro de data na função otimizada se necessário
         console.log('⚠️ [Filter] Filtro de data ainda não implementado na função otimizada');
-        // const completeData = await getLiveDataOptimized(liveId, true);
+        // Edge Function já foi chamada automaticamente
         // Manter dados atuais por enquanto
         setGroups(groups.map(group => ({
           ...group,

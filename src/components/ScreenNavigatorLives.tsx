@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { getLiveDataOptimized } from "@/utils/LiveData/getLiveData";
+// Função antiga removida - agora usando Edge Function syncLiveMetaData
 import { RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -36,8 +36,8 @@ export function ScreenNavigatorLives({
     }
     
     try {
-      // Chamar nova função otimizada que usa getDeepCampaignAnalysis diretamente
-      const liveDataResult = await getLiveDataOptimized(liveId, true);
+      // Edge Function já foi chamada automaticamente
+      // Apenas notificar que os dados foram atualizados
       
       // Notificar que os dados foram atualizados
       if (onDataUpdated) {
