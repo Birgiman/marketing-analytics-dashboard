@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { getLiveDataWithoutHierarchy } from "@/utils/LiveData/getLiveData";
+import { getLiveDataOptimized } from "@/utils/LiveData/getLiveData";
 import { RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -36,10 +36,8 @@ export function ScreenNavigatorLives({
     }
     
     try {
-      // Chamar função que NÃO gera dados hierárquicos
-      // IMPORTANTE: Esta função NÃO faz requisições para ad sets/ads
-      // A tabela hierárquica tem cache independente de 60 minutos
-      const liveDataResult = await getLiveDataWithoutHierarchy(liveId, true);
+      // Chamar nova função otimizada que usa getDeepCampaignAnalysis diretamente
+      const liveDataResult = await getLiveDataOptimized(liveId, true);
       
       // Notificar que os dados foram atualizados
       if (onDataUpdated) {

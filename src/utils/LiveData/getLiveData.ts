@@ -1436,20 +1436,99 @@ export async function updateHierarchicalCache(liveId: string, campaignsHierarchy
 }
 
 /**
- * Busca dados da Live SEM gerar hierarquia de campanhas (para botão principal)
+ * Busca dados completos da Live usando análise profunda otimizada (NOVA FUNÇÃO PRINCIPAL)
  * @param liveId ID da Live
  * @param force Se deve forçar atualização
- * @returns Dados da Live sem hierarquia
+ * @returns Dados completos da Live com análise profunda
  */
-export async function getLiveDataWithoutHierarchy(liveId: string, force: boolean = false): Promise<LiveDataResult> {
+export async function getLiveDataOptimized(liveId: string, force: boolean = false): Promise<{
+  // Dados básicos compatíveis com LiveDataResult
+  campaigns: {
+    total: number;
+    new: number;
+    missing: number;
+    list: Array<{
+      id: string;
+      name: string;
+      status: string;
+    }>;
+  };
+  aggregatedInsights: {
+    totalSpend: number;
+    totalLeads: number;
+    cplMeta: number;
+  };
+  dailyInsights: Array<{
+    date: string;
+    spend: number;
+    leads: number;
+    cplMeta: number;
+    groupJoin?: number;
+    groupExit?: number;
+    cplLiquido?: number;
+    retention?: number;
+  }>;
+  metrics: {
+    cplMeta: number;
+    cplLiquido: number;
+    retentionRate: number;
+    cplLiquidoPlanejamento: number;
+  };
+  groupData: {
+    totalMembers: number;
+    entries: number;
+    exits: number;
+    activeMembers: number;
+  };
+  // Dados da análise profunda
+  deepAnalysis: {
+    campaigns: Array<{
+      id: string;
+      name: string;
+      status: string;
+      insights: {
+        spend: number;
+        leads: number;
+      };
+      adSets: Array<{
+        id: string;
+        name: string;
+        insights: {
+          spend: number;
+          leads: number;
+        };
+        ads: Array<{
+          id: string;
+          name: string;
+          creative: {
+            effective_object_story_id?: string;
+            object_story_id?: string;
+            permalink_url?: string;
+          };
+          insights: {
+            spend: number;
+            leads: number;
+          };
+        }>;
+      }>;
+    }>;
+    requestTime: number;
+    payloadSize: number;
+    campaignCount: number;
+    adSetCount: number;
+    adCount: number;
+  };
+}> {
+  console.log('🚀 [Optimized Live Data] Iniciando busca de dados completos otimizados...');
+
   // Se não forçar, verificar cache primeiro
   if (!force) {
     const cacheValid = await isCacheValid(liveId);
     if (cacheValid) {
+      console.log('📦 [Optimized Cache] Dados válidos encontrados no cache');
       const cachedData = await getCachedLiveData(liveId);
-      // Verificar se o cache tem dados válidos (não apenas se é válido por tempo)
+
       if (cachedData && cachedData.cached_metrics && cachedData.cached_group_data && cachedData.cached_meta_data) {
-        // Converter dados do cache para o formato LiveDataResult
         const result = {
           campaigns: {
             total: cachedData.cached_meta_data?.campaignCount || 0,
@@ -1474,47 +1553,61 @@ export async function getLiveDataWithoutHierarchy(liveId: string, force: boolean
             entries: cachedData.cached_group_data?.entries || 0,
             exits: cachedData.cached_group_data?.exits || 0,
             activeMembers: cachedData.cached_group_data?.activeMembers || 0
+          },
+          deepAnalysis: (cachedData.cached_traffic_data as any)?.campaignsHierarchy || {
+            campaigns: [],
+            requestTime: 0,
+            payloadSize: 0,
+            campaignCount: 0,
+            adSetCount: 0,
+            adCount: 0
           }
         };
-        // Salvar dados convertidos no banco para manter consistência
-        await updateLiveCacheWithoutHierarchy(liveId, result);
-        
+
+        console.log('✅ [Optimized Cache] Retornando dados do cache');
         return result;
       }
     }
   }
-  
+
   // ETAPA 1: Buscar dados da Live no banco
   const { data: live, error: liveError } = await supabase
     .from('lives')
     .select('*')
     .eq('id', liveId)
     .single();
-    
+
   if (liveError || !live) {
     throw new Error(`Live não encontrada: ${liveError?.message}`);
   }
 
-  // ETAPA 1.1: Sincronizar grupos WhatsApp dinamicamente (se houver termo de busca)
-  if (live.whatsapp_search_term) {
-    const newGroupsCount = await syncWhatsAppGroupsWithLive(
-      liveId, 
-      live.user_id, 
-      live.whatsapp_search_term
-    );
-    
-    if (newGroupsCount > 0) {
-      // Novos grupos sincronizados
-    }
-  }
+  console.log('🔄 [Optimized Live Data] Buscando análise profunda otimizada...');
 
-  // ETAPA 2: Buscar campanhas do Meta
-  const campaigns = await fetchCampaignsFromMeta(live);
-  // ETAPA 3: Buscar insights agregados
-  const aggregatedInsights = await fetchAggregatedInsights(live);
-  // ETAPA 4: Buscar insights diários (para Traffic Analysis)
+  // ETAPA PRINCIPAL: Usar getDeepCampaignAnalysis como fonte primária
+  const deepAnalysis = await getDeepCampaignAnalysis(live);
+
+  // ETAPA 2: Buscar dados básicos necessários (grupos, métricas)
+  const groupData = await fetchGroupDataForCalculations(
+    liveId,
+    live.user_id,
+    live.insights_date_since,
+    live.insights_date_until
+  );
+
+  // ETAPA 3: Calcular métricas agregadas a partir da análise profunda
+  const totalSpend = deepAnalysis.campaigns.reduce((sum, campaign) => sum + campaign.insights.spend, 0);
+  const totalLeads = deepAnalysis.campaigns.reduce((sum, campaign) => sum + campaign.insights.leads, 0);
+  const cplMeta = totalLeads > 0 ? totalSpend / totalLeads : 0;
+
+  const metrics = calculateSimpleMetrics(
+    totalSpend,
+    totalLeads,
+    groupData.totalMembers,
+    live.ad_budget || 0
+  );
+
+  // ETAPA 4: Buscar insights diários básicos (para compatibilidade)
   const dailyInsights = await fetchDailyInsights(live);
-  // ETAPA 4.1: Enriquecer insights diários com dados dos grupos
   const enrichedDailyInsights = await enrichDailyInsightsWithGroupData(
     dailyInsights,
     liveId,
@@ -1522,31 +1615,130 @@ export async function getLiveDataWithoutHierarchy(liveId: string, force: boolean
     live.insights_date_since,
     live.insights_date_until
   );
-  // ETAPA 5: Buscar dados dos grupos e calcular métricas
-  const groupData = await fetchGroupDataForCalculations(
-    liveId,
-    live.user_id,
-    live.insights_date_since,
-    live.insights_date_until
-  );
-  const metrics = calculateSimpleMetrics(
-    aggregatedInsights.totalSpend,
-    aggregatedInsights.totalLeads,
-    groupData.totalMembers,
-    live.ad_budget || 0
-  );
+
+  // ETAPA 5: Montar resultado completo
   const result = {
-    campaigns,
-    aggregatedInsights,
+    campaigns: {
+      total: deepAnalysis.campaignCount,
+      new: 0,
+      missing: 0,
+      list: deepAnalysis.campaigns.map(campaign => ({
+        id: campaign.id,
+        name: campaign.name,
+        status: campaign.status
+      }))
+    },
+    aggregatedInsights: {
+      totalSpend,
+      totalLeads,
+      cplMeta
+    },
     dailyInsights: enrichedDailyInsights,
     metrics,
-    groupData
+    groupData,
+    deepAnalysis
   };
 
-  // Salvar no cache SEM dados hierárquicos
-  await updateLiveCacheWithoutHierarchy(liveId, result);
-  
+  // ETAPA 6: Salvar tudo no cache
+  await updateOptimizedCache(liveId, result);
+
+  console.log('✅ [Optimized Live Data] Dados completos obtidos e salvos');
   return result;
+}
+
+/**
+ * Atualiza cache com dados otimizados da nova função principal
+ * @param liveId ID da Live
+ * @param liveData Dados completos otimizados
+ */
+async function updateOptimizedCache(liveId: string, liveData: any): Promise<void> {
+  try {
+    console.log('💾 [Optimized Cache] Salvando dados otimizados...');
+
+    // Converter deepAnalysis para formato de hierarquia
+    const formattedHierarchy = {
+      campaigns: liveData.deepAnalysis.campaigns.map((campaign: any) => ({
+        id: campaign.id,
+        name: campaign.name,
+        totalSpend: campaign.insights.spend,
+        totalLeads: campaign.insights.leads,
+        cpl: campaign.insights.leads > 0 ? campaign.insights.spend / campaign.insights.leads : 0,
+        adSets: campaign.adSets.map((adSet: any) => ({
+          id: adSet.id,
+          name: adSet.name,
+          totalSpend: adSet.insights.spend,
+          totalLeads: adSet.insights.leads,
+          cpl: adSet.insights.leads > 0 ? adSet.insights.spend / adSet.insights.leads : 0,
+          insights: adSet.ads.map((ad: any) => ({
+            id: ad.id,
+            name: ad.name,
+            spend: ad.insights.spend,
+            leads: ad.insights.leads,
+            cpl: ad.insights.leads > 0 ? ad.insights.spend / ad.insights.leads : 0,
+            creativeUrl: ad.creative.permalink_url
+          }))
+        }))
+      }))
+    };
+
+    // Preparar dados completos para cache
+    const cacheData = {
+      // Métricas calculadas
+      cached_metrics: {
+        cplMeta: liveData.metrics.cplMeta,
+        cplLiquido: liveData.metrics.cplLiquido,
+        retentionRate: liveData.metrics.retentionRate,
+        cplLiquidoPlanejamento: liveData.metrics.cplLiquidoPlanejamento
+      },
+
+      // Dados dos grupos
+      cached_group_data: {
+        totalGroups: liveData.groupData.totalMembers > 0 ? 8 : 0,
+        totalMembers: liveData.groupData.totalMembers,
+        entries: liveData.groupData.entries,
+        exits: liveData.groupData.exits,
+        activeMembers: liveData.groupData.activeMembers
+      },
+
+      // Dados agregados do Meta
+      cached_meta_data: {
+        totalSpend: liveData.aggregatedInsights.totalSpend,
+        totalResults: liveData.aggregatedInsights.totalLeads,
+        campaignCount: liveData.campaigns.total,
+        insightsCount: liveData.dailyInsights.length
+      },
+
+      // Dados de tráfego (insights diários + hierarquia otimizada)
+      cached_traffic_data: {
+        dailyInsights: liveData.dailyInsights,
+        campaigns: liveData.campaigns.list,
+        groups: await getGroupsData(liveId),
+        campaignsHierarchy: formattedHierarchy,
+        lastUpdated: new Date().toISOString()
+      },
+
+      // Timestamps
+      traffic_last_synced_at: new Date().toISOString(),
+      last_synced_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // Salvar no banco
+    const { error } = await supabase
+      .from('lives')
+      .update(cacheData)
+      .eq('id', liveId);
+
+    if (error) {
+      throw error;
+    }
+
+    console.log('✅ [Optimized Cache] Dados salvos com sucesso');
+
+  } catch (error) {
+    console.error('❌ [Optimized Cache] Erro ao salvar cache:', error);
+    throw error;
+  }
 }
 
 /**
@@ -2074,8 +2266,318 @@ export async function getDeepCampaignAnalysis(live: Live): Promise<{
 }
 
 /**
+ * Verifica cache incremental e identifica dias em falta
+ * @param liveId ID da Live
+ * @param dateRange Período configurado na Live
+ * @returns Cache existente e dias que precisam ser buscados
+ */
+async function verificarCacheIncremental(
+  liveId: string,
+  dateRange: { since: string; until: string }
+): Promise<{
+  dadosCache: Record<string, any>;
+  diasEmFalta: string[];
+}> {
+  try {
+    // Buscar cache atual
+    const { data: liveData } = await supabase
+      .from('lives')
+      .select('cached_traffic_data_incremented')
+      .eq('id', liveId)
+      .single();
+
+    const dadosCache = liveData?.cached_traffic_data_incremented?.campaignsByDate || {};
+
+    // Gerar lista de todas as datas do período
+    const todasAsDatas: string[] = [];
+    const dataInicio = new Date(dateRange.since);
+    const dataFim = new Date(dateRange.until);
+
+    for (let data = new Date(dataInicio); data <= dataFim; data.setDate(data.getDate() + 1)) {
+      todasAsDatas.push(data.toISOString().split('T')[0]);
+    }
+
+    // Identificar dias em falta (que não estão no cache)
+    const diasEmFaltaTotal = todasAsDatas.filter(data => !dadosCache[data]);
+
+    // VALIDAÇÃO CRÍTICA: Filtrar apenas dias <= hoje (não buscar dias futuros)
+    const hoje = new Date().toISOString().split('T')[0];
+    const diasEmFalta = diasEmFaltaTotal.filter(data => data <= hoje);
+    const diasFuturos = diasEmFaltaTotal.filter(data => data > hoje);
+
+    console.log(`📅 [Cache Check] Período: ${dateRange.since} a ${dateRange.until}`);
+    console.log(`📦 [Cache Check] Dias em cache: ${Object.keys(dadosCache).length}`);
+    console.log(`🔍 [Cache Check] Dias em falta (total): ${diasEmFaltaTotal.length} (${diasEmFaltaTotal.join(', ')})`);
+    console.log(`✅ [Cache Check] Dias para buscar (até hoje): ${diasEmFalta.length} (${diasEmFalta.join(', ')})`);
+    console.log(`⏭️ [Cache Check] Dias futuros (ignorados): ${diasFuturos.length} (${diasFuturos.join(', ')})`);
+
+    return { dadosCache, diasEmFalta };
+  } catch (error) {
+    console.error('❌ [Cache Check] Erro ao verificar cache:', error);
+    // Em caso de erro, buscar todos os dias (mas apenas até hoje)
+    const todasAsDatas: string[] = [];
+    const dataInicio = new Date(dateRange.since);
+    const dataFim = new Date(dateRange.until);
+
+    for (let data = new Date(dataInicio); data <= dataFim; data.setDate(data.getDate() + 1)) {
+      todasAsDatas.push(data.toISOString().split('T')[0]);
+    }
+
+    // VALIDAÇÃO CRÍTICA: Filtrar apenas dias <= hoje mesmo no erro
+    const hoje = new Date().toISOString().split('T')[0];
+    const diasEmFalta = todasAsDatas.filter(data => data <= hoje);
+
+    console.log(`⚠️ [Cache Check] Erro - buscando apenas dias até hoje: ${diasEmFalta.length} dias`);
+
+    return { dadosCache: {}, diasEmFalta };
+  }
+}
+
+/**
+ * Busca dados incrementais para dias específicos usando endpoint /insights
+ * @param live Dados da Live
+ * @param diasParaBuscar Array de datas no formato YYYY-MM-DD
+ * @returns Dados organizados por data
+ */
+async function buscarDadosIncrementaisPorDia(
+  live: Live,
+  diasParaBuscar: string[]
+): Promise<Record<string, any>> {
+  if (diasParaBuscar.length === 0) {
+    return {};
+  }
+
+  console.log(`🚀 [Incremental Fetch] Buscando dados para ${diasParaBuscar.length} dias:`, diasParaBuscar);
+
+  // Buscar integração Meta do usuário
+  const { data: metaIntegration, error: metaError } = await supabase
+    .from('meta_integrations')
+    .select('*')
+    .eq('user_id', live.user_id)
+    .eq('is_active', true)
+    .single();
+
+  if (metaError || !metaIntegration) {
+    throw new Error(`Integração Meta não encontrada: ${metaError?.message}`);
+  }
+
+  // Buscar conta Meta selecionada
+  const { data: liveCampaigns } = await supabase
+    .from('live_campaigns')
+    .select('account_id')
+    .eq('live_id', live.id)
+    .limit(1);
+
+  const accountId = liveCampaigns?.[0]?.account_id;
+  if (!accountId) {
+    throw new Error('Account ID não encontrado');
+  }
+
+  const resultadosPorData: Record<string, any> = {};
+
+  // Para cada dia em falta, buscar dados usando o endpoint /insights correto
+  for (const dia of diasParaBuscar) {
+    try {
+      console.log(`📊 [Day Fetch] Buscando dados para ${dia}...`);
+
+      // CORREÇÃO: Usar endpoint /campaigns com time_increment para obter hierarquia completa
+      // Montar query fields nested (similar à função normal)
+      const fields = [
+        'id,name,status,',
+        'insights{spend,actions},',
+        'adsets{id,name,',
+        'insights{spend,actions},',
+        'ads{id,name,',
+        'creative{effective_object_story_id,object_story_id},',
+        'insights{spend,actions}',
+        '}}'
+      ].join('');
+
+      // Montar filtering dinâmico
+      const filtering = [
+        {
+          field: 'campaign.effective_status',
+          operator: 'IN',
+          value: ['ACTIVE', 'PAUSED']
+        },
+        {
+          field: 'campaign.name',
+          operator: 'CONTAIN',
+          value: live.campaign_search_term
+        }
+      ];
+
+      const params = new URLSearchParams({
+        fields: fields,
+        access_token: metaIntegration.access_token,
+        time_range: JSON.stringify({
+          since: dia,
+          until: dia
+        }),
+        time_increment: '1', // Dados diários
+        filtering: JSON.stringify(filtering),
+        limit: '100'
+      });
+
+      const url = `https://graph.facebook.com/v21.0/${accountId}/campaigns?${params.toString()}`;
+      console.log(`🌐 [Campaign Fetch] URL: ${url}`);
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      const campaigns = data.data || [];
+
+      // Processar campanhas com hierarquia completa
+      const campanhasDoDia: any[] = [];
+
+      campaigns.forEach((campaign: any) => {
+        // Extrair insights da campanha (dados agregados)
+        const campaignInsights = campaign.insights?.data?.[0] || {};
+        const campaignSpend = parseFloat(campaignInsights.spend || '0');
+        const campaignActions = campaignInsights.actions || [];
+        const campaignLeads = campaignActions.find((action: any) => action.action_type === 'lead')?.value ?
+          parseInt(campaignActions.find((action: any) => action.action_type === 'lead')!.value) : 0;
+        const campaignCpl = campaignLeads > 0 ? campaignSpend / campaignLeads : 0;
+
+        // Processar ad sets
+        const adSets = (campaign.adsets?.data || []).map((adSet: any) => {
+          const adSetInsights = adSet.insights?.data?.[0] || {};
+          const adSetSpend = parseFloat(adSetInsights.spend || '0');
+          const adSetActions = adSetInsights.actions || [];
+          const adSetLeads = adSetActions.find((action: any) => action.action_type === 'lead')?.value ?
+            parseInt(adSetActions.find((action: any) => action.action_type === 'lead')!.value) : 0;
+          const adSetCpl = adSetLeads > 0 ? adSetSpend / adSetLeads : 0;
+
+          // Processar ads
+          const ads = (adSet.ads?.data || []).map((ad: any) => {
+            const adInsights = ad.insights?.data?.[0] || {};
+            const adSpend = parseFloat(adInsights.spend || '0');
+            const adActions = adInsights.actions || [];
+            const adLeads = adActions.find((action: any) => action.action_type === 'lead')?.value ?
+              parseInt(adActions.find((action: any) => action.action_type === 'lead')!.value) : 0;
+            const adCpl = adLeads > 0 ? adSpend / adLeads : 0;
+
+            // Extrair URL do criativo
+            let creativeUrl = undefined;
+            if (ad.creative?.effective_object_story_id) {
+              creativeUrl = `https://www.facebook.com/${ad.creative.effective_object_story_id}`;
+            } else if (ad.creative?.object_story_id) {
+              creativeUrl = `https://www.facebook.com/${ad.creative.object_story_id}`;
+            }
+
+            return {
+              id: ad.id,
+              name: ad.name,
+              spend: adSpend,
+              leads: adLeads,
+              cpl: adCpl,
+              creativeUrl
+            };
+          });
+
+          return {
+            id: adSet.id,
+            name: adSet.name,
+            spend: adSetSpend,
+            leads: adSetLeads,
+            cpl: adSetCpl,
+            ads
+          };
+        });
+
+        campanhasDoDia.push({
+          id: campaign.id,
+          name: campaign.name,
+          spend: campaignSpend,
+          leads: campaignLeads,
+          cpl: campaignCpl,
+          adSets
+        });
+      });
+
+      if (campanhasDoDia.length > 0) {
+        const totalAdSets = campanhasDoDia.reduce((sum, campaign) => sum + campaign.adSets.length, 0);
+        const totalAds = campanhasDoDia.reduce((sum, campaign) =>
+          sum + campaign.adSets.reduce((adSum: any, adSet: any) => adSum + adSet.ads.length, 0), 0);
+
+        resultadosPorData[dia] = campanhasDoDia;
+        console.log(`✅ [Day Fetch] ${dia}: ${campanhasDoDia.length} campanhas, ${totalAdSets} adSets, ${totalAds} ads encontrados`);
+      } else {
+        console.log(`⚠️ [Day Fetch] ${dia}: Nenhuma campanha encontrada`);
+      }
+
+    } catch (error) {
+      console.error(`❌ [Day Fetch] Erro ao buscar dados para ${dia}:`, error);
+      // Continuar com outros dias mesmo se um falhar
+    }
+  }
+
+  return resultadosPorData;
+}
+
+/**
+ * Salva novos dados incrementais no cache
+ * @param liveId ID da Live
+ * @param novosDados Dados organizados por data para salvar
+ */
+async function salvarCacheIncremental(
+  liveId: string,
+  novosDados: Record<string, any>
+): Promise<void> {
+  try {
+    if (Object.keys(novosDados).length === 0) {
+      console.log('📦 [Cache Save] Nenhum dado novo para salvar');
+      return;
+    }
+
+    // Buscar cache atual
+    const { data: liveData } = await supabase
+      .from('lives')
+      .select('cached_traffic_data_incremented')
+      .eq('id', liveId)
+      .single();
+
+    const cacheAtual = liveData?.cached_traffic_data_incremented || {};
+    const campaignsByDateAtual = cacheAtual.campaignsByDate || {};
+
+    // Combinar dados existentes com novos dados
+    const campaignsByDateAtualizado = {
+      ...campaignsByDateAtual,
+      ...novosDados
+    };
+
+    // Salvar no banco
+    const { error } = await supabase
+      .from('lives')
+      .update({
+        cached_traffic_data_incremented: {
+          campaignsByDate: campaignsByDateAtualizado,
+          lastUpdated: new Date().toISOString(),
+          totalDays: Object.keys(campaignsByDateAtualizado).length
+        }
+      })
+      .eq('id', liveId);
+
+    if (error) {
+      throw error;
+    }
+
+    console.log(`💾 [Cache Save] Salvos dados de ${Object.keys(novosDados).length} dias`);
+    console.log(`📊 [Cache Save] Total de dias em cache: ${Object.keys(campaignsByDateAtualizado).length}`);
+
+  } catch (error) {
+    console.error('❌ [Cache Save] Erro ao salvar cache incremental:', error);
+    throw error;
+  }
+}
+
+/**
  * Busca dados completos de campanhas com time_increment para análise por data
- * Versão incrementada da getDeepCampaignAnalysis com dados organizados por dia
+ * NOVA VERSÃO: Usa cache inteligente + endpoint /insights correto
  * @param live Dados da Live
  * @returns Estrutura hierárquica completa das campanhas organizadas por data
  */
@@ -2113,329 +2615,65 @@ export async function getDeepCampaignAnalysisIncremented(live: Live): Promise<{
   const startTime = Date.now();
 
   try {
-    console.log('🚀 [Deep Campaign Analysis Incremented] Iniciando busca de dados nested com time_increment...');
+    console.log('🚀 [Smart Incremented Analysis] Iniciando análise inteligente com cache...');
 
-    // Buscar integração Meta do usuário
-    const { data: metaIntegration, error: metaError } = await supabase
-      .from('meta_integrations')
-      .select('*')
-      .eq('user_id', live.user_id)
-      .eq('is_active', true)
-      .single();
+    const dateRange = {
+      since: live.insights_date_since,
+      until: live.insights_date_until
+    };
 
-    if (metaError || !metaIntegration) {
-      throw new Error(`Integração Meta não encontrada: ${metaError?.message}`);
-    }
+    // ETAPA 1: Verificar cache e identificar dias em falta
+    const { dadosCache, diasEmFalta } = await verificarCacheIncremental(live.id, dateRange);
 
-    // Buscar conta Meta selecionada
-    const { data: liveCampaigns } = await supabase
-      .from('live_campaigns')
-      .select('account_id')
-      .eq('live_id', live.id)
-      .limit(1);
+    let novosDados: Record<string, any> = {};
+    let requestTime = 0;
+    let payloadSize = 0;
 
-    const accountId = liveCampaigns?.[0]?.account_id;
-    if (!accountId) {
-      throw new Error('Account ID não encontrado');
-    }
+    // ETAPA 2: Buscar apenas dias em falta (se houver)
+    if (diasEmFalta.length > 0) {
+      console.log(`🔄 [Smart Cache] Buscando ${diasEmFalta.length} dias em falta...`);
 
-    console.log(`📊 [Incremented Analysis] Fazendo requisição para conta: ${accountId}`);
+      const fetchStartTime = Date.now();
+      novosDados = await buscarDadosIncrementaisPorDia(live, diasEmFalta);
+      requestTime = Date.now() - fetchStartTime;
+      payloadSize = JSON.stringify(novosDados).length;
 
-    // Montar query fields nested (sem time_range dentro dos fields)
-    const fields = [
-      'id,name,status,',
-      'insights{spend,actions,date_start},',
-      'adsets{id,name,',
-      'insights{spend,actions,date_start},',
-      'ads{id,name,',
-      'creative{effective_object_story_id,object_story_id},',
-      'insights{spend,actions,date_start}',
-      '}}'
-    ].join('');
-
-    // Montar filtering dinâmico
-    const filtering = [
-      {
-        field: 'campaign.effective_status',
-        operator: 'IN',
-        value: ['ACTIVE', 'PAUSED']
-      },
-      {
-        field: 'campaign.name',
-        operator: 'CONTAIN',
-        value: live.campaign_search_term
+      // ETAPA 3: Salvar novos dados no cache
+      if (Object.keys(novosDados).length > 0) {
+        await salvarCacheIncremental(live.id, novosDados);
       }
-    ];
-
-    const params = new URLSearchParams({
-      fields: fields,
-      access_token: metaIntegration.access_token,
-      time_range: JSON.stringify({
-        since: live.insights_date_since,
-        until: live.insights_date_until
-      }),
-      time_increment: '1', // NOVO: Incremento de 1 dia
-      filtering: JSON.stringify(filtering),
-      limit: '100'
-    });
-
-    console.log(`🔗 [Incremented Analysis] URL construída:`, `https://graph.facebook.com/v23.0/${accountId}/campaigns?${params}`);
-
-    // Fazer requisição única consolidada
-    const response = await fetch(`https://graph.facebook.com/v23.0/${accountId}/campaigns?${params}`);
-
-    if (!response.ok) {
-      throw new Error(`Erro na requisição Graph API: ${response.status} ${response.statusText}`);
+    } else {
+      console.log('✅ [Smart Cache] Todos os dias já estão em cache!');
     }
 
-    const data = await response.json();
-    const requestTime = Date.now() - startTime;
-
-    // Calcular métricas da resposta
-    const payloadSize = JSON.stringify(data).length;
-    const campaigns = data.data || [];
-
-    console.log(`📦 [Incremented Analysis] Dados recebidos:`, {
-      campaigns: campaigns.length,
-      payload: `${(payloadSize / 1024).toFixed(2)} KB`,
-      tempo: `${requestTime}ms`
-    });
-
-
-    // Debug: Verificar insights de campanha
-    campaigns.forEach((campaign: any, index: number) => {
-      console.log(`🔍 [DEBUG] Campanha ${index + 1} (${campaign.name}):`, {
-        totalInsights: campaign.insights?.data?.length || 0,
-        insights: campaign.insights?.data?.map((insight: any) => ({
-          date_start: insight.date_start,
-          spend: insight.spend
-        }))
-      });
-    });
-
-    // Coletar todos os effective_object_story_ids para buscar permalink_urls
-    const objectStoryIds = new Set<string>();
-
-    campaigns.forEach((campaign: any) => {
-      campaign.adsets?.data?.forEach((adSet: any) => {
-        adSet.ads?.data?.forEach((ad: any) => {
-          const storyId = ad.creative?.effective_object_story_id || ad.creative?.object_story_id;
-          if (storyId) {
-            objectStoryIds.add(storyId);
-          }
-        });
-      });
-    });
-
-    console.log(`🔗 [Incremented Batch Fetch] Encontrados ${objectStoryIds.size} object_story_ids únicos`);
-
-    // Buscar dados dos criativos usando batch API (reutilizando lógica existente)
-    const creativeDataMap = new Map<string, { permalink_url: string }>();
-
-    if (objectStoryIds.size > 0) {
-      console.log(`🚀 [Incremented Batch Fetch] Iniciando busca via batch API...`);
-
-      const batchStartTime = Date.now();
-      const storyIdsArray = Array.from(objectStoryIds);
-
-      // Criar sub-requests para cada story_id
-      const subRequests = storyIdsArray.map((storyId, index) => ({
-        method: 'GET',
-        relative_url: `${storyId}?fields=permalink_url`
-      }));
-
-      // Dividir em chunks de 50 (limite do Meta)
-      const BATCH_SIZE = 50;
-      const batches = [];
-      for (let i = 0; i < subRequests.length; i += BATCH_SIZE) {
-        batches.push(subRequests.slice(i, i + BATCH_SIZE));
-      }
-
-      // Executar batches sequencialmente
-      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-        const batch = batches[batchIndex];
-        console.log(`🔄 [Incremented Batch ${batchIndex + 1}/${batches.length}] Processando ${batch.length} sub-requests...`);
-
-        try {
-          const batchParams = new URLSearchParams({
-            access_token: metaIntegration.access_token,
-            batch: JSON.stringify(batch)
-          });
-
-          const batchResponse = await fetch(`https://graph.facebook.com/v23.0/`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: batchParams
-          });
-
-          if (batchResponse.ok) {
-            const batchData = await batchResponse.json();
-
-            // Processar resultados do batch
-            batchData.forEach((result: any, index: number) => {
-              const storyId = storyIdsArray[batchIndex * BATCH_SIZE + index];
-
-              if (result.code === 200) {
-                try {
-                  const resultData = JSON.parse(result.body);
-                  if (resultData.permalink_url) {
-                    // Permalink real obtido com sucesso
-                    creativeDataMap.set(storyId, {
-                      permalink_url: resultData.permalink_url
-                    });
-                  } else {
-                    // Sem permalink, gerar fallback
-                    const fallbackLink = generateFallbackLink(storyId);
-                    creativeDataMap.set(storyId, {
-                      permalink_url: fallbackLink
-                    });
-                  }
-                } catch (parseError) {
-                  // Erro ao parsear, gerar fallback
-                  const fallbackLink = generateFallbackLink(storyId);
-                  creativeDataMap.set(storyId, {
-                    permalink_url: fallbackLink
-                  });
-                }
-              } else {
-                // Qualquer erro → gerar fallback sem logar erro detalhado
-                const fallbackLink = generateFallbackLink(storyId);
-                creativeDataMap.set(storyId, {
-                  permalink_url: fallbackLink
-                });
-              }
-            });
-          }
-        } catch (error) {
-          console.log(`❌ [Incremented Batch ${batchIndex + 1}] Erro ao processar:`, error);
-        }
-
-        // Pequeno delay entre batches para evitar rate limits
-        if (batchIndex < batches.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      }
-
-      const batchTime = Date.now() - batchStartTime;
-      console.log(`⏱️ [Incremented Batch Fetch] Concluído em ${batchTime}ms - ${creativeDataMap.size}/${objectStoryIds.size} criativos processados`);
-    }
-
-    // Organizar dados por data
-    const campaignsByDate: Record<string, Array<any>> = {};
-
-    campaigns.forEach((campaign: any) => {
-      const campaignInsights = campaign.insights?.data || [];
-
-      campaignInsights.forEach((insight: any) => {
-        const date = insight.date_start;
-        if (!campaignsByDate[date]) {
-          campaignsByDate[date] = [];
-        }
-
-        const campaignSpend = parseFloat(insight.spend || '0');
-        const campaignLeads = insight.actions?.find((action: any) => action.action_type === 'lead')?.value ?
-          parseInt(insight.actions.find((action: any) => action.action_type === 'lead')!.value) : 0;
-        const campaignCpl = campaignLeads > 0 ? campaignSpend / campaignLeads : 0;
-
-        const processedAdSets = (campaign.adsets?.data || []).map((adSet: any) => {
-          const adSetInsight = adSet.insights?.data?.find((ins: any) => ins.date_start === date);
-
-          if (!adSetInsight) {
-            return null; // Pular adSet sem dados para esta data
-          }
-
-          const adSetSpend = parseFloat(adSetInsight.spend || '0');
-          const adSetLeads = adSetInsight.actions?.find((action: any) => action.action_type === 'lead')?.value ?
-            parseInt(adSetInsight.actions.find((action: any) => action.action_type === 'lead')!.value) : 0;
-          const adSetCpl = adSetLeads > 0 ? adSetSpend / adSetLeads : 0;
-
-          const processedAds = (adSet.ads?.data || []).map((ad: any) => {
-            const adInsight = ad.insights?.data?.find((ins: any) => ins.date_start === date);
-
-            if (!adInsight) {
-              return null; // Pular ad sem dados para esta data
-            }
-
-            const adSpend = parseFloat(adInsight.spend || '0');
-            const adLeads = adInsight.actions?.find((action: any) => action.action_type === 'lead')?.value ?
-              parseInt(adInsight.actions.find((action: any) => action.action_type === 'lead')!.value) : 0;
-            const adCpl = adLeads > 0 ? adSpend / adLeads : 0;
-
-            // Buscar permalink do mapa ou gerar fallback se necessário
-            const storyId = ad.creative?.effective_object_story_id || ad.creative?.object_story_id;
-            let permalinkUrl: string | undefined;
-
-            if (storyId) {
-              const creativeData = creativeDataMap.get(storyId);
-              if (creativeData) {
-                permalinkUrl = creativeData.permalink_url;
-              } else {
-                // Se não encontrou no mapa, gerar fallback
-                permalinkUrl = generateFallbackLink(storyId);
-              }
-            }
-
-            return {
-              id: ad.id,
-              name: ad.name,
-              spend: adSpend,
-              leads: adLeads,
-              cpl: adCpl,
-              creativeUrl: permalinkUrl
-            };
-          }).filter((ad: any) => ad !== null); // Remover ads sem dados para esta data
-
-          return {
-            id: adSet.id,
-            name: adSet.name,
-            spend: adSetSpend,
-            leads: adSetLeads,
-            cpl: adSetCpl,
-            ads: processedAds
-          };
-        }).filter((adSet: any) => adSet !== null); // Remover adSets sem dados para esta data
-
-        campaignsByDate[date].push({
-          id: campaign.id,
-          name: campaign.name,
-          spend: campaignSpend,
-          leads: campaignLeads,
-          cpl: campaignCpl,
-          adSets: processedAdSets
-        });
-      });
-    });
+    // ETAPA 4: Combinar cache + novos dados
+    const campaignsByDate = {
+      ...dadosCache,
+      ...novosDados
+    };
 
     const totalDays = Object.keys(campaignsByDate).length;
+    const totalRequestTime = Date.now() - startTime;
 
-    // Log para validação antes do salvamento
-    console.log(`📝 [Incremented Analysis] DADOS COMPLETOS ANTES DO SALVAMENTO:`);
-    console.log(`📊 [Incremented Analysis] Total de dias processados: ${totalDays}`);
-    console.log(`📅 [Incremented Analysis] Datas encontradas:`, Object.keys(campaignsByDate).sort());
-    console.log(`🔍 [Incremented Analysis] Estrutura completa por data:`, campaignsByDate);
-
-    // Debug logs finais
-    console.log(`⏱️ [Incremented Analysis] Tempo total de execução: ${requestTime}ms`);
-    console.log(`📦 [Incremented Analysis] Tamanho do payload: ${(payloadSize / 1024).toFixed(2)} KB`);
-    console.log(`📊 [Incremented Analysis] Campanhas base retornadas: ${campaigns.length}`);
-    console.log(`🔗 [Incremented Analysis] Dados dos criativos obtidos: ${creativeDataMap.size}/${objectStoryIds.size}`);
+    // Log final
+    console.log(`📊 [Smart Incremented Analysis] Resumo final:`);
+    console.log(`🔄 Dias buscados: ${diasEmFalta.length}`);
+    console.log(`📦 Dias em cache: ${Object.keys(dadosCache).length}`);
+    console.log(`📊 Total de dias: ${totalDays}`);
+    console.log(`⏱️ Tempo total: ${totalRequestTime}ms`);
+    console.log(`📅 Datas disponíveis:`, Object.keys(campaignsByDate).sort());
 
     return {
       campaignsByDate,
-      requestTime,
+      requestTime: totalRequestTime,
       payloadSize,
-      dateRange: {
-        since: live.insights_date_since,
-        until: live.insights_date_until
-      },
+      dateRange,
       totalDays
     };
 
   } catch (error) {
     const requestTime = Date.now() - startTime;
-    console.error(`❌ [Incremented Analysis] Erro após ${requestTime}ms:`, error);
+    console.error(`❌ [Smart Incremented Analysis] Erro após ${requestTime}ms:`, error);
 
     return {
       campaignsByDate: {},
