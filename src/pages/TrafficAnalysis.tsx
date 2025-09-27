@@ -11,7 +11,7 @@ import { PublicAudience, PublicAudienceCorrelation } from "@/types/audience";
 import { fetchPublicAudiences, generateAudienceCorrelation } from "@/utils/audienceService";
 // Removido imports legados: AdSetData, CampaignData, extractAdSetDataFromInsights, extractCampaignData
 import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
-import { getLiveDataFromDatabase, isHierarchicalCacheValid, updateHierarchicalCache, generateCampaignsHierarchy, getDeepCampaignAnalysis } from '@/utils/LiveData/getLiveData';
+import { getLiveDataFromDatabase, isHierarchicalCacheValid, updateHierarchicalCache, getDeepCampaignAnalysis } from '@/utils/LiveData/getLiveData';
 import { fetchCompleteLiveData } from "@/utils/liveDataFetcher";
 // Removido import legado: fetchAdSetInsights
 import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Filter, RefreshCw } from "lucide-react";
@@ -100,7 +100,6 @@ const TrafficAnalysis = () => {
           }>;
         }>;
       }>;
-      adSetData?: AdSetData[];
     };
     cached_traffic_metrics?: {
       cplLiquido: number;
@@ -397,13 +396,85 @@ const TrafficAnalysis = () => {
           console.error('Erro ao carregar públicos:', error);
         }
         
-        // Verificar cache da tabela hierárquica
-        try {
-          const isCacheValid = await isHierarchicalCacheValid(liveId);
-          setHierarchicalCacheValid(isCacheValid);
-        } catch (error) {
-          console.error('Erro ao verificar cache hierárquico:', error);
-          setHierarchicalCacheValid(false);
+        // Atualizar dados hierárquicos se chamado pelo botão principal (isFromButton = true)
+        if (isFromButton) {
+          try {
+            console.log('🔄 [Global Refresh] Atualizando dados hierárquicos junto com cache global...');
+            setIsHierarchicalRefreshing(true);
+
+            // Usar nova função getDeepCampaignAnalysis
+            const deepAnalysis = await getDeepCampaignAnalysis({
+              id: liveData.id,
+              name: liveData.name,
+              user_id: liveData.user_id,
+              campaign_search_term: liveData.campaign_search_term,
+              insights_date_since: liveData.insights_date_since,
+              insights_date_until: liveData.insights_date_until,
+              ad_budget: parseFloat(liveData.ad_budget)
+            });
+
+            // Converter para formato esperado pela tabela hierárquica
+            const formattedHierarchy = {
+              campaigns: deepAnalysis.campaigns.map(campaign => ({
+                id: campaign.id,
+                name: campaign.name,
+                totalSpend: campaign.insights.spend,
+                totalLeads: campaign.insights.actions?.find(action => action.action_type === 'lead')?.value ?
+                  parseInt(campaign.insights.actions.find(action => action.action_type === 'lead')!.value) : 0,
+                cpl: campaign.insights.spend > 0 && campaign.insights.actions?.find(action => action.action_type === 'lead') ?
+                  campaign.insights.spend / parseInt(campaign.insights.actions.find(action => action.action_type === 'lead')!.value || '0') : 0,
+                adSets: campaign.adSets.map(adSet => ({
+                  id: adSet.id,
+                  name: adSet.name,
+                  totalSpend: adSet.insights.spend,
+                  totalLeads: adSet.insights.actions?.find(action => action.action_type === 'lead')?.value ?
+                    parseInt(adSet.insights.actions.find(action => action.action_type === 'lead')!.value) : 0,
+                  cpl: adSet.insights.spend > 0 && adSet.insights.actions?.find(action => action.action_type === 'lead') ?
+                    adSet.insights.spend / parseInt(adSet.insights.actions.find(action => action.action_type === 'lead')!.value || '0') : 0,
+                  insights: adSet.ads.map(ad => ({
+                    id: ad.id,
+                    name: ad.name,
+                    spend: ad.insights.spend,
+                    leads: ad.insights.actions?.find(action => action.action_type === 'lead')?.value ?
+                      parseInt(ad.insights.actions.find(action => action.action_type === 'lead')!.value) : 0,
+                    cpl: ad.insights.spend > 0 && ad.insights.actions?.find(action => action.action_type === 'lead') ?
+                      ad.insights.spend / parseInt(ad.insights.actions.find(action => action.action_type === 'lead')!.value || '0') : 0,
+                    creativeUrl: ad.creative.permalink_url
+                  }))
+                }))
+              }))
+            };
+
+            // Atualizar cache no banco
+            await updateHierarchicalCache(liveId, formattedHierarchy);
+
+            // Atualizar estado local
+            setCampaignsHierarchy(formattedHierarchy);
+            setHierarchicalCacheValid(true);
+
+            console.log(`✅ [Global Refresh] Dados hierárquicos atualizados:`, {
+              tempo: `${deepAnalysis.requestTime}ms`,
+              payload: `${(deepAnalysis.payloadSize / 1024).toFixed(2)} KB`,
+              campanhas: deepAnalysis.campaignCount,
+              adSets: deepAnalysis.adSetCount,
+              ads: deepAnalysis.adCount
+            });
+
+          } catch (error) {
+            console.error('❌ [Global Refresh] Erro ao atualizar dados hierárquicos:', error);
+            setHierarchicalCacheValid(false);
+          } finally {
+            setIsHierarchicalRefreshing(false);
+          }
+        } else {
+          // Se não é refresh do botão, apenas verificar cache
+          try {
+            const isCacheValid = await isHierarchicalCacheValid(liveId);
+            setHierarchicalCacheValid(isCacheValid);
+          } catch (error) {
+            console.error('Erro ao verificar cache hierárquico:', error);
+            setHierarchicalCacheValid(false);
+          }
         }
         
         setIsLoading(false);
@@ -421,83 +492,6 @@ const TrafficAnalysis = () => {
     }
   }, [liveId]);
 
-  // Função para atualizar cache da tabela hierárquica usando nova implementação
-  const handleHierarchicalRefresh = useCallback(async () => {
-    if (!liveId) return;
-
-    setIsHierarchicalRefreshing(true);
-
-    try {
-      // Buscar dados da Live
-      const liveData = await getLiveDataFromDatabase(liveId);
-      if (!liveData) {
-        throw new Error('Live não encontrada');
-      }
-
-      // Usar nova função getDeepCampaignAnalysis
-      const deepAnalysis = await getDeepCampaignAnalysis({
-        id: liveData.id,
-        name: liveData.name,
-        user_id: liveData.user_id,
-        campaign_search_term: liveData.campaign_search_term,
-        insights_date_since: liveData.insights_date_since,
-        insights_date_until: liveData.insights_date_until,
-        ad_budget: parseFloat(liveData.ad_budget)
-      });
-
-      // Converter para formato esperado pela tabela hierárquica
-      const formattedHierarchy = {
-        campaigns: deepAnalysis.campaigns.map(campaign => ({
-          id: campaign.id,
-          name: campaign.name,
-          totalSpend: campaign.insights.spend,
-          totalLeads: campaign.insights.actions?.find(action => action.action_type === 'lead')?.value ?
-            parseInt(campaign.insights.actions.find(action => action.action_type === 'lead')!.value) : 0,
-          cpl: campaign.insights.spend > 0 && campaign.insights.actions?.find(action => action.action_type === 'lead') ?
-            campaign.insights.spend / parseInt(campaign.insights.actions.find(action => action.action_type === 'lead')!.value || '0') : 0,
-          adSets: campaign.adSets.map(adSet => ({
-            id: adSet.id,
-            name: adSet.name,
-            totalSpend: adSet.insights.spend,
-            totalLeads: adSet.insights.actions?.find(action => action.action_type === 'lead')?.value ?
-              parseInt(adSet.insights.actions.find(action => action.action_type === 'lead')!.value) : 0,
-            cpl: adSet.insights.spend > 0 && adSet.insights.actions?.find(action => action.action_type === 'lead') ?
-              adSet.insights.spend / parseInt(adSet.insights.actions.find(action => action.action_type === 'lead')!.value || '0') : 0,
-            insights: adSet.ads.map(ad => ({
-              id: ad.id,
-              name: ad.name,
-              spend: ad.insights.spend,
-              leads: ad.insights.actions?.find(action => action.action_type === 'lead')?.value ?
-                parseInt(ad.insights.actions.find(action => action.action_type === 'lead')!.value) : 0,
-              cpl: ad.insights.spend > 0 && ad.insights.actions?.find(action => action.action_type === 'lead') ?
-                ad.insights.spend / parseInt(ad.insights.actions.find(action => action.action_type === 'lead')!.value || '0') : 0,
-              creativeUrl: ad.creative.permalink_url
-            }))
-          }))
-        }))
-      };
-
-      // Atualizar cache no banco
-      await updateHierarchicalCache(liveId, formattedHierarchy);
-
-      // Atualizar estado local
-      setCampaignsHierarchy(formattedHierarchy);
-      setHierarchicalCacheValid(true);
-
-      console.log(`✅ [Deep Campaign Analysis] Análise concluída:`, {
-        tempo: `${deepAnalysis.requestTime}ms`,
-        payload: `${(deepAnalysis.payloadSize / 1024).toFixed(2)} KB`,
-        campanhas: deepAnalysis.campaignCount,
-        adSets: deepAnalysis.adSetCount,
-        ads: deepAnalysis.adCount
-      });
-
-    } catch (error) {
-      console.error('❌ [Deep Campaign Analysis] Erro ao atualizar análise hierárquica:', error);
-    } finally {
-      setIsHierarchicalRefreshing(false);
-    }
-  }, [liveId]);
 
   // CACHE SYSTEM - Funções de cache
   const fetchTrafficDataWithCache = useCallback(async () => {
@@ -543,10 +537,6 @@ const TrafficAnalysis = () => {
           setCampaigns(live.cached_traffic_data.campaigns || []);
           setCampaignsWithInsights(live.cached_traffic_data.campaignsWithInsights || []);
           
-          // CORRIGIDO: Carregar adSetData do cache se disponível
-          if (live.cached_traffic_data.adSetData) {
-            setAdSetData(live.cached_traffic_data.adSetData);
-          }
         }
         
         // Preencher campos de data automaticamente baseado nos dados disponíveis
@@ -588,33 +578,8 @@ const TrafficAnalysis = () => {
         setStartDate(completeData.live.insights_date_since);
         setEndDate(completeData.live.insights_date_until);
       }
-      // Buscar dados de conjuntos de anúncios diretamente do Meta
-      let adSetDataToCache: AdSetData[] = [];
-      try {
-        const accountId = completeData.metaAdAccount?.ad_account_id;
-
-        if (accountId && completeData.metaIntegration?.access_token) {
-          const adSetInsights = await fetchAdSetInsights(
-            accountId,
-            completeData.metaIntegration.access_token,
-            {
-              dateRange: {
-                since: completeData.live?.insights_date_since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                until: completeData.live?.insights_date_until || new Date().toISOString().split('T')[0]
-              },
-              searchTerm: completeData.live?.campaign_search_term
-            }
-          );
-          
-          adSetDataToCache = extractAdSetDataFromInsights(adSetInsights);
-          setAdSetData(adSetDataToCache);
-        } else {
-        }
-      } catch (error) {
-      }
-      
-      // Salvar dados no cache (incluindo adSetData)
-      await updateTrafficCache(liveId, completeData, adSetDataToCache);
+      // Salvar dados no cache
+      await updateTrafficCache(liveId, completeData);
       
       // Atualizar status do cache após salvar
       setCacheStatus({
@@ -685,14 +650,12 @@ const TrafficAnalysis = () => {
         }>;
       }>;
     }, 
-    adSetDataToCache?: AdSetData[]
   ) => {
     try {
       const trafficData = {
         groups: completeData.groups || [],
         campaigns: completeData.liveCampaigns || [],
         campaignsWithInsights: completeData.campaignInsights || [],
-        adSetData: adSetDataToCache || [] // CORRIGIDO: Incluir adSetData no cache
       };
 
       const { error } = await supabase
@@ -1123,12 +1086,8 @@ const TrafficAnalysis = () => {
         // TODO: Implementar recálculo de dados hierárquicos de campanhas
         
         // TODO: Implementar busca de dados hierárquicos de campanhas
-        // Por enquanto, usar dados do cache se disponível
-        if (completeData.campaignsHierarchy) {
-          setCampaignsHierarchy(completeData.campaignsHierarchy);
-        } else {
-          setCampaignsHierarchy({ campaigns: [] });
-        }
+        // Por enquanto, usar dados hierárquicos do cache se disponível
+        setCampaignsHierarchy({ campaigns: [] });
       }
       
     } catch (err) {
@@ -1461,17 +1420,6 @@ const TrafficAnalysis = () => {
                 <Button onClick={handleApplyFilters} className="flex items-center gap-2">
                 <Filter className="h-4 w-4" />
                 Filtrar
-              </Button>
-              {/* Botão de atualização independente */}
-              <Button
-                onClick={handleHierarchicalRefresh}
-                disabled={isHierarchicalRefreshing}
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${isHierarchicalRefreshing ? 'animate-spin' : ''}`} />
-                {isHierarchicalRefreshing ? 'Atualizando...' : 'Atualizar Hierarquia'}
               </Button>
             </div>
           </div>
