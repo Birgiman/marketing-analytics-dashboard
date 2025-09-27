@@ -154,33 +154,9 @@ const Details = () => {
         // Não interromper o fluxo se a Edge Function falhar
       }
 
-      // Agora, usar getLiveData para validar cache e buscar dados frescos se necessário
-      const liveDataResult = await getLiveData(liveId, false); // false = verificar cache primeiro
-      
-      // Atualizar dados com os resultados mais recentes
-      if (liveDataResult) {
-        setMetrics({
-          cplMeta: liveDataResult.metrics.cplMeta,
-          cplLiquido: liveDataResult.metrics.cplLiquido,
-          retentionRate: liveDataResult.metrics.retentionRate,
-          cplLiquidoPlanejamento: liveDataResult.metrics.cplLiquidoPlanejamento
-        });
-        
-        setExtractedData({
-          metaData: {
-            totalSpend: liveDataResult.aggregatedInsights.totalSpend,
-            totalResults: liveDataResult.aggregatedInsights.totalLeads,
-            campaignCount: liveDataResult.campaigns.total
-          },
-          groupData: {
-            totalGroups: 0, // Será calculado baseado nos dados
-            totalMembers: liveDataResult.groupData.totalMembers,
-            entries: liveDataResult.groupData.entries,
-            exits: liveDataResult.groupData.exits,
-            activeMembers: liveDataResult.groupData.activeMembers
-          }
-        });
-      }
+      // Dados já foram atualizados pela Edge Function
+      // Recarregar dados do cache atualizado
+      await loadDataFromDatabase();
       
       setIsLoading(false);
     } catch (error) {
