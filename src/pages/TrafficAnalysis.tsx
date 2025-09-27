@@ -752,9 +752,9 @@ const TrafficAnalysis = () => {
   const handleRefreshStart = async () => {
     setIsButtonRefreshing(true);
     try {
-      // Chamar Edge Function para forçar sincronização
+      // Chamar Edge Function para forçar sincronização (ignorar cache)
       try {
-        await syncLiveMetaData(liveId!);
+        await syncLiveMetaData(liveId!, true); // true = forçar refresh
         console.log(`✅ [TrafficAnalysis] Edge Function executada no refresh`);
       } catch (edgeError) {
         console.warn(`⚠️ [TrafficAnalysis] Edge Function falhou no refresh, continuando:`, edgeError);
@@ -804,9 +804,49 @@ const TrafficAnalysis = () => {
   // Estados para controle de inicialização
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Função para chamar a Edge Function syncLiveMetaData
-  const syncLiveMetaData = useCallback(async (liveId: string) => {
+  // Função para verificar se o cache ainda é válido (30 minutos)
+  const isCacheValid = useCallback(async (liveId: string): Promise<boolean> => {
     try {
+      const { data: liveData, error } = await supabase
+        .from('lives')
+        .select('traffic_last_synced_at')
+        .eq('id', liveId)
+        .single();
+
+      if (error || !liveData?.traffic_last_synced_at) {
+        console.log(`📅 [TrafficAnalysis] Sem cache válido para Live: ${liveId}`);
+        return false;
+      }
+
+      const lastSynced = new Date(liveData.traffic_last_synced_at);
+      const now = new Date();
+      const diffMinutes = Math.floor((now.getTime() - lastSynced.getTime()) / (1000 * 60));
+      const CACHE_DURATION_MINUTES = 30;
+
+      const isValid = diffMinutes < CACHE_DURATION_MINUTES;
+      console.log(`📅 [TrafficAnalysis] Cache ${isValid ? 'VÁLIDO' : 'EXPIRADO'} - Última sincronização: ${diffMinutes} min atrás`);
+
+      return isValid;
+    } catch (error) {
+      console.error(`❌ [TrafficAnalysis] Erro ao verificar cache:`, error);
+      return false;
+    }
+  }, []);
+
+  // Função para chamar a Edge Function syncLiveMetaData com verificação de cache
+  const syncLiveMetaData = useCallback(async (liveId: string, forceRefresh = false) => {
+    try {
+      // Verificar cache apenas se não for refresh forçado
+      if (!forceRefresh) {
+        const cacheIsValid = await isCacheValid(liveId);
+        if (cacheIsValid) {
+          console.log(`✅ [TrafficAnalysis] Cache válido - pulando Edge Function para Live: ${liveId}`);
+          return { status: 'cache_valid' };
+        }
+      }
+
+      console.log(`🚀 [TrafficAnalysis] Chamando Edge Function syncLiveMetaData para Live: ${liveId}`);
+
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.user) {
         throw new Error('Usuário não autenticado');
@@ -820,12 +860,13 @@ const TrafficAnalysis = () => {
         throw new Error(`Erro na Edge Function: ${response.error.message}`);
       }
 
+      console.log(`✅ [TrafficAnalysis] Edge Function executada com sucesso:`, response.data);
       return response.data;
     } catch (error) {
       console.error('❌ [TrafficAnalysis] Erro ao chamar Edge Function:', error);
       throw error;
     }
-  }, []);
+  }, [isCacheValid]);
 
   // Carregar dados na inicialização (igual ao Details.tsx)
   useEffect(() => {
@@ -836,10 +877,10 @@ const TrafficAnalysis = () => {
         setIsLoading(true);
         setError(null);
 
-        // Chamar Edge Function para sincronizar dados do Meta
+        // Chamar Edge Function para sincronizar dados do Meta (com verificação de cache)
         try {
-          await syncLiveMetaData(liveId);
-          console.log(`✅ [TrafficAnalysis] Edge Function executada com sucesso`);
+          await syncLiveMetaData(liveId, false); // false = não forçar refresh
+          console.log(`✅ [TrafficAnalysis] Sincronização concluída`);
         } catch (edgeError) {
           console.warn(`⚠️ [TrafficAnalysis] Edge Function falhou, continuando com dados do cache:`, edgeError);
           // Não interromper o fluxo se a Edge Function falhar

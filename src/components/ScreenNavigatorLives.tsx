@@ -27,23 +27,24 @@ export function ScreenNavigatorLives({
   // Função para forçar atualização dos dados
   const handleForceRefresh = async () => {
     if (!liveId) return;
-    
+
     setIsButtonLoading(true);
-    
-    // Notificar que o refresh começou
+
+    // Notificar que o refresh começou (isso vai chamar onRefreshStart que força a Edge Function)
     if (onRefreshStart) {
       onRefreshStart();
     }
-    
+
     try {
-      // Edge Function já foi chamada automaticamente
-      // Apenas notificar que os dados foram atualizados
-      
+      // Aguardar um momento para a Edge Function completar
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       // Notificar que os dados foram atualizados
       if (onDataUpdated) {
         onDataUpdated();
       }
     } catch (error) {
+      console.error('Erro no refresh:', error);
     } finally {
       setIsButtonLoading(false);
     }

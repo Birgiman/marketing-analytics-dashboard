@@ -64,6 +64,10 @@ interface CampaignHierarchy {
 
 console.log('Sync Live Meta Data function loaded');
 
+// NOTA: Esta Edge Function deve ser chamada com verificação de cache no frontend.
+// O frontend deve verificar traffic_last_synced_at e apenas chamar esta função
+// se o cache tiver mais de 30 minutos ou se for um refresh forçado.
+
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
