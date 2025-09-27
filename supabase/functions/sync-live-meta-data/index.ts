@@ -166,8 +166,8 @@ Deno.serve(async (req: Request) => {
 
     // STEP 7: Construir hierarquia em memória
     console.log(`🏗️ [Hierarchy] Construindo hierarquia...`);
-    const globalHierarchy = buildHierarchy(globalData);
-    const incrementalHierarchy = buildIncrementalHierarchy(incrementalData);
+    const globalHierarchy = await buildHierarchy(globalData, metaIntegration.access_token);
+    const incrementalHierarchy = await buildIncrementalHierarchy(incrementalData, metaIntegration.access_token);
 
     // Log dos objetos antes de salvar
     console.log(`💾 [Final Data] Snapshot Global:`, JSON.stringify(globalHierarchy, null, 2));
@@ -364,7 +364,7 @@ async function fetchIncrementalData(
   return allData;
 }
 
-function buildHierarchy(globalData: any[]): { campaigns: CampaignHierarchy[] } {
+async function buildHierarchy(globalData: any[], accessToken: string): Promise<{ campaigns: CampaignHierarchy[] }> {
 
   const campaignMap = new Map<string, CampaignHierarchy>();
   const adSetMap = new Map<string, any>();
@@ -412,14 +412,15 @@ function buildHierarchy(globalData: any[]): { campaigns: CampaignHierarchy[] } {
   });
 
   // Processar ads
-  globalData.filter(item => item.level === 'ad').forEach(item => {
+  const adItems = globalData.filter(item => item.level === 'ad');
+  for (const item of adItems) {
     const spend = parseFloat(item.spend || '0');
     const leads = item.actions?.find((a: any) => a.action_type === 'lead')?.value ?
       parseInt(item.actions.find((a: any) => a.action_type === 'lead')!.value) : 0;
     const cpl = leads > 0 ? spend / leads : 0;
 
-    // Gerar URL simples para o ad (sem dados de creative do insights)
-    const creative_url = `https://www.facebook.com/ads/manage/ads/?act=${item.account_id || ''}&selected_ad_ids=${item.ad_id}`;
+    // Buscar link correto do criativo
+    const creative_url = await fetchCreativeUrl(item.ad_id, accessToken);
 
     const ad = {
       id: item.ad_id,
@@ -435,14 +436,14 @@ function buildHierarchy(globalData: any[]): { campaigns: CampaignHierarchy[] } {
     if (adSet) {
       adSet.ads.push(ad);
     }
-  });
+  }
 
   return {
     campaigns: Array.from(campaignMap.values())
   };
 }
 
-function buildIncrementalHierarchy(incrementalData: any[]): { campaignsByDate: Record<string, CampaignHierarchy[]> } {
+async function buildIncrementalHierarchy(incrementalData: any[], accessToken: string): Promise<{ campaignsByDate: Record<string, CampaignHierarchy[]> }> {
 
   const campaignsByDate: Record<string, CampaignHierarchy[]> = {};
 
@@ -460,10 +461,71 @@ function buildIncrementalHierarchy(incrementalData: any[]): { campaignsByDate: R
   });
 
   // Para cada data, construir hierarquia
-  dataByDate.forEach((dayData, date) => {
-    const hierarchy = buildHierarchy(dayData);
+  for (const [date, dayData] of dataByDate) {
+    const hierarchy = await buildHierarchy(dayData, accessToken);
     campaignsByDate[date] = hierarchy.campaigns;
-  });
+  }
 
   return { campaignsByDate };
+}
+
+async function fetchCreativeUrl(adId: string, accessToken: string): Promise<string> {
+  try {
+    // Buscar dados do ad para obter o creative com effective_object_story_id
+    const adUrl = `https://graph.facebook.com/v21.0/${adId}?fields=creative{effective_object_story_id,object_story_id}&access_token=${accessToken}`;
+    const adResponse = await fetch(adUrl);
+    
+    if (!adResponse.ok) {
+      // Erro 400 = sem permissão (token de conta não acessa todos os ads)
+      // Erro 404 = ad não encontrado
+      // Ambos são esperados e não devem travar a execução
+      if (adResponse.status === 400 || adResponse.status === 404) {
+        // Log silencioso - não poluir logs com erros esperados
+        return `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
+      }
+      // Outros erros (500, 503, etc.) - logar como warning
+      console.warn(`⚠️ [Creative URL] Erro HTTP ${adResponse.status} ao buscar ad ${adId}`);
+      return `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
+    }
+    
+    const adData = await adResponse.json();
+    const creative = adData.creative;
+    
+    if (!creative) {
+      // Log silencioso - creative não encontrado é comum
+      return `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
+    }
+    
+    // Usar effective_object_story_id (mais confiável) ou object_story_id como fallback
+    const storyId = creative.effective_object_story_id || creative.object_story_id;
+    
+    if (!storyId) {
+      // Log silencioso - story ID não encontrado é comum
+      return `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
+    }
+    
+    // Validar se o storyId tem o formato correto (pageId_postId)
+    if (!storyId.includes('_')) {
+      // Log silencioso - formato inválido é comum
+      return `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
+    }
+    
+    // Fazer split no _ para obter pageId e postId
+    const [pageId, postId] = storyId.split('_');
+    
+    if (!pageId || !postId) {
+      // Log silencioso - pageId/postId inválido é comum
+      return `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
+    }
+    
+    // Construir permalink: https://www.facebook.com/{pageId}/posts/{postId}
+    const permalinkUrl = `https://www.facebook.com/${pageId}/posts/${postId}`;
+    // Log apenas quando conseguir gerar permalink com sucesso
+    console.log(`✅ [Creative URL] Permalink gerado para ad ${adId}: ${permalinkUrl}`);
+    return permalinkUrl;
+    
+  } catch (error) {
+    // Log silencioso - erros de rede/timeout são comuns
+    return `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
+  }
 }
