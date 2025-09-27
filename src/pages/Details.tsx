@@ -145,18 +145,7 @@ const Details = () => {
         }
       }
 
-      // Chamar Edge Function para sincronizar dados do Meta
-      try {
-        await syncLiveMetaData(liveId);
-        console.log(`✅ [Details] Edge Function executada com sucesso`);
-      } catch (edgeError) {
-        console.warn(`⚠️ [Details] Edge Function falhou, continuando com dados do cache:`, edgeError);
-        // Não interromper o fluxo se a Edge Function falhar
-      }
-
-      // Dados já foram atualizados pela Edge Function
-      // Recarregar dados do cache atualizado
-      await loadDataFromDatabase();
+      // Dados carregados com sucesso do cache
       
       setIsLoading(false);
     } catch (error) {
@@ -177,11 +166,39 @@ const Details = () => {
   }, [liveId, navigate]);
 
   // Carregar dados do banco quando a página carrega
+  // Função para inicializar dados (chama Edge Function + carrega cache)
+  const initializeData = useCallback(async () => {
+    if (!liveId) return;
+    
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Chamar Edge Function para sincronizar dados do Meta
+      try {
+        await syncLiveMetaData(liveId);
+        console.log(`✅ [Details] Edge Function executada com sucesso`);
+      } catch (edgeError) {
+        console.warn(`⚠️ [Details] Edge Function falhou, continuando com dados do cache:`, edgeError);
+        // Não interromper o fluxo se a Edge Function falhar
+      }
+
+      // Carregar dados do cache atualizado
+      await loadDataFromDatabase();
+      
+    } catch (error) {
+      console.error('❌ [Details] Erro ao inicializar dados:', error);
+      setError(`Erro ao inicializar dados: ${error}`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [liveId, syncLiveMetaData, loadDataFromDatabase]);
+
   useEffect(() => {
     if (liveId) {
-      loadDataFromDatabase();
+      initializeData();
     }
-  }, [liveId, loadDataFromDatabase]);
+  }, [liveId, initializeData]);
 
   // Função para iniciar o refresh (chamada pelo botão)
   const handleRefreshStart = async () => {
@@ -196,11 +213,8 @@ const Details = () => {
         // Não interromper o fluxo se a Edge Function falhar
       }
 
-      // Edge Function já foi chamada automaticamente no carregamento
       // Recarregar dados do cache atualizado
       await loadDataFromDatabase();
-      
-      // Dados já foram atualizados pelo loadDataFromDatabase()
     } catch (error) {
       console.error('❌ [Details] Erro ao atualizar dados:', error);
       setError(`Erro ao atualizar dados: ${error}`);
