@@ -749,8 +749,26 @@ const TrafficAnalysis = () => {
   // updateTrafficCache foi removida pois a Edge Function syncLiveMetaData já faz isso
 
   // Função para iniciar o refresh (chamada pelo botão)
-  const handleRefreshStart = () => {
+  const handleRefreshStart = async () => {
     setIsButtonRefreshing(true);
+    try {
+      // Chamar Edge Function para forçar sincronização
+      try {
+        await syncLiveMetaData(liveId!);
+        console.log(`✅ [TrafficAnalysis] Edge Function executada no refresh`);
+      } catch (edgeError) {
+        console.warn(`⚠️ [TrafficAnalysis] Edge Function falhou no refresh, continuando:`, edgeError);
+        // Não interromper o fluxo se a Edge Function falhar
+      }
+
+      // Recarregar dados do cache atualizado
+      await loadDataFromDatabase(true);
+    } catch (error) {
+      console.error('❌ [TrafficAnalysis] Erro ao atualizar dados:', error);
+      setError(`Erro ao atualizar dados: ${error}`);
+    } finally {
+      setIsButtonRefreshing(false);
+    }
   };
 
   // Função para forçar refresh do cache
@@ -783,12 +801,65 @@ const TrafficAnalysis = () => {
     }
   };
 
-  // Buscar dados com sistema de cache
-  useEffect(() => {
-    if (liveId) {
-      loadDataFromDatabase(false); // Carregamento inicial, não do botão
+  // Estados para controle de inicialização
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Função para chamar a Edge Function syncLiveMetaData
+  const syncLiveMetaData = useCallback(async (liveId: string) => {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      const response = await supabase.functions.invoke('sync-live-meta-data', {
+        body: { liveId }
+      });
+
+      if (response.error) {
+        throw new Error(`Erro na Edge Function: ${response.error.message}`);
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('❌ [TrafficAnalysis] Erro ao chamar Edge Function:', error);
+      throw error;
     }
-  }, [liveId, loadDataFromDatabase]); // Adicionado loadDataFromDatabase nas dependências
+  }, []);
+
+  // Carregar dados na inicialização (igual ao Details.tsx)
+  useEffect(() => {
+    if (!liveId || isInitialized) return;
+    
+    const initializeData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Chamar Edge Function para sincronizar dados do Meta
+        try {
+          await syncLiveMetaData(liveId);
+          console.log(`✅ [TrafficAnalysis] Edge Function executada com sucesso`);
+        } catch (edgeError) {
+          console.warn(`⚠️ [TrafficAnalysis] Edge Function falhou, continuando com dados do cache:`, edgeError);
+          // Não interromper o fluxo se a Edge Function falhar
+        }
+
+        // Carregar dados do cache atualizado
+        await loadDataFromDatabase(false);
+        
+        setIsInitialized(true);
+        
+      } catch (error) {
+        console.error('❌ [TrafficAnalysis] Erro ao inicializar dados:', error);
+        setError(`Erro ao inicializar dados: ${error}`);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeData();
+  }, [liveId, isInitialized, syncLiveMetaData, loadDataFromDatabase]);
   
   
   // Usar métricas do cache ou calcular se necessário
@@ -810,37 +881,17 @@ const TrafficAnalysis = () => {
     // Verificar se temos dados incrementais do cache
     const campaignsByDate = live?.cached_traffic_data_incremented?.campaignsByDate;
 
-    console.log('🔍 [DEBUG] Dados incrementais disponíveis:', {
-      hasIncrementalData: !!live?.cached_traffic_data_incremented,
-      campaignsByDate: campaignsByDate,
-      keys: campaignsByDate ? Object.keys(campaignsByDate) : [],
-      totalDays: live?.cached_traffic_data_incremented?.totalDays
-    });
-
     if (!campaignsByDate || Object.keys(campaignsByDate).length === 0) {
-      console.log('⚠️ [DEBUG] Nenhum dado incremental encontrado');
       return [];
     }
 
-    // Converter campaignsByDate para formato dailyInsights
+    // Converter campaignsByDate para formato dailyInsights (apenas nível 1 - campanhas)
     const dailyInsights: any[] = [];
     Object.keys(campaignsByDate).forEach(date => {
       const dayCampaigns = campaignsByDate[date];
       
-      console.log(`🔍 [DEBUG] Processando data ${date}:`, {
-        dayCampaigns: dayCampaigns,
-        length: dayCampaigns.length,
-        firstCampaign: dayCampaigns[0]
-      });
-      
-      // Agregar dados do dia
+      // Agregar dados do dia (apenas campanhas, nível 1)
       const dayTotal = dayCampaigns.reduce((acc: { spend: number; leads: number }, campaign: any) => {
-        console.log(`🔍 [DEBUG] Agregando campanha:`, {
-          campaignName: campaign.name,
-          spend: campaign.spend,
-          leads: campaign.leads,
-          cpl_meta: campaign.cpl_meta
-        });
         acc.spend += campaign.spend;
         acc.leads += campaign.leads;
         return acc;
@@ -848,12 +899,6 @@ const TrafficAnalysis = () => {
 
       // Calcular CPL Meta
       const cplMeta = dayTotal.leads > 0 ? dayTotal.spend / dayTotal.leads : 0;
-
-      console.log(`🔍 [DEBUG] Total do dia ${date}:`, {
-        spend: dayTotal.spend,
-        leads: dayTotal.leads,
-        cplMeta
-      });
 
       dailyInsights.push({
         date,
@@ -923,13 +968,6 @@ const TrafficAnalysis = () => {
       cplLiquido: (insight as any).cplLiquido || 0,
       retention: (insight as any).retention || 0
     })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    
-    console.log('🔍 [DEBUG] Resultado final da tabela diária:', {
-      totalInsights: dailyInsights.length,
-      totalResult: result.length,
-      firstResult: result[0],
-      allResults: result
-    });
     
     return result;
   }, [live?.cached_traffic_data_incremented?.campaignsByDate, selectedPublico, publicAudiences, groups]);
