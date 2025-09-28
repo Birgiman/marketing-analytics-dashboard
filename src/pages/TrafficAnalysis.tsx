@@ -4,7 +4,7 @@ import { ScreenNavigatorLives } from "@/components/ScreenNavigatorLives";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,7 @@ import { fetchPublicAudiences, generateAudienceCorrelation } from "@/utils/audie
 // REMOVIDO: import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2"; // Não usado mais no filtro
 // Funções antigas removidas - agora usando Edge Function syncLiveMetaData
 // Removido import legado: fetchAdSetInsights
-import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Filter, X, Settings } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Filter, Settings, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
@@ -1505,19 +1505,22 @@ const TrafficAnalysis = () => {
 
   // Componente do Modal de Filtros Avançados
   const AdvancedFiltersModal = () => (
-    <Dialog open={isAdvancedFiltersOpen} onOpenChange={setIsAdvancedFiltersOpen}>
-      <DialogTrigger asChild>
-        <Button className="flex items-center gap-2">
-          <Settings className="h-4 w-4" />
-          Filtros Avançados
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+    <>
+      <Button 
+        onClick={() => setIsAdvancedFiltersOpen(true)}
+        className="flex items-center gap-2"
+      >
+        <Settings className="h-4 w-4" />
+        Filtros Avançados
+      </Button>
+      
+      <Dialog open={isAdvancedFiltersOpen} onOpenChange={setIsAdvancedFiltersOpen}>
+        <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>🎯 Filtros Avançados de Campanhas</DialogTitle>
         </DialogHeader>
         
-        <div className="flex flex-col space-y-6 max-h-[75vh] overflow-y-auto">
+        <div className="flex flex-col space-y-6 max-h-[80vh] overflow-y-auto">
           {/* Filtros de Data */}
           <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
             <div className="flex items-center space-x-2">
@@ -1550,7 +1553,7 @@ const TrafficAnalysis = () => {
                   {advancedFilters.selectedCampaigns.size} / {availableItems.campaigns.length}
                 </span>
               </div>
-              <div className="max-h-64 overflow-y-auto border rounded p-3 space-y-2">
+              <div className="max-h-80 overflow-y-auto border rounded p-3 space-y-2">
                 {availableItems.campaigns.map(campaign => (
                   <label key={campaign.id} className="flex items-start space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                     <input
@@ -1585,7 +1588,7 @@ const TrafficAnalysis = () => {
                   {advancedFilters.selectedAdSets.size} / {availableItems.adSets.length}
                 </span>
               </div>
-              <div className="max-h-64 overflow-y-auto border rounded p-3 space-y-2">
+              <div className="max-h-80 overflow-y-auto border rounded p-3 space-y-2">
                 {availableItems.adSets.map(adSet => (
                   <label key={adSet.id} className="flex items-start space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                     <input
@@ -1623,7 +1626,7 @@ const TrafficAnalysis = () => {
                   {advancedFilters.selectedCreatives.size} / {availableItems.creatives.length}
                 </span>
               </div>
-              <div className="max-h-64 overflow-y-auto border rounded p-3 space-y-2">
+              <div className="max-h-80 overflow-y-auto border rounded p-3 space-y-2">
                 {availableItems.creatives.map(creative => (
                   <label key={creative.id} className="flex items-start space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                     <input
@@ -1674,8 +1677,9 @@ const TrafficAnalysis = () => {
             </div>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
   
   if (isLoading) {
