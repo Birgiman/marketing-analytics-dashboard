@@ -1501,13 +1501,44 @@ const TrafficAnalysis = () => {
         newFilters.selectedCampaigns = selectedSet;
       } else if (type === 'adSets') {
         newFilters.selectedAdSets = selectedSet;
+        
+        // 🎯 LÓGICA HIERÁRQUICA: Se selecionou um adset, selecionar automaticamente a campanha pai
+        if (selectedSet.has(id)) {
+          const adset = availableItems.adSets.find(a => a.id === id);
+          if (adset) {
+            // Selecionar a campanha pai
+            newFilters.selectedCampaigns.add(adset.campaignId);
+            
+            console.log('🟢 [Modal] Seleção hierárquica automática:', {
+              adset: adset.name,
+              campaign: adset.campaignName
+            });
+          }
+        }
       } else {
         newFilters.selectedCreatives = selectedSet;
+        
+        // 🎯 LÓGICA HIERÁRQUICA: Se selecionou um criativo, selecionar automaticamente o adset e campanha pai
+        if (selectedSet.has(id)) {
+          const creative = availableItems.creatives.find(c => c.id === id);
+          if (creative) {
+            // Selecionar o adset pai
+            newFilters.selectedAdSets.add(creative.adsetId);
+            // Selecionar a campanha pai
+            newFilters.selectedCampaigns.add(creative.campaignId);
+            
+            console.log('🟢 [Modal] Seleção hierárquica automática:', {
+              creative: creative.name,
+              adset: creative.adsetName,
+              campaign: creative.campaignName
+            });
+          }
+        }
       }
 
       return newFilters;
     });
-  }, []);
+  }, [availableItems.creatives, availableItems.adSets]);
 
   const handleApplyAdvancedFilters = useCallback(() => {
     console.log('🟢 [Modal] Aplicando filtros avançados');
