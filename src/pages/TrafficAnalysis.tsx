@@ -541,7 +541,7 @@ const TrafficAnalysis = () => {
             };
             setCampaignsHierarchy(formattedHierarchy);
           }
-        }
+          }
         
         // Carregar públicos após carregar dados básicos
         try {
@@ -562,33 +562,33 @@ const TrafficAnalysis = () => {
             // Dados hierárquicos já estão no cache da Edge Function
             // Carregar do cache atualizado
             if (liveData.cached_traffic_data?.campaign) {
-              const formattedHierarchy = {
+            const formattedHierarchy = {
                 campaigns: liveData.cached_traffic_data.campaign.map((campaign: any) => ({
-                  id: campaign.id,
-                  name: campaign.name,
+                id: campaign.id,
+                name: campaign.name,
                   totalSpend: campaign.spend,
                   totalLeads: campaign.leads,
                   cpl: campaign.cpl_meta,
                   adSets: campaign.adsets.map((adSet: any) => ({
-                    id: adSet.id,
-                    name: adSet.name,
+                  id: adSet.id,
+                  name: adSet.name,
                     totalSpend: adSet.spend,
                     totalLeads: adSet.leads,
                     cpl: adSet.cpl_meta,
                     insights: adSet.ads.map((ad: any) => ({
-                      id: ad.id,
-                      name: ad.name,
+                    id: ad.id,
+                    name: ad.name,
                       spend: ad.spend,
                       leads: ad.leads,
                       cpl: ad.cpl_meta,
                       creativeUrl: ad.creative_url
-                    }))
                   }))
                 }))
-              };
+              }))
+            };
 
-              setCampaignsHierarchy(formattedHierarchy);
-              setHierarchicalCacheValid(true);
+            setCampaignsHierarchy(formattedHierarchy);
+            setHierarchicalCacheValid(true);
             }
 
           } catch (error) {
@@ -1055,7 +1055,7 @@ const TrafficAnalysis = () => {
       
       if (selectedAudience) {
         // Buscar grupos que correspondem ao emoji do público
-        const audienceGroups = groups.filter(group =>
+        const audienceGroups = groups.filter(group => 
           group?.group_name?.includes(selectedAudience?.emoji || '')
         );
         
@@ -1072,7 +1072,7 @@ const TrafficAnalysis = () => {
             // Calcular entradas e saídas proporcionais para o público
             const audienceGroupJoin = Math.round(((insight as any).groupJoin || 0) * proportion);
             const audienceGroupExit = Math.round(((insight as any).groupExit || 0) * proportion);
-
+            
             return {
               ...insight,
               // Ajustar dados dos grupos proporcionalmente
@@ -1465,8 +1465,8 @@ const TrafficAnalysis = () => {
     
     // Simplesmente atualizar as datas para filtrar a visualização
     // Os dados já estão carregados no cache incremental
-    setStartDate(tempStartDate);
-    setEndDate(tempEndDate);
+      setStartDate(tempStartDate);
+      setEndDate(tempEndDate);
   };
 
   // Função para aplicar filtros da análise profunda de campanhas
@@ -1530,8 +1530,8 @@ const TrafficAnalysis = () => {
     setTempAdvancedFilters(emptyFilters);
   }, []);
 
-  // Componente do Modal de Filtros Avançados - memoizado para evitar re-renders
-  const AdvancedFiltersModal = useMemo(() => (
+  // Componente do Modal de Filtros Avançados
+  const AdvancedFiltersModal = () => (
     <>
       <Button 
         onClick={() => {
@@ -1732,14 +1732,7 @@ const TrafficAnalysis = () => {
         </DialogContent>
       </Dialog>
     </>
-  ), [
-    isAdvancedFiltersOpen,
-    tempAdvancedFilters,
-    availableItems,
-    handleAdvancedFilterToggle,
-    handleApplyAdvancedFilters,
-    clearAdvancedFilters
-  ]);
+  );
   
   if (isLoading) {
     return (
@@ -2059,7 +2052,7 @@ const TrafficAnalysis = () => {
                     advancedFilters.selectedAdSets.size > 0 && `${advancedFilters.selectedAdSets.size} adsets`,
                     advancedFilters.selectedCreatives.size > 0 && `${advancedFilters.selectedCreatives.size} criativos`
                   ].filter(Boolean).join(', ')}
-                </div>
+              </div>
               )}
               
               {/* Modal de Filtros Avançados */}
