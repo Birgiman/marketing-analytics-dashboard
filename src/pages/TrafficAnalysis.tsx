@@ -1244,21 +1244,68 @@ const TrafficAnalysis = () => {
   }
   
   // Debug: Verificar cálculos dos totais
-  // Calcular totais para a tabela hierárquica de campanhas
-  const campaignTotals = useMemo(() => {
-    const totals = campaignsHierarchy.campaigns.reduce((acc, campaign) => {
-      acc.totalLeads += campaign.totalLeads;
-      acc.totalInvestment += campaign.totalSpend;
-      return acc;
-    }, { totalLeads: 0, totalInvestment: 0 });
-    
-    const averageCPL = totals.totalLeads > 0 ? totals.totalInvestment / totals.totalLeads : 0;
-    
+  // Calcular totais para a tabela hierárquica de campanhas baseado nos filtros aplicados
+  const filteredCampaignTotals = useMemo(() => {
+    let totalLeads = 0;
+    let totalInvestment = 0;
+
+    // Verificar se há filtros avançados aplicados
+    const hasAdvancedFilters = advancedFilters.selectedCampaigns.size > 0 ||
+                              advancedFilters.selectedAdSets.size > 0 ||
+                              advancedFilters.selectedCreatives.size > 0;
+
+    campaignsHierarchy.campaigns.forEach(campaign => {
+      // Aplicar filtro de campanhas se houver seleção específica
+      const shouldShowCampaign = !hasAdvancedFilters ||
+                                advancedFilters.selectedCampaigns.size === 0 ||
+                                advancedFilters.selectedCampaigns.has(campaign.id);
+
+      if (!shouldShowCampaign) return;
+
+      // Se há filtros específicos de adSets ou criativos, calcular apenas os selecionados
+      if (advancedFilters.selectedAdSets.size > 0 || advancedFilters.selectedCreatives.size > 0) {
+        campaign.adSets.forEach(adSet => {
+          // Aplicar filtro de adsets se houver seleção específica
+          const shouldShowAdSet = !hasAdvancedFilters ||
+                                 advancedFilters.selectedAdSets.size === 0 ||
+                                 advancedFilters.selectedAdSets.has(adSet.id);
+
+          if (!shouldShowAdSet) return;
+
+          // Se há filtros específicos de criativos, calcular apenas os selecionados
+          if (advancedFilters.selectedCreatives.size > 0) {
+            adSet.insights.forEach(insight => {
+              // Aplicar filtro de criativos se houver seleção específica
+              const shouldShowCreative = !hasAdvancedFilters ||
+                                        advancedFilters.selectedCreatives.size === 0 ||
+                                        advancedFilters.selectedCreatives.has(insight.id);
+
+              if (shouldShowCreative) {
+                totalLeads += insight.leads || 0;
+                totalInvestment += insight.spend || 0;
+              }
+            });
+          } else {
+            // Se não há filtro de criativos, somar todo o adSet
+            totalLeads += adSet.totalLeads || 0;
+            totalInvestment += adSet.totalSpend || 0;
+          }
+        });
+      } else {
+        // Se não há filtros específicos de adSets/criativos, somar toda a campanha
+        totalLeads += campaign.totalLeads || 0;
+        totalInvestment += campaign.totalSpend || 0;
+      }
+    });
+
+    const averageCPL = totalLeads > 0 ? totalInvestment / totalLeads : 0;
+
     return {
-      ...totals,
+      totalLeads,
+      totalInvestment,
       averageCPL
     };
-  }, [campaignsHierarchy]);
+  }, [campaignsHierarchy, advancedFilters]);
   
 
   // Filtrar dados por data - memoizado para evitar re-renders
@@ -2119,7 +2166,7 @@ const TrafficAnalysis = () => {
                     <Button variant="ghost" onClick={() => handleSort('total_leads')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
                       <div className="text-center w-full">
                       <div>Leads</div>
-                        <div className="text-xs text-muted-foreground font-normal">Total: {campaignTotals.totalLeads.toLocaleString('pt-BR')}</div>
+                        <div className="text-xs text-muted-foreground font-normal">Total: {filteredCampaignTotals.totalLeads.toLocaleString('pt-BR')}</div>
                     </div>
                       {getSortIcon('total_leads')}
                   </Button>
@@ -2128,7 +2175,7 @@ const TrafficAnalysis = () => {
                     <Button variant="ghost" onClick={() => handleSort('total_spent')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
                       <div className="text-center w-full">
                       <div>Investido</div>
-                        <div className="text-xs text-muted-foreground font-normal">Total: R$ {campaignTotals.totalInvestment.toLocaleString('pt-BR', {
+                        <div className="text-xs text-muted-foreground font-normal">Total: R$ {filteredCampaignTotals.totalInvestment.toLocaleString('pt-BR', {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2
                         })}</div>
@@ -2140,7 +2187,7 @@ const TrafficAnalysis = () => {
                     <Button variant="ghost" onClick={() => handleSort('cpl')} className="h-auto p-0 font-medium flex flex-col items-center gap-1 w-full">
                       <div className="text-center w-full">
                       <div>CPL Meta</div>
-                        <div className="text-xs text-muted-foreground font-normal">Média: R$ {campaignTotals.averageCPL.toFixed(2).replace('.', ',')}</div>
+                        <div className="text-xs text-muted-foreground font-normal">Média: R$ {filteredCampaignTotals.averageCPL.toFixed(2).replace('.', ',')}</div>
                     </div>
                       {getSortIcon('cpl')}
                   </Button>
