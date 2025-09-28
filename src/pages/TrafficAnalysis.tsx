@@ -333,7 +333,14 @@ const TrafficAnalysis = () => {
 
   // Inicializar datas do modal de filtros avançados quando os dados são carregados
   useEffect(() => {
+    console.log('🟠 [Modal] useEffect inicialização datas:', { 
+      hasLive: !!live, 
+      since: live?.insights_date_since, 
+      until: live?.insights_date_until, 
+      currentStartDate: advancedFilters.startDate 
+    });
     if (live?.insights_date_since && live?.insights_date_until && advancedFilters.startDate === '') {
+      console.log('🟠 [Modal] Inicializando datas do modal');
       setAdvancedFilters(prev => ({
         ...prev,
         startDate: live.insights_date_since || '',
@@ -1462,6 +1469,7 @@ const TrafficAnalysis = () => {
 
   // Funções para gerenciar filtros avançados
   const handleAdvancedFilterToggle = (type: 'campaigns' | 'adSets' | 'creatives', id: string) => {
+    console.log('🟣 [Modal] handleAdvancedFilterToggle chamado:', { type, id });
     setAdvancedFilters(prev => {
       const newFilters = { ...prev };
       const selectedSet = new Set(prev[type === 'campaigns' ? 'selectedCampaigns' : type === 'adSets' ? 'selectedAdSets' : 'selectedCreatives']);
@@ -1507,7 +1515,10 @@ const TrafficAnalysis = () => {
   const AdvancedFiltersModal = () => (
     <>
       <Button 
-        onClick={() => setIsAdvancedFiltersOpen(true)}
+        onClick={() => {
+          console.log('🔵 [Modal] Botão clicado - abrindo modal');
+          setIsAdvancedFiltersOpen(true);
+        }}
         className="flex items-center gap-2"
       >
         <Settings className="h-4 w-4" />
@@ -1515,8 +1526,10 @@ const TrafficAnalysis = () => {
       </Button>
       
       <Dialog open={isAdvancedFiltersOpen} onOpenChange={(open) => {
+        console.log('🟡 [Modal] onOpenChange chamado:', { open, currentState: isAdvancedFiltersOpen });
         // Só fechar se for explicitamente fechado (não por cliques internos)
         if (!open) {
+          console.log('🔴 [Modal] Fechando modal');
           setIsAdvancedFiltersOpen(false);
         }
       }}>
@@ -1535,6 +1548,7 @@ const TrafficAnalysis = () => {
                 className="w-auto" 
                 value={advancedFilters.startDate}
                 onChange={e => {
+                  console.log('🟢 [Modal] Data início alterada:', e.target.value);
                   e.stopPropagation();
                   setAdvancedFilters(prev => ({ ...prev, startDate: e.target.value }));
                 }}
@@ -1547,6 +1561,7 @@ const TrafficAnalysis = () => {
                 className="w-auto" 
                 value={advancedFilters.endDate}
                 onChange={e => {
+                  console.log('🟢 [Modal] Data fim alterada:', e.target.value);
                   e.stopPropagation();
                   setAdvancedFilters(prev => ({ ...prev, endDate: e.target.value }));
                 }}
@@ -1571,6 +1586,7 @@ const TrafficAnalysis = () => {
                       type="checkbox"
                       checked={advancedFilters.selectedCampaigns.has(campaign.id)}
                       onChange={(e) => {
+                        console.log('🟢 [Modal] Checkbox campanha clicado:', campaign.name);
                         e.stopPropagation();
                         handleAdvancedFilterToggle('campaigns', campaign.id);
                       }}
@@ -1609,6 +1625,7 @@ const TrafficAnalysis = () => {
                       type="checkbox"
                       checked={advancedFilters.selectedAdSets.has(adSet.id)}
                       onChange={(e) => {
+                        console.log('🟢 [Modal] Checkbox adset clicado:', adSet.name);
                         e.stopPropagation();
                         handleAdvancedFilterToggle('adSets', adSet.id);
                       }}
@@ -1650,6 +1667,7 @@ const TrafficAnalysis = () => {
                       type="checkbox"
                       checked={advancedFilters.selectedCreatives.has(creative.id)}
                       onChange={(e) => {
+                        console.log('🟢 [Modal] Checkbox criativo clicado:', creative.name);
                         e.stopPropagation();
                         handleAdvancedFilterToggle('creatives', creative.id);
                       }}
