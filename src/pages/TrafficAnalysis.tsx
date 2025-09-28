@@ -1514,7 +1514,12 @@ const TrafficAnalysis = () => {
         Filtros Avançados
       </Button>
       
-      <Dialog open={isAdvancedFiltersOpen} onOpenChange={setIsAdvancedFiltersOpen}>
+      <Dialog open={isAdvancedFiltersOpen} onOpenChange={(open) => {
+        // Só fechar se for explicitamente fechado (não por cliques internos)
+        if (!open) {
+          setIsAdvancedFiltersOpen(false);
+        }
+      }}>
         <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>🎯 Filtros Avançados de Campanhas</DialogTitle>
@@ -1529,7 +1534,10 @@ const TrafficAnalysis = () => {
                 type="date" 
                 className="w-auto" 
                 value={advancedFilters.startDate}
-                onChange={e => setAdvancedFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                onChange={e => {
+                  e.stopPropagation();
+                  setAdvancedFilters(prev => ({ ...prev, startDate: e.target.value }));
+                }}
               />
             </div>
             <div className="flex items-center space-x-2">
@@ -1538,7 +1546,10 @@ const TrafficAnalysis = () => {
                 type="date" 
                 className="w-auto" 
                 value={advancedFilters.endDate}
-                onChange={e => setAdvancedFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                onChange={e => {
+                  e.stopPropagation();
+                  setAdvancedFilters(prev => ({ ...prev, endDate: e.target.value }));
+                }}
               />
             </div>
           </div>
@@ -1559,7 +1570,10 @@ const TrafficAnalysis = () => {
                     <input
                       type="checkbox"
                       checked={advancedFilters.selectedCampaigns.has(campaign.id)}
-                      onChange={() => handleAdvancedFilterToggle('campaigns', campaign.id)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleAdvancedFilterToggle('campaigns', campaign.id);
+                      }}
                       className="mt-1 rounded"
                     />
                     <div className="flex-1 min-w-0">
@@ -1594,7 +1608,10 @@ const TrafficAnalysis = () => {
                     <input
                       type="checkbox"
                       checked={advancedFilters.selectedAdSets.has(adSet.id)}
-                      onChange={() => handleAdvancedFilterToggle('adSets', adSet.id)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleAdvancedFilterToggle('adSets', adSet.id);
+                      }}
                       className="mt-1 rounded"
                     />
                     <div className="flex-1 min-w-0">
@@ -1632,7 +1649,10 @@ const TrafficAnalysis = () => {
                     <input
                       type="checkbox"
                       checked={advancedFilters.selectedCreatives.has(creative.id)}
-                      onChange={() => handleAdvancedFilterToggle('creatives', creative.id)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleAdvancedFilterToggle('creatives', creative.id);
+                      }}
                       className="mt-1 rounded"
                     />
                     <div className="flex-1 min-w-0">
@@ -2005,40 +2025,6 @@ const TrafficAnalysis = () => {
               
               {/* Modal de Filtros Avançados */}
               <AdvancedFiltersModal />
-            </div>
-          </div>
-          
-          {/* Filtro de Níveis Hierárquicos - Mantido para expandir/recolher */}
-          <div className="flex items-center space-x-4 pt-4 border-t">
-            <span className="text-sm font-medium">Exibir níveis:</span>
-            <div className="flex items-center space-x-4">
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={levelFilters.campaigns}
-                  onChange={(e) => setLevelFilters(prev => ({ ...prev, campaigns: e.target.checked }))}
-                  className="rounded"
-                />
-                <span className="text-sm">Campanhas</span>
-              </label>
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={levelFilters.adSets}
-                  onChange={(e) => setLevelFilters(prev => ({ ...prev, adSets: e.target.checked }))}
-                  className="rounded"
-                />
-                <span className="text-sm">Conjuntos de Anúncios</span>
-              </label>
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={levelFilters.insights}
-                  onChange={(e) => setLevelFilters(prev => ({ ...prev, insights: e.target.checked }))}
-                  className="rounded"
-                />
-                <span className="text-sm">Insights</span>
-              </label>
             </div>
           </div>
         </CardHeader>
