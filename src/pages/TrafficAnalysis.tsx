@@ -1480,7 +1480,7 @@ const TrafficAnalysis = () => {
   };
 
   // Funções para gerenciar filtros avançados
-  const handleAdvancedFilterToggle = (type: 'campaigns' | 'adSets' | 'creatives', id: string) => {
+  const handleAdvancedFilterToggle = useCallback((type: 'campaigns' | 'adSets' | 'creatives', id: string) => {
     console.log('🟣 [Modal] handleAdvancedFilterToggle chamado:', { type, id });
     setTempAdvancedFilters(prev => {
       const newFilters = { ...prev };
@@ -1502,9 +1502,9 @@ const TrafficAnalysis = () => {
       
       return newFilters;
     });
-  };
+  }, []);
 
-  const handleApplyAdvancedFilters = () => {
+  const handleApplyAdvancedFilters = useCallback(() => {
     console.log('🟢 [Modal] Aplicando filtros avançados');
     // Aplicar filtros temporários para os filtros reais
     setAdvancedFilters(tempAdvancedFilters);
@@ -1515,9 +1515,9 @@ const TrafficAnalysis = () => {
     // Atualizar datas das campanhas com as datas do modal
     setCampaignStartDate(tempAdvancedFilters.startDate);
     setCampaignEndDate(tempAdvancedFilters.endDate);
-  };
+  }, [tempAdvancedFilters]);
 
-  const clearAdvancedFilters = () => {
+  const clearAdvancedFilters = useCallback(() => {
     console.log('🟢 [Modal] Limpando filtros avançados');
     const emptyFilters = {
       startDate: '',
@@ -1528,10 +1528,10 @@ const TrafficAnalysis = () => {
     };
     setAdvancedFilters(emptyFilters);
     setTempAdvancedFilters(emptyFilters);
-  };
+  }, []);
 
-  // Componente do Modal de Filtros Avançados
-  const AdvancedFiltersModal = () => (
+  // Componente do Modal de Filtros Avançados - memoizado para evitar re-renders
+  const AdvancedFiltersModal = useMemo(() => (
     <>
       <Button 
         onClick={() => {
@@ -1732,7 +1732,14 @@ const TrafficAnalysis = () => {
         </DialogContent>
       </Dialog>
     </>
-  );
+  ), [
+    isAdvancedFiltersOpen,
+    tempAdvancedFilters,
+    availableItems,
+    handleAdvancedFilterToggle,
+    handleApplyAdvancedFilters,
+    clearAdvancedFilters
+  ]);
   
   if (isLoading) {
     return (
