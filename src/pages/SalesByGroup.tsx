@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
@@ -79,6 +79,7 @@ const SalesByGroup = () => {
     created_at: string;
     updated_at: string;
     last_synced_at?: string;
+    cached_traffic_data_incremented?: any;
   } | null>(null);
   const [groups, setGroups] = useState<LiveGroupType[]>([]);
   const [campaigns, setCampaigns] = useState<{
@@ -211,7 +212,7 @@ const SalesByGroup = () => {
       }
       
       if (liveData) {
-        // Atualizar dados básicos da Live
+        // Atualizar dados básicos da Live incluindo cached_traffic_data_incremented
         setLive({
           id: liveData.id,
           name: liveData.name,
@@ -225,7 +226,8 @@ const SalesByGroup = () => {
           leads_goal: liveData.leads_goal,
           created_at: liveData.created_at,
           updated_at: liveData.updated_at,
-          last_synced_at: liveData.last_synced_at
+          last_synced_at: liveData.last_synced_at,
+          cached_traffic_data_incremented: liveData.cached_traffic_data_incremented
         });
         
         // Extrair dados do cache JSONB
@@ -279,85 +281,82 @@ const SalesByGroup = () => {
     }
   }, [liveId, userId]);
 
-  // Buscar dados com sistema de cache
-  const fetchDataWithCache = async () => {
-    if (!liveId) return;
 
-    setCacheStatus(prev => ({ ...prev, isLoading: true }));
-    setIsLoading(true);
-    
+  // Função para verificar se o cache ainda é válido (30 minutos)
+  const isCacheValid = useCallback(async (liveId: string): Promise<boolean> => {
     try {
-      // Obter userId da sessão
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUserId(session.user.id);
-      } else {
-        navigate('/auth/signin');
-        return;
-      }
-      
-      // Direct fetch instead of cache
-      const { data: liveData, error: liveError } = await supabase
+      const { data: liveData, error } = await supabase
         .from('lives')
-        .select('*')
+        .select('traffic_last_synced_at')
         .eq('id', liveId)
         .single();
-      
-      if (liveError || !liveData) {
-        throw new Error('Live não encontrada');
+
+      if (error || !liveData?.traffic_last_synced_at) {
+        return false;
       }
 
-      setCacheStatus({
-        isLoading: false,
-        fromCache: false,
-        needsRefresh: false,
-        lastSynced: new Date().toISOString()
+      const lastSynced = new Date(liveData.traffic_last_synced_at);
+      const now = new Date();
+      const diffMinutes = Math.floor((now.getTime() - lastSynced.getTime()) / (1000 * 60));
+      const CACHE_DURATION_MINUTES = 30;
+
+      const isValid = diffMinutes < CACHE_DURATION_MINUTES;
+
+      return isValid;
+    } catch (error) {
+      console.error(`❌ [SalesByGroup] Erro ao verificar cache:`, error);
+      return false;
+    }
+  }, []);
+
+  // Função para chamar a Edge Function syncLiveMetaData com verificação de cache
+  const syncLiveMetaData = useCallback(async (liveId: string, forceRefresh = false) => {
+    try {
+      // Verificar cache apenas se não for refresh forçado
+      if (!forceRefresh) {
+        const cacheIsValid = await isCacheValid(liveId);
+        if (cacheIsValid) {
+          return { status: 'cache_valid' };
+        }
+      }
+
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      const response = await supabase.functions.invoke('sync-live-meta-data', {
+        body: { liveId }
       });
 
-      // Atualizar estados com dados diretos
-      setLive(liveData);
-      // Buscar grupos e campaigns separadamente
-      const { data: groupsData } = await supabase
-        .from('live_groups')
-        .select('*')
-        .eq('live_id', liveId);
-      
-      if (groupsData) {
-        setGroups(groupsData);
-        setLiveGroups(groupsData);
-      } else {
+      if (response.error) {
+        throw new Error(`Erro na Edge Function: ${response.error.message}`);
       }
 
-      // Buscar dados complementares
-      await fetchMetaIntegration();
-      await fetchMetaCampaignsData();
-      await fetchWhatsappGroupsData();
-      await fetchPublicAudiencesData();
+      return response.data;
     } catch (error) {
-      navigate('/lives');
-    } finally {
-      setCacheStatus(prev => ({ ...prev, isLoading: false }));
-      setIsLoading(false);
+      console.error(`❌ [SalesByGroup] Erro ao chamar Edge Function:`, error);
+      throw error;
     }
-  };
+  }, [isCacheValid]);
 
   // Função para iniciar o refresh (chamada pelo botão)
-  const handleRefreshStart = () => {
+  const handleRefreshStart = async () => {
     setIsButtonRefreshing(true);
-  };
-
-  // Função para forçar refresh do cache
-  const handleForceRefresh = async () => {
-    if (!liveId) return;
-    setCacheStatus(prev => ({ ...prev, isLoading: true }));
-    
     try {
-      // Edge Function já foi chamada automaticamente
+      // Chamar Edge Function para forçar sincronização (ignorar cache)
+      try {
+        await syncLiveMetaData(liveId!, true); // true = forçar refresh
+      } catch (edgeError) {
+        console.warn(`⚠️ [SalesByGroup] Edge Function falhou no refresh, continuando:`, edgeError);
+        // Não interromper o fluxo se a Edge Function falhar
+      }
+
       // Recarregar dados do cache atualizado
-      await loadDataFromDatabase();
+      await loadDataFromDatabase(true);
     } catch (error) {
+      console.error('❌ [SalesByGroup] Erro ao atualizar dados:', error);
     } finally {
-      setCacheStatus(prev => ({ ...prev, isLoading: false }));
       setIsButtonRefreshing(false);
     }
   };
@@ -526,12 +525,39 @@ const SalesByGroup = () => {
     }
   };
 
+  // Estado para controlar se já foi inicializado
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Carregar dados na inicialização
   useEffect(() => {
-    if (liveId) {
-      loadDataFromDatabase(false); // Carregamento inicial, não do botão
-    } else {
-    }
-  }, [liveId, loadDataFromDatabase]); // Adicionado loadDataFromDatabase nas dependências
+    if (!liveId || isInitialized) return;
+
+    const initializeData = async () => {
+      try {
+        setIsLoading(true);
+
+        // Chamar Edge Function para sincronizar dados do Meta (com verificação de cache)
+        try {
+          await syncLiveMetaData(liveId, false); // false = não forçar refresh
+        } catch (edgeError) {
+          console.warn(`⚠️ [SalesByGroup] Edge Function falhou, continuando com dados do cache:`, edgeError);
+          // Não interromper o fluxo se a Edge Function falhar
+        }
+
+        // Carregar dados do cache atualizado
+        await loadDataFromDatabase(false);
+
+        setIsInitialized(true);
+
+      } catch (error) {
+        console.error('❌ [SalesByGroup] Erro ao inicializar dados:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeData();
+  }, [liveId, isInitialized, syncLiveMetaData, loadDataFromDatabase]);
 
   // Função para atualizar dados dos grupos com informações reais do WhatsApp Groups Log
   const updateGroupsWithRealData = useCallback(async () => {
@@ -665,6 +691,74 @@ const SalesByGroup = () => {
       setIsLoading(false);
     }
   }, [metaIntegration, publicAudiences, audienceCorrelations.length, generateAllCorrelations]);
+
+  // Calcular dados como fallback usando lógica do TrafficAnalysis
+  const calculateFallbackData = () => {
+    if (!live?.cached_traffic_data_incremented?.campaignsByDate) {
+      return {
+        totalSpend: 0,
+        totalLeads: 0,
+        totalEntries: 0,
+        totalExits: 0,
+        cplMeta: 0,
+        cplLiquido: 0,
+        retentionRate: 0
+      };
+    }
+
+    const campaignsByDate = live.cached_traffic_data_incremented.campaignsByDate;
+    let totalSpend = 0;
+    let totalLeads = 0;
+    let totalEntries = 0;
+    let totalExits = 0;
+    const dailyRetentions: number[] = [];
+
+    // Processar todos os dados diários (mesma lógica do TrafficAnalysis)
+    Object.values(campaignsByDate).forEach((dayCampaigns: any) => {
+      if (Array.isArray(dayCampaigns) && dayCampaigns.length > 0) {
+        // Agregar dados do dia para evitar duplicação
+        const dayTotal = dayCampaigns.reduce((acc: { spend: number; leads: number }, campaign: any) => {
+          acc.spend += campaign.spend || 0;
+          acc.leads += campaign.leads || 0;
+          return acc;
+        }, { spend: 0, leads: 0 });
+
+        totalSpend += dayTotal.spend;
+        totalLeads += dayTotal.leads;
+
+        // Dados do WhatsApp (no primeiro campaign do dia)
+        const dayGroupJoin = dayCampaigns[0]?.whatsapp_joins || 0;
+        const dayGroupExit = dayCampaigns[0]?.whatsapp_exits || 0;
+
+        totalEntries += dayGroupJoin;
+        totalExits += dayGroupExit;
+
+        // Calcular taxa de retenção do dia (mesma fórmula do TrafficAnalysis)
+        const dayRetention = dayTotal.leads > 0 ? Math.round((dayGroupJoin / dayTotal.leads) * 100) : 0;
+        if (dayRetention > 0) {
+          dailyRetentions.push(dayRetention);
+        }
+      }
+    });
+
+    const cplMeta = totalLeads > 0 ? totalSpend / totalLeads : 0;
+    const cplLiquido = totalEntries > 0 ? totalSpend / totalEntries : 0;
+    // Taxa de retenção como média das retenções diárias (igual TrafficAnalysis)
+    const retentionRate = dailyRetentions.length > 0 ?
+      dailyRetentions.reduce((sum, val) => sum + val, 0) / dailyRetentions.length : 0;
+
+    return {
+      totalSpend,
+      totalLeads,
+      totalEntries,
+      totalExits,
+      cplMeta,
+      cplLiquido,
+      retentionRate
+    };
+  };
+
+  const fallbackData = calculateFallbackData();
 
   // Calculate statistics from Live groups
   const totalGroupMembers = liveGroups.reduce((sum, group) => sum + group.group_size, 0);
@@ -921,7 +1015,7 @@ const SalesByGroup = () => {
         <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
           <MetricCard
             title="Entrou no Grupo"
-            value={extractedData?.groupData?.entries || 0}
+            value={fallbackData.totalEntries}
             icon={UserPlus}
             type="integer"
             isLoading={isLoading || cacheStatus.isLoading}
@@ -929,7 +1023,7 @@ const SalesByGroup = () => {
 
           <MetricCard
             title="Saiu do Grupo"
-            value={extractedData?.groupData?.exits || 0}
+            value={fallbackData.totalExits}
             icon={UserMinus}
             type="integer"
             isLoading={isLoading || cacheStatus.isLoading}
@@ -937,7 +1031,7 @@ const SalesByGroup = () => {
 
           <MetricCard
             title="Leads Ativos"
-            value={extractedData?.groupData?.activeMembers || 0}
+            value={fallbackData.totalEntries - fallbackData.totalExits}
             icon={Users}
             type="integer"
             isLoading={isLoading || cacheStatus.isLoading}
