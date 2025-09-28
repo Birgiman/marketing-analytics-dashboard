@@ -20,6 +20,7 @@ import { useLocation, useSearchParams } from "react-router-dom";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
 const TrafficAnalysis = () => {
+  console.log('🔄 [TrafficAnalysis] Componente re-renderizado:', new Date().toISOString());
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const liveId = searchParams.get('live');
@@ -342,11 +343,12 @@ const TrafficAnalysis = () => {
 
   // Inicializar datas do modal de filtros avançados quando os dados são carregados
   useEffect(() => {
-    console.log('🟠 [Modal] useEffect inicialização datas:', { 
+    console.log('🟠 [Modal] useEffect inicialização datas EXECUTADO:', { 
       hasLive: !!live, 
       since: live?.insights_date_since, 
       until: live?.insights_date_until, 
-      currentStartDate: advancedFilters.startDate 
+      currentStartDate: advancedFilters.startDate,
+      timestamp: new Date().toISOString()
     });
     if (live?.insights_date_since && live?.insights_date_until && advancedFilters.startDate === '') {
       console.log('🟠 [Modal] Inicializando datas do modal');
@@ -1528,8 +1530,8 @@ const TrafficAnalysis = () => {
     setTempAdvancedFilters(emptyFilters);
   };
 
-  // Componente do Modal de Filtros Avançados
-  const AdvancedFiltersModal = () => (
+  // Componente do Modal de Filtros Avançados - memoizado para evitar re-renders
+  const AdvancedFiltersModal = useMemo(() => (
     <>
       <Button 
         onClick={() => {
@@ -1544,14 +1546,7 @@ const TrafficAnalysis = () => {
         Filtros Avançados
       </Button>
       
-      <Dialog open={isAdvancedFiltersOpen} onOpenChange={(open) => {
-        console.log('🟡 [Modal] onOpenChange chamado:', { open, currentState: isAdvancedFiltersOpen });
-        // Só fechar se for explicitamente fechado (não por cliques internos)
-        if (!open) {
-          console.log('🔴 [Modal] Fechando modal');
-          setIsAdvancedFiltersOpen(false);
-        }
-      }}>
+      <Dialog open={isAdvancedFiltersOpen} onOpenChange={setIsAdvancedFiltersOpen}>
         <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>🎯 Filtros Avançados de Campanhas</DialogTitle>
@@ -1737,7 +1732,14 @@ const TrafficAnalysis = () => {
         </DialogContent>
       </Dialog>
     </>
-  );
+  ), [
+    isAdvancedFiltersOpen,
+    tempAdvancedFilters,
+    availableItems,
+    handleAdvancedFilterToggle,
+    handleApplyAdvancedFilters,
+    clearAdvancedFilters
+  ]);
   
   if (isLoading) {
     return (
