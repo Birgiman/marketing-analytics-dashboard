@@ -1530,8 +1530,8 @@ const TrafficAnalysis = () => {
     setTempAdvancedFilters(emptyFilters);
   };
 
-  // Componente do Modal de Filtros Avançados - memoizado para evitar re-renders
-  const AdvancedFiltersModal = useMemo(() => (
+  // Componente do Modal de Filtros Avançados
+  const AdvancedFiltersModal = () => (
     <>
       <Button 
         onClick={() => {
@@ -1732,14 +1732,7 @@ const TrafficAnalysis = () => {
         </DialogContent>
       </Dialog>
     </>
-  ), [
-    isAdvancedFiltersOpen,
-    tempAdvancedFilters,
-    availableItems,
-    handleAdvancedFilterToggle,
-    handleApplyAdvancedFilters,
-    clearAdvancedFilters
-  ]);
+  );
   
   if (isLoading) {
     return (
