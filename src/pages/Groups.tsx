@@ -20,7 +20,7 @@ import {
     UserMinus,
     Users
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 export default function Groups() {
@@ -36,6 +36,9 @@ export default function Groups() {
   const [allGroups, setAllGroups] = useState<LiveGroup[]>([]);
   const [allLives, setAllLives] = useState<Live[]>([]);
   const [selectedLive, setSelectedLive] = useState(liveId || "todas");
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [livesGroupData, setLivesGroupData] = useState<any[]>([]);
 
 
   useEffect(() => {
@@ -49,7 +52,7 @@ export default function Groups() {
         }
         setUserId(session.user.id);
 
-        // Fetch all lives for filtering
+        // Fetch all lives for filtering with cached_group_data
         const { data: livesData, error: livesError } = await supabase
           .from('lives')
           .select('*')
@@ -58,6 +61,7 @@ export default function Groups() {
 
         if (livesError) throw livesError;
         setAllLives(livesData || []);
+        setLivesGroupData(livesData || []);
 
         // Fetch all groups for all lives
         const { data: groupsData, error: groupsError } = await supabase
@@ -102,19 +106,77 @@ export default function Groups() {
 
   // Filter groups based on selected live and search
   const displayGroups = selectedLive === "todas" ? allGroups : allGroups.filter(group => group.live_id === selectedLive);
-  const filteredData = displayGroups.filter(group => 
+  const filteredData = displayGroups.filter(group =>
     group.group_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Calculate totals from real data
-  const totals = filteredData.reduce((acc, group) => ({
-    entrouGrupo: acc.entrouGrupo + group.group_size,
-    saiuGrupo: acc.saiuGrupo + 0, // TODO: Implement tracking of group exits
-    leadsAtivos: acc.leadsAtivos + group.group_size,
-    vendas: acc.vendas + 0, // TODO: Implement sales tracking per group
-    receita: acc.receita + 0, // TODO: Implement revenue tracking per group
-    ticketMedio: 0 // Will be calculated after we have sales data
-  }), { entrouGrupo: 0, saiuGrupo: 0, leadsAtivos: 0, vendas: 0, receita: 0, ticketMedio: 0 });
+  // Function to get group data for a specific live
+  const getGroupDataForLive = (liveId: string) => {
+    const live = livesGroupData.find(l => l.id === liveId);
+    return live?.cached_group_data || { entries: 0, exits: 0, activeMembers: 0 };
+  };
+
+  // Calculate per-group values based on proportional distribution
+  const calculateGroupValues = (group: any) => {
+    const liveGroupData = getGroupDataForLive(group.live_id);
+    const liveGroups = allGroups.filter(g => g.live_id === group.live_id);
+    const totalGroupSize = liveGroups.reduce((sum, g) => sum + g.group_size, 0);
+
+    // Calculate proportional values based on group size
+    const proportion = totalGroupSize > 0 ? group.group_size / totalGroupSize : 0;
+
+    return {
+      entries: Math.round(liveGroupData.entries * proportion),
+      exits: Math.round(liveGroupData.exits * proportion),
+      activeMembers: Math.round(liveGroupData.activeMembers * proportion)
+    };
+  };
+
+  // Calculate totals for the cards (global aggregated data from cached_group_data)
+  const cardTotals = useMemo(() => {
+    // Filter lives based on selected live and dates
+    let relevantLives = selectedLive === "todas" ? livesGroupData : livesGroupData.filter(live => live.id === selectedLive);
+
+    // Apply date filtering if dates are provided
+    if (startDate || endDate) {
+      relevantLives = relevantLives.filter(live => {
+        const liveDate = new Date(live.created_at).toISOString().split('T')[0];
+        const matchesStartDate = !startDate || liveDate >= startDate;
+        const matchesEndDate = !endDate || liveDate <= endDate;
+        return matchesStartDate && matchesEndDate;
+      });
+    }
+
+    return relevantLives.reduce((acc, live) => {
+      const groupData = live.cached_group_data;
+      if (groupData) {
+        return {
+          entrouGrupo: acc.entrouGrupo + (groupData.entries || 0),
+          saiuGrupo: acc.saiuGrupo + (groupData.exits || 0),
+          leadsAtivos: acc.leadsAtivos + (groupData.activeMembers || 0),
+          vendas: acc.vendas + 0, // Sales data not available
+          receita: acc.receita + 0, // Revenue data not available
+          ticketMedio: 0 // Will be calculated after we have sales data
+        };
+      }
+      return acc;
+    }, { entrouGrupo: 0, saiuGrupo: 0, leadsAtivos: 0, vendas: 0, receita: 0, ticketMedio: 0 });
+  }, [livesGroupData, selectedLive, startDate, endDate]);
+
+  // Calculate totals for the table headers (from filtered groups)
+  const tableTotals = useMemo(() => {
+    return filteredData.reduce((acc, group) => {
+      const groupValues = calculateGroupValues(group);
+      return {
+        entrouGrupo: acc.entrouGrupo + group.group_size, // Use actual group size for "Tamanho do Grupo"
+        saiuGrupo: acc.saiuGrupo + groupValues.exits,
+        leadsAtivos: acc.leadsAtivos + groupValues.activeMembers,
+        vendas: acc.vendas + 0, // Sales data not available
+        receita: acc.receita + 0, // Revenue data not available
+        ticketMedio: 0 // Will be calculated after we have sales data
+      };
+    }, { entrouGrupo: 0, saiuGrupo: 0, leadsAtivos: 0, vendas: 0, receita: 0, ticketMedio: 0 });
+  }, [filteredData, allGroups, livesGroupData]);
 
   if (loading) {
     return (
@@ -137,7 +199,7 @@ export default function Groups() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totals.entrouGrupo.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{cardTotals.entrouGrupo.toLocaleString()}</div>
             <div className="flex items-center text-xs text-green-600">
               <ArrowUp className="h-3 w-3 mr-1" />
               +15% vs ontem
@@ -151,7 +213,7 @@ export default function Groups() {
             <UserMinus className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totals.saiuGrupo}</div>
+            <div className="text-2xl font-bold">{cardTotals.saiuGrupo.toLocaleString()}</div>
             <div className="flex items-center text-xs text-red-600">
               <ArrowDown className="h-3 w-3 mr-1" />
               -5% vs ontem
@@ -165,7 +227,7 @@ export default function Groups() {
             <UserCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totals.leadsAtivos.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{cardTotals.leadsAtivos.toLocaleString()}</div>
             <div className="flex items-center text-xs text-green-600">
               <ArrowUp className="h-3 w-3 mr-1" />
               +12% vs ontem
@@ -179,7 +241,7 @@ export default function Groups() {
             <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totals.vendas}</div>
+            <div className="text-2xl font-bold">{cardTotals.vendas}</div>
             <div className="flex items-center text-xs text-green-600">
               <ArrowUp className="h-3 w-3 mr-1" />
               +16% vs ontem
@@ -193,7 +255,7 @@ export default function Groups() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ {Math.round(totals.ticketMedio)}</div>
+            <div className="text-2xl font-bold">R$ {Math.round(cardTotals.ticketMedio)}</div>
             <div className="flex items-center text-xs text-green-600">
               <ArrowUp className="h-3 w-3 mr-1" />
               +8% vs ontem
@@ -207,7 +269,7 @@ export default function Groups() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ {totals.receita.toLocaleString()}</div>
+            <div className="text-2xl font-bold">R$ {cardTotals.receita.toLocaleString()}</div>
             <div className="flex items-center text-xs text-green-600">
               <ArrowUp className="h-3 w-3 mr-1" />
               +22% vs ontem
@@ -236,12 +298,31 @@ export default function Groups() {
               </Button>
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium">Data início:</label>
-                <Input type="date" defaultValue="2024-11-01" className="w-auto" />
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-auto"
+                />
               </div>
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium">Data fim:</label>
-                <Input type="date" defaultValue="2024-11-30" className="w-auto" />
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-auto"
+                />
               </div>
+              <Button
+                onClick={() => {
+                  // Force re-calculation when dates change
+                  // The useMemo will automatically recalculate based on date filters
+                }}
+                variant="outline"
+              >
+                Aplicar Filtros
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -282,29 +363,31 @@ export default function Groups() {
                   <TableHead className="text-center">Status</TableHead>
                   <TableHead className="text-center">
                     Tamanho do Grupo
-                    <div className="text-xs text-muted-foreground font-normal">Total: {totals.entrouGrupo.toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground font-normal">Total: {tableTotals.entrouGrupo.toLocaleString()}</div>
                   </TableHead>
                   <TableHead className="text-center">
                     Saiu do Grupo  
-                    <div className="text-xs text-muted-foreground font-normal">Total: {totals.saiuGrupo}</div>
+                    <div className="text-xs text-muted-foreground font-normal">Total: {tableTotals.saiuGrupo.toLocaleString()}</div>
                   </TableHead>
                   <TableHead className="text-center">
                     Leads Ativos
-                    <div className="text-xs text-muted-foreground font-normal">Total: {totals.leadsAtivos.toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground font-normal">Total: {tableTotals.leadsAtivos.toLocaleString()}</div>
                   </TableHead>
                   <TableHead className="text-center">
                     Vendas
-                    <div className="text-xs text-muted-foreground font-normal">Total: {totals.vendas}</div>
+                    <div className="text-xs text-muted-foreground font-normal">Total: {tableTotals.vendas}</div>
                   </TableHead>
                   <TableHead className="text-center">
                     Receita
-                    <div className="text-xs text-muted-foreground font-normal">Total: R$ {totals.receita.toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground font-normal">Total: R$ {tableTotals.receita.toLocaleString()}</div>
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredData.map((group) => {
                   const liveName = allLives.find(live => live.id === group.live_id)?.name || 'Live não encontrada';
+                  const groupValues = calculateGroupValues(group);
+
                   return (
                     <TableRow key={group.id}>
                       <TableCell className="font-medium">{group.group_name}</TableCell>
@@ -318,10 +401,10 @@ export default function Groups() {
                         {group.group_size.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-center text-red-600 font-medium">
-                        0
+                        {groupValues.exits.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-center text-blue-600 font-medium">
-                        {group.group_size.toLocaleString()}
+                        {groupValues.activeMembers.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-center font-medium">
                         0
