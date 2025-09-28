@@ -698,7 +698,7 @@ async function buildIncrementalHierarchy(incrementalData: any[], accessToken: st
   });
 
   // Para cada data, construir hierarquia
-  for (const [date, dayData] of dataByDate) {
+  for (const [date, dayData] of Array.from(dataByDate.entries())) {
     const hierarchy = await buildHierarchy(dayData, accessToken);
     campaignsByDate[date] = hierarchy.campaigns;
   }

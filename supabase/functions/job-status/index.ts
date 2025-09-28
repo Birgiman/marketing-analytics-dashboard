@@ -84,7 +84,7 @@ serve(async (req: any) => {
     }
 
     // Calcular progresso (nova lógica sem paginação)
-    let progress: JobStatusResponse['job']['progress'] = undefined;
+    let progress: { percentage: number; message: string; estimatedTimeRemaining?: string } | undefined = undefined;
 
     if (job.status === 'running') {
       // Para jobs running, mostrar progresso baseado no tempo decorrido

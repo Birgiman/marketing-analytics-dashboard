@@ -155,15 +155,11 @@ export default function Groups() {
 
   // Calculate totals for the cards (global aggregated data from cached_group_data)
   const cardTotals = useMemo(() => {
-    console.log('🔍 Calculando cardTotals:', { selectedLive, startDate, endDate, livesCount: livesGroupData.length });
-
     // Filter lives based on selected live and dates
     let relevantLives = selectedLive === "todas" ? livesGroupData : livesGroupData.filter(live => live.id === selectedLive);
-    console.log('📋 Lives após filtro de seleção:', relevantLives.length);
 
     // Apply date filtering if dates are provided
     if (startDate || endDate) {
-      const originalCount = relevantLives.length;
       relevantLives = relevantLives.filter(live => {
         // Usar insights_date_since e insights_date_until se disponíveis, senão created_at
         const liveStartDate = live.insights_date_since || new Date(live.created_at).toISOString().split('T')[0];
@@ -172,16 +168,13 @@ export default function Groups() {
         const matchesStartDate = !startDate || liveEndDate >= startDate;
         const matchesEndDate = !endDate || liveStartDate <= endDate;
 
-        console.log(`📅 Live ${live.name}: ${liveStartDate} - ${liveEndDate}, filtro: ${startDate} - ${endDate}, match: ${matchesStartDate && matchesEndDate}`);
         return matchesStartDate && matchesEndDate;
       });
-      console.log(`📊 Lives após filtro de data: ${relevantLives.length} (era ${originalCount})`);
     }
 
     const totals = relevantLives.reduce((acc, live) => {
       const groupData = live.cached_group_data;
       if (groupData) {
-        console.log(`📈 Live ${live.name}: entries=${groupData.entries}, exits=${groupData.exits}, active=${groupData.activeMembers}`);
         return {
           entrouGrupo: acc.entrouGrupo + (groupData.entries || 0),
           saiuGrupo: acc.saiuGrupo + (groupData.exits || 0),
@@ -194,7 +187,6 @@ export default function Groups() {
       return acc;
     }, { entrouGrupo: 0, saiuGrupo: 0, leadsAtivos: 0, vendas: 0, receita: 0, ticketMedio: 0 });
 
-    console.log('🎯 Totais finais dos cards:', totals);
     return totals;
   }, [livesGroupData, selectedLive, startDate, endDate]);
 
