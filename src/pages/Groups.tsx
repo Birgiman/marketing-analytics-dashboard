@@ -104,8 +104,29 @@ export default function Groups() {
     initializePage();
   }, [navigate, liveId]);
 
-  // Filter groups based on selected live and search
-  const displayGroups = selectedLive === "todas" ? allGroups : allGroups.filter(group => group.live_id === selectedLive);
+  // Filter groups based on selected live, dates, and search
+  const displayGroups = useMemo(() => {
+    let groups = selectedLive === "todas" ? allGroups : allGroups.filter(group => group.live_id === selectedLive);
+
+    // Apply date filtering to groups based on their live's date range
+    if (startDate || endDate) {
+      groups = groups.filter(group => {
+        const live = livesGroupData.find(l => l.id === group.live_id);
+        if (!live) return false;
+
+        const liveStartDate = live.insights_date_since || new Date(live.created_at).toISOString().split('T')[0];
+        const liveEndDate = live.insights_date_until || new Date(live.created_at).toISOString().split('T')[0];
+
+        const matchesStartDate = !startDate || liveEndDate >= startDate;
+        const matchesEndDate = !endDate || liveStartDate <= endDate;
+
+        return matchesStartDate && matchesEndDate;
+      });
+    }
+
+    return groups;
+  }, [allGroups, selectedLive, startDate, endDate, livesGroupData]);
+
   const filteredData = displayGroups.filter(group =>
     group.group_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -134,22 +155,33 @@ export default function Groups() {
 
   // Calculate totals for the cards (global aggregated data from cached_group_data)
   const cardTotals = useMemo(() => {
+    console.log('🔍 Calculando cardTotals:', { selectedLive, startDate, endDate, livesCount: livesGroupData.length });
+
     // Filter lives based on selected live and dates
     let relevantLives = selectedLive === "todas" ? livesGroupData : livesGroupData.filter(live => live.id === selectedLive);
+    console.log('📋 Lives após filtro de seleção:', relevantLives.length);
 
     // Apply date filtering if dates are provided
     if (startDate || endDate) {
+      const originalCount = relevantLives.length;
       relevantLives = relevantLives.filter(live => {
-        const liveDate = new Date(live.created_at).toISOString().split('T')[0];
-        const matchesStartDate = !startDate || liveDate >= startDate;
-        const matchesEndDate = !endDate || liveDate <= endDate;
+        // Usar insights_date_since e insights_date_until se disponíveis, senão created_at
+        const liveStartDate = live.insights_date_since || new Date(live.created_at).toISOString().split('T')[0];
+        const liveEndDate = live.insights_date_until || new Date(live.created_at).toISOString().split('T')[0];
+
+        const matchesStartDate = !startDate || liveEndDate >= startDate;
+        const matchesEndDate = !endDate || liveStartDate <= endDate;
+
+        console.log(`📅 Live ${live.name}: ${liveStartDate} - ${liveEndDate}, filtro: ${startDate} - ${endDate}, match: ${matchesStartDate && matchesEndDate}`);
         return matchesStartDate && matchesEndDate;
       });
+      console.log(`📊 Lives após filtro de data: ${relevantLives.length} (era ${originalCount})`);
     }
 
-    return relevantLives.reduce((acc, live) => {
+    const totals = relevantLives.reduce((acc, live) => {
       const groupData = live.cached_group_data;
       if (groupData) {
+        console.log(`📈 Live ${live.name}: entries=${groupData.entries}, exits=${groupData.exits}, active=${groupData.activeMembers}`);
         return {
           entrouGrupo: acc.entrouGrupo + (groupData.entries || 0),
           saiuGrupo: acc.saiuGrupo + (groupData.exits || 0),
@@ -161,6 +193,9 @@ export default function Groups() {
       }
       return acc;
     }, { entrouGrupo: 0, saiuGrupo: 0, leadsAtivos: 0, vendas: 0, receita: 0, ticketMedio: 0 });
+
+    console.log('🎯 Totais finais dos cards:', totals);
+    return totals;
   }, [livesGroupData, selectedLive, startDate, endDate]);
 
   // Calculate totals for the table headers (from filtered groups)
@@ -200,10 +235,6 @@ export default function Groups() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{cardTotals.entrouGrupo.toLocaleString()}</div>
-            <div className="flex items-center text-xs text-green-600">
-              <ArrowUp className="h-3 w-3 mr-1" />
-              +15% vs ontem
-            </div>
           </CardContent>
         </Card>
         
@@ -214,10 +245,6 @@ export default function Groups() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{cardTotals.saiuGrupo.toLocaleString()}</div>
-            <div className="flex items-center text-xs text-red-600">
-              <ArrowDown className="h-3 w-3 mr-1" />
-              -5% vs ontem
-            </div>
           </CardContent>
         </Card>
         
@@ -228,10 +255,6 @@ export default function Groups() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{cardTotals.leadsAtivos.toLocaleString()}</div>
-            <div className="flex items-center text-xs text-green-600">
-              <ArrowUp className="h-3 w-3 mr-1" />
-              +12% vs ontem
-            </div>
           </CardContent>
         </Card>
         
@@ -242,10 +265,6 @@ export default function Groups() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{cardTotals.vendas}</div>
-            <div className="flex items-center text-xs text-green-600">
-              <ArrowUp className="h-3 w-3 mr-1" />
-              +16% vs ontem
-            </div>
           </CardContent>
         </Card>
         
@@ -256,10 +275,6 @@ export default function Groups() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">R$ {Math.round(cardTotals.ticketMedio)}</div>
-            <div className="flex items-center text-xs text-green-600">
-              <ArrowUp className="h-3 w-3 mr-1" />
-              +8% vs ontem
-            </div>
           </CardContent>
         </Card>
         
@@ -270,10 +285,6 @@ export default function Groups() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">R$ {cardTotals.receita.toLocaleString()}</div>
-            <div className="flex items-center text-xs text-green-600">
-              <ArrowUp className="h-3 w-3 mr-1" />
-              +22% vs ontem
-            </div>
           </CardContent>
         </Card>
       </div>
@@ -314,15 +325,6 @@ export default function Groups() {
                   className="w-auto"
                 />
               </div>
-              <Button
-                onClick={() => {
-                  // Force re-calculation when dates change
-                  // The useMemo will automatically recalculate based on date filters
-                }}
-                variant="outline"
-              >
-                Aplicar Filtros
-              </Button>
             </div>
           </div>
         </CardHeader>
