@@ -4,6 +4,7 @@ import { ScreenNavigatorLives } from "@/components/ScreenNavigatorLives";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +14,7 @@ import { fetchPublicAudiences, generateAudienceCorrelation } from "@/utils/audie
 // REMOVIDO: import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2"; // Não usado mais no filtro
 // Funções antigas removidas - agora usando Edge Function syncLiveMetaData
 // Removido import legado: fetchAdSetInsights
-import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Filter } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Filter, X, Settings } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
@@ -208,6 +209,102 @@ const TrafficAnalysis = () => {
   // Estados para expansão hierárquica
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
+  // Estados para modal de filtros avançados
+  const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState({
+    startDate: '',
+    endDate: '',
+    selectedCampaigns: new Set<string>(),
+    selectedAdSets: new Set<string>(),
+    selectedCreatives: new Set<string>()
+  });
+
+  // Extrair itens únicos dos dados incrementais para filtros avançados
+  const availableItems = useMemo(() => {
+    const campaignsByDate = live?.cached_traffic_data_incremented?.campaignsByDate;
+    
+    if (!campaignsByDate) {
+      return { campaigns: [], adSets: [], creatives: [] };
+    }
+
+    const campaignsMap = new Map();
+    const adSetsMap = new Map();
+    const creativesMap = new Map();
+
+    Object.values(campaignsByDate).forEach((dayCampaigns: any) => {
+      if (Array.isArray(dayCampaigns)) {
+        dayCampaigns.forEach((campaign: any) => {
+          // Adicionar campanha
+          if (!campaignsMap.has(campaign.id)) {
+            campaignsMap.set(campaign.id, {
+              id: campaign.id,
+              name: campaign.name,
+              leads: 0,
+              spend: 0
+            });
+          }
+          
+          // Atualizar totais da campanha
+          const campaignData = campaignsMap.get(campaign.id);
+          campaignData.leads += campaign.leads || 0;
+          campaignData.spend += campaign.spend || 0;
+
+          // Processar adsets
+          if (campaign.adsets && Array.isArray(campaign.adsets)) {
+            campaign.adsets.forEach((adset: any) => {
+              // Adicionar adset
+              if (!adSetsMap.has(adset.id)) {
+                adSetsMap.set(adset.id, {
+                  id: adset.id,
+                  name: adset.name,
+                  campaignId: campaign.id,
+                  campaignName: campaign.name,
+                  leads: 0,
+                  spend: 0
+                });
+              }
+              
+              // Atualizar totais do adset
+              const adsetData = adSetsMap.get(adset.id);
+              adsetData.leads += adset.leads || 0;
+              adsetData.spend += adset.spend || 0;
+
+              // Processar ads (criativos)
+              if (adset.ads && Array.isArray(adset.ads)) {
+                adset.ads.forEach((ad: any) => {
+                  if (!creativesMap.has(ad.id)) {
+                    creativesMap.set(ad.id, {
+                      id: ad.id,
+                      name: ad.name,
+                      adsetId: adset.id,
+                      adsetName: adset.name,
+                      campaignId: campaign.id,
+                      campaignName: campaign.name,
+                      leads: 0,
+                      spend: 0,
+                      creative_url: ad.creative_url
+                    });
+                  }
+                  
+                  // Atualizar totais do criativo
+                  const creativeData = creativesMap.get(ad.id);
+                  creativeData.leads += ad.leads || 0;
+                  creativeData.spend += ad.spend || 0;
+                });
+              }
+            });
+          }
+        });
+      }
+    });
+
+    return {
+      campaigns: Array.from(campaignsMap.values()).sort((a, b) => a.name.localeCompare(b.name)),
+      adSets: Array.from(adSetsMap.values()).sort((a, b) => a.name.localeCompare(b.name)),
+      creatives: Array.from(creativesMap.values()).sort((a, b) => a.name.localeCompare(b.name))
+    };
+  }, [live?.cached_traffic_data_incremented?.campaignsByDate]);
+
   // Opções de público (dados reais dos públicos da Live) - memoizado para evitar re-renders
   const publicoOptions = useMemo(() => [
     { value: 'todos', label: 'Todos os Públicos' },
@@ -233,6 +330,17 @@ const TrafficAnalysis = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showPublicoDropdown]);
+
+  // Inicializar datas do modal de filtros avançados quando os dados são carregados
+  useEffect(() => {
+    if (live?.insights_date_since && live?.insights_date_until && advancedFilters.startDate === '') {
+      setAdvancedFilters(prev => ({
+        ...prev,
+        startDate: live.insights_date_since || '',
+        endDate: live.insights_date_until || ''
+      }));
+    }
+  }, [live?.insights_date_since, live?.insights_date_until, advancedFilters.startDate]);
 
   // Função para carregar públicos da Live
   const fetchPublicAudiencesData = useCallback(async () => {
@@ -1277,11 +1385,23 @@ const TrafficAnalysis = () => {
     );
   };
 
-  // Função para renderizar dados hierárquicos
+  // Função para renderizar dados hierárquicos com filtros avançados
   const renderHierarchicalData = () => {
     const rows: JSX.Element[] = [];
 
+    // Verificar se há filtros avançados aplicados
+    const hasAdvancedFilters = advancedFilters.selectedCampaigns.size > 0 || 
+                              advancedFilters.selectedAdSets.size > 0 || 
+                              advancedFilters.selectedCreatives.size > 0;
+
     campaignsHierarchy.campaigns.forEach(campaign => {
+      // Aplicar filtro de campanhas se houver seleção específica
+      const shouldShowCampaign = !hasAdvancedFilters || 
+                                advancedFilters.selectedCampaigns.size === 0 || 
+                                advancedFilters.selectedCampaigns.has(campaign.id);
+
+      if (!shouldShowCampaign) return;
+
       // Renderizar campanha
       if (levelFilters.campaigns) {
         rows.push(renderHierarchicalRow(campaign, 0, 'campaign'));
@@ -1290,12 +1410,26 @@ const TrafficAnalysis = () => {
       // Renderizar ad sets se campanha estiver expandida
       if (isExpanded(campaign.id) && levelFilters.adSets) {
         campaign.adSets.forEach(adSet => {
+          // Aplicar filtro de adsets se houver seleção específica
+          const shouldShowAdSet = !hasAdvancedFilters || 
+                                 advancedFilters.selectedAdSets.size === 0 || 
+                                 advancedFilters.selectedAdSets.has(adSet.id);
+
+          if (!shouldShowAdSet) return;
+
           const adSetWithCampaign = { ...adSet, campaignName: campaign.name };
           rows.push(renderHierarchicalRow(adSetWithCampaign, 1, 'adSet'));
 
           // Renderizar insights se ad set estiver expandido
           if (isExpanded(adSet.id) && levelFilters.insights) {
             adSet.insights.forEach(insight => {
+              // Aplicar filtro de criativos se houver seleção específica
+              const shouldShowCreative = !hasAdvancedFilters || 
+                                        advancedFilters.selectedCreatives.size === 0 || 
+                                        advancedFilters.selectedCreatives.has(insight.id);
+
+              if (!shouldShowCreative) return;
+
               rows.push(renderHierarchicalRow(insight, 2, 'insight'));
             });
           }
@@ -1325,6 +1459,224 @@ const TrafficAnalysis = () => {
     setCampaignStartDate(tempCampaignStartDate);
     setCampaignEndDate(tempCampaignEndDate);
   };
+
+  // Funções para gerenciar filtros avançados
+  const handleAdvancedFilterToggle = (type: 'campaigns' | 'adSets' | 'creatives', id: string) => {
+    setAdvancedFilters(prev => {
+      const newFilters = { ...prev };
+      const selectedSet = new Set(prev[type === 'campaigns' ? 'selectedCampaigns' : type === 'adSets' ? 'selectedAdSets' : 'selectedCreatives']);
+      
+      if (selectedSet.has(id)) {
+        selectedSet.delete(id);
+      } else {
+        selectedSet.add(id);
+      }
+      
+      if (type === 'campaigns') {
+        newFilters.selectedCampaigns = selectedSet;
+      } else if (type === 'adSets') {
+        newFilters.selectedAdSets = selectedSet;
+      } else {
+        newFilters.selectedCreatives = selectedSet;
+      }
+      
+      return newFilters;
+    });
+  };
+
+  const handleApplyAdvancedFilters = () => {
+    // Aplicar filtros avançados
+    setIsAdvancedFiltersOpen(false);
+    
+    // Atualizar datas das campanhas com as datas do modal
+    setCampaignStartDate(advancedFilters.startDate);
+    setCampaignEndDate(advancedFilters.endDate);
+  };
+
+  const clearAdvancedFilters = () => {
+    setAdvancedFilters({
+      startDate: '',
+      endDate: '',
+      selectedCampaigns: new Set(),
+      selectedAdSets: new Set(),
+      selectedCreatives: new Set()
+    });
+  };
+
+  // Componente do Modal de Filtros Avançados
+  const AdvancedFiltersModal = () => (
+    <Dialog open={isAdvancedFiltersOpen} onOpenChange={setIsAdvancedFiltersOpen}>
+      <DialogTrigger asChild>
+        <Button className="flex items-center gap-2">
+          <Settings className="h-4 w-4" />
+          Filtros Avançados
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+        <DialogHeader>
+          <DialogTitle>🎯 Filtros Avançados de Campanhas</DialogTitle>
+        </DialogHeader>
+        
+        <div className="flex flex-col space-y-6 max-h-[75vh] overflow-y-auto">
+          {/* Filtros de Data */}
+          <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium">Data início:</label>
+              <Input 
+                type="date" 
+                className="w-auto" 
+                value={advancedFilters.startDate}
+                onChange={e => setAdvancedFilters(prev => ({ ...prev, startDate: e.target.value }))}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium">Data fim:</label>
+              <Input 
+                type="date" 
+                className="w-auto" 
+                value={advancedFilters.endDate}
+                onChange={e => setAdvancedFilters(prev => ({ ...prev, endDate: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          {/* Três Colunas de Filtros */}
+          <div className="grid grid-cols-3 gap-6">
+            {/* Coluna 1: Campanhas */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-lg">📊 Campanhas</h3>
+                <span className="text-sm text-gray-500">
+                  {advancedFilters.selectedCampaigns.size} / {availableItems.campaigns.length}
+                </span>
+              </div>
+              <div className="max-h-64 overflow-y-auto border rounded p-3 space-y-2">
+                {availableItems.campaigns.map(campaign => (
+                  <label key={campaign.id} className="flex items-start space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                    <input
+                      type="checkbox"
+                      checked={advancedFilters.selectedCampaigns.has(campaign.id)}
+                      onChange={() => handleAdvancedFilterToggle('campaigns', campaign.id)}
+                      className="mt-1 rounded"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate" title={campaign.name}>
+                        {campaign.name}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {campaign.leads} leads • R$ {campaign.spend.toFixed(2)}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+                {availableItems.campaigns.length === 0 && (
+                  <div className="text-sm text-gray-500 text-center py-4">
+                    Nenhuma campanha encontrada
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Coluna 2: Conjuntos de Anúncios */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-lg">🎯 Conjuntos de Anúncios</h3>
+                <span className="text-sm text-gray-500">
+                  {advancedFilters.selectedAdSets.size} / {availableItems.adSets.length}
+                </span>
+              </div>
+              <div className="max-h-64 overflow-y-auto border rounded p-3 space-y-2">
+                {availableItems.adSets.map(adSet => (
+                  <label key={adSet.id} className="flex items-start space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                    <input
+                      type="checkbox"
+                      checked={advancedFilters.selectedAdSets.has(adSet.id)}
+                      onChange={() => handleAdvancedFilterToggle('adSets', adSet.id)}
+                      className="mt-1 rounded"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate" title={adSet.name}>
+                        {adSet.name}
+                      </div>
+                      <div className="text-xs text-gray-500 truncate" title={adSet.campaignName}>
+                        {adSet.campaignName}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {adSet.leads} leads • R$ {adSet.spend.toFixed(2)}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+                {availableItems.adSets.length === 0 && (
+                  <div className="text-sm text-gray-500 text-center py-4">
+                    Nenhum conjunto encontrado
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Coluna 3: Criativos */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-lg">🎨 Criativos</h3>
+                <span className="text-sm text-gray-500">
+                  {advancedFilters.selectedCreatives.size} / {availableItems.creatives.length}
+                </span>
+              </div>
+              <div className="max-h-64 overflow-y-auto border rounded p-3 space-y-2">
+                {availableItems.creatives.map(creative => (
+                  <label key={creative.id} className="flex items-start space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                    <input
+                      type="checkbox"
+                      checked={advancedFilters.selectedCreatives.has(creative.id)}
+                      onChange={() => handleAdvancedFilterToggle('creatives', creative.id)}
+                      className="mt-1 rounded"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate" title={creative.name}>
+                        {creative.name}
+                      </div>
+                      <div className="text-xs text-gray-500 truncate" title={creative.adsetName}>
+                        {creative.adsetName}
+                      </div>
+                      <div className="text-xs text-gray-500 truncate" title={creative.campaignName}>
+                        {creative.campaignName}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {creative.leads} leads • R$ {creative.spend.toFixed(2)}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+                {availableItems.creatives.length === 0 && (
+                  <div className="text-sm text-gray-500 text-center py-4">
+                    Nenhum criativo encontrado
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Botões de Ação */}
+          <div className="flex items-center justify-between pt-4 border-t">
+            <Button variant="outline" onClick={clearAdvancedFilters} className="flex items-center gap-2">
+              <X className="h-4 w-4" />
+              Limpar Filtros
+            </Button>
+            <div className="flex items-center space-x-3">
+              <Button variant="outline" onClick={() => setIsAdvancedFiltersOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleApplyAdvancedFilters} className="flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                Aplicar Filtros
+              </Button>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
   
   if (isLoading) {
     return (
@@ -1625,30 +1977,34 @@ const TrafficAnalysis = () => {
           </CardContent>
         </Card>
 
-        {/* Análise Profunda de Conjuntos de Anúncios */}
+        {/* Análise Profunda de Campanhas */}
       <Card>
         <CardHeader>
           <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
             <div>
               <CardTitle>🏆 Análise Profunda de Campanhas</CardTitle>
+              <CardDescription>
+                Análise detalhada com filtros granulares por campanhas, adsets e criativos
+              </CardDescription>
             </div>
             <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium">Data início:</label>
-                  <Input type="date" className="w-auto" value={tempCampaignStartDate} onChange={e => setTempCampaignStartDate(e.target.value)} />
-              </div>
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium">Data fim:</label>
-                  <Input type="date" className="w-auto" value={tempCampaignEndDate} onChange={e => setTempCampaignEndDate(e.target.value)} />
-              </div>
-                <Button onClick={handleApplyCampaignFilters} className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                Filtrar
-              </Button>
+              {/* Filtros de Status dos Filtros Avançados */}
+              {(advancedFilters.selectedCampaigns.size > 0 || advancedFilters.selectedAdSets.size > 0 || advancedFilters.selectedCreatives.size > 0) && (
+                <div className="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">
+                  Filtros ativos: {[
+                    advancedFilters.selectedCampaigns.size > 0 && `${advancedFilters.selectedCampaigns.size} campanhas`,
+                    advancedFilters.selectedAdSets.size > 0 && `${advancedFilters.selectedAdSets.size} adsets`,
+                    advancedFilters.selectedCreatives.size > 0 && `${advancedFilters.selectedCreatives.size} criativos`
+                  ].filter(Boolean).join(', ')}
+                </div>
+              )}
+              
+              {/* Modal de Filtros Avançados */}
+              <AdvancedFiltersModal />
             </div>
           </div>
           
-          {/* Filtro de Níveis Hierárquicos */}
+          {/* Filtro de Níveis Hierárquicos - Mantido para expandir/recolher */}
           <div className="flex items-center space-x-4 pt-4 border-t">
             <span className="text-sm font-medium">Exibir níveis:</span>
             <div className="flex items-center space-x-4">
