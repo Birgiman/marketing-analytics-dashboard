@@ -181,10 +181,18 @@ const TrafficAnalysis = () => {
   // Estados para filtros (baseado no exemplo)
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
+  // Filtros de data para a tabela de dados diários
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [tempStartDate, setTempStartDate] = useState<string>('');
   const [tempEndDate, setTempEndDate] = useState<string>('');
+  
+  // Filtros de data para a análise profunda de campanhas (independentes)
+  const [campaignStartDate, setCampaignStartDate] = useState<string>('');
+  const [campaignEndDate, setCampaignEndDate] = useState<string>('');
+  const [tempCampaignStartDate, setTempCampaignStartDate] = useState<string>('');
+  const [tempCampaignEndDate, setTempCampaignEndDate] = useState<string>('');
   
   // Estados para filtro de públicos
   const [selectedPublico, setSelectedPublico] = useState<string[]>(['todos']);
@@ -544,11 +552,21 @@ const TrafficAnalysis = () => {
           setTempEndDate(maxDate);
           setStartDate(minDate);
           setEndDate(maxDate);
+          // Inicializar também as datas das campanhas
+          setTempCampaignStartDate(minDate);
+          setTempCampaignEndDate(maxDate);
+          setCampaignStartDate(minDate);
+          setCampaignEndDate(maxDate);
         } else if (live.insights_date_since && live.insights_date_until) {
           setTempStartDate(live.insights_date_since);
           setTempEndDate(live.insights_date_until);
           setStartDate(live.insights_date_since);
           setEndDate(live.insights_date_until);
+          // Inicializar também as datas das campanhas
+          setTempCampaignStartDate(live.insights_date_since);
+          setTempCampaignEndDate(live.insights_date_until);
+          setCampaignStartDate(live.insights_date_since);
+          setCampaignEndDate(live.insights_date_until);
         }
         
         setIsLoading(false);
@@ -668,6 +686,11 @@ const TrafficAnalysis = () => {
           setTempEndDate(completeData.live.insights_date_until);
           setStartDate(completeData.live.insights_date_since);
           setEndDate(completeData.live.insights_date_until);
+          // Inicializar também as datas das campanhas
+          setTempCampaignStartDate(completeData.live.insights_date_since);
+          setTempCampaignEndDate(completeData.live.insights_date_until);
+          setCampaignStartDate(completeData.live.insights_date_since);
+          setCampaignEndDate(completeData.live.insights_date_until);
         }
         
       } catch (error) {
@@ -929,7 +952,7 @@ const TrafficAnalysis = () => {
               groupJoin: audienceGroupJoin,
               groupExit: audienceGroupExit,
               cplLiquido: audienceGroupJoin > 0 ? insight.spend / audienceGroupJoin : 0,
-              retention: insight.leads > 0 ? Math.round((audienceGroupSize / insight.leads) * 100) : 0
+              retention: insight.leads > 0 ? Math.round((audienceGroupJoin / insight.leads) * 100) : 0
             };
           });
         } else {
@@ -942,6 +965,15 @@ const TrafficAnalysis = () => {
             retention: 0
           }));
         }
+      } else {
+        // Se não encontrou o público selecionado, retornar insights zerados
+        filteredInsights = dailyInsights.map(insight => ({
+          ...insight,
+          groupJoin: 0,
+          groupExit: 0,
+          cplLiquido: 0,
+          retention: 0
+        }));
       }
     }
 
@@ -999,7 +1031,7 @@ const TrafficAnalysis = () => {
   const tableData = calculateDailyData;
   const totals = calculateTotals;
 
-  // Calcular dados GLOBAIS para os cards (independente de filtros de público)
+  // Calcular dados GLOBAIS para os cards (independente de filtros de público e data)
   const globalCardData = useMemo(() => {
     const campaignsByDate = live?.cached_traffic_data_incremented?.campaignsByDate;
 
@@ -1021,7 +1053,7 @@ const TrafficAnalysis = () => {
     let totalExits = 0;
     const dailyRetentions: number[] = [];
 
-    // Processar TODOS os dados diários (SEM filtro de público)
+    // Processar TODOS os dados diários (SEM filtro de público e SEM filtro de data)
     Object.values(campaignsByDate).forEach((dayCampaigns: any) => {
       if (Array.isArray(dayCampaigns) && dayCampaigns.length > 0) {
         const dayTotal = dayCampaigns.reduce((acc: { spend: number; leads: number }, campaign: any) => {
@@ -1274,6 +1306,7 @@ const TrafficAnalysis = () => {
     return rows;
   };
 
+  // Função para aplicar filtros da tabela de dados diários
   const handleApplyFilters = () => {
     if (!tempStartDate || !tempEndDate) return;
     
@@ -1281,168 +1314,16 @@ const TrafficAnalysis = () => {
     // Os dados já estão carregados no cache incremental
     setStartDate(tempStartDate);
     setEndDate(tempEndDate);
-      /* REMOVIDO: Código antigo que chamava Edge Function desnecessariamente
-      if (liveId) {
-        // Chamar Edge Function para atualizar dados com novo período
-        const { data: session } = await supabase.auth.getSession();
-        if (!session?.session?.user) {
-          throw new Error('Usuário não autenticado');
-        }
-        
-        const response = await supabase.functions.invoke('sync-live-meta-data', {
-          body: { liveId }
-        });
-        
-        if (response.error) {
-          throw new Error(`Erro na Edge Function: ${response.error.message}`);
-        }
-        
-        // Recarregar dados do cache atualizado
-        const { data: updatedLive, error: reloadError } = await supabase
-          .from('lives')
-          .select('*')
-          .eq('id', liveId)
-          .single();
-          
-        if (reloadError || !updatedLive) {
-          throw new Error('Erro ao recarregar dados após Edge Function');
-        }
-        
-        const completeData = { live: updatedLive };
-        // Atualizar dados com o novo período
-        setLive(completeData.live);
-        
-        if (completeData.live.cached_traffic_data) {
-          setGroups(completeData.live.cached_traffic_data.groups || []);
-          
-          // Extrair campanhas da estrutura hierárquica
-          if (completeData.live.cached_traffic_data.campaign) {
-            const campaigns = completeData.live.cached_traffic_data.campaign.map((campaign: any) => ({
-              campaign_id: campaign.id,
-              campaign_name: campaign.name
-            }));
-            setCampaigns(campaigns);
-          }
-          
-          // Gerar campaignsWithInsights a partir dos dados incrementais
-          if (completeData.live.cached_traffic_data_incremented?.campaignsByDate) {
-            const campaignsWithInsights: any[] = [];
-            const campaignsByDate = completeData.live.cached_traffic_data_incremented.campaignsByDate;
-            
-            const campaignMap = new Map();
-            Object.keys(campaignsByDate).forEach(date => {
-              campaignsByDate[date].forEach((campaign: any) => {
-                if (!campaignMap.has(campaign.id)) {
-                  campaignMap.set(campaign.id, {
-                    campaign_id: campaign.id,
-                    campaign_name: campaign.name,
-                    insights: []
-                  });
-                }
-                
-                campaignMap.get(campaign.id).insights.push({
-                  campaign_name: campaign.name,
-                  date_start: date,
-                  date_stop: date,
-                  spend: campaign.spend.toString(),
-                  impressions: '0',
-                  clicks: '0',
-                  reach: '0',
-                  frequency: '0',
-                  cpm: '0',
-                  ctr: '0',
-                  cpp: '0',
-                  cost_per_unique_click: '0',
-                  actions: [{ action_type: 'lead', value: campaign.leads.toString() }]
-                });
-              });
-            });
-            
-            setCampaignsWithInsights(Array.from(campaignMap.values()));
-          }
-        }
+  };
 
-
-        
-        // Recalcular métricas V2 usando dados do cache
-        // Gerar campaignInsights a partir dos dados incrementais
-        let campaignInsights: any[] = [];
-        if (completeData.live.cached_traffic_data_incremented?.campaignsByDate) {
-          const campaignsByDate = completeData.live.cached_traffic_data_incremented.campaignsByDate;
-          const campaignMap = new Map();
-          
-          Object.keys(campaignsByDate).forEach(date => {
-            campaignsByDate[date].forEach((campaign: any) => {
-              if (!campaignMap.has(campaign.id)) {
-                campaignMap.set(campaign.id, {
-                  campaign_id: campaign.id,
-                  campaign_name: campaign.name,
-                  insights: []
-                });
-              }
-              
-              campaignMap.get(campaign.id).insights.push({
-                campaign_name: campaign.name,
-                date_start: date,
-                date_stop: date,
-                spend: campaign.spend.toString(),
-                impressions: '0',
-                clicks: '0',
-                reach: '0',
-                frequency: '0',
-                cpm: '0',
-                ctr: '0',
-                cpp: '0',
-                cost_per_unique_click: '0',
-                actions: [{ action_type: 'lead', value: campaign.leads.toString() }]
-              });
-            });
-          });
-          
-          campaignInsights = Array.from(campaignMap.values());
-        }
-
-
-
-
-
-
-
-        const liveDataForCalculations = {
-          live: completeData.live,
-          groups: completeData.live.cached_traffic_data?.groups || [],
-          campaignInsights: campaignInsights
-        };
-        
-        // Validar parâmetros obrigatórios para cálculos
-        if (!completeData.live?.insights_date_since || !completeData.live?.insights_date_until || !completeData.live?.user_id) {
-          throw new Error(`Parâmetros obrigatórios ausentes: insights_date_since=${completeData.live?.insights_date_since}, insights_date_until=${completeData.live?.insights_date_until}, user_id=${completeData.live?.user_id}`);
-        }
-
-        const result = await calculateCompleteLiveMetrics(liveDataForCalculations, {
-          enableLogging: true,
-          enableValidation: true,
-          orcamentoGasto: completeData.live.ad_budget,
-          dateFrom: completeData.live.insights_date_since,
-          dateTo: completeData.live.insights_date_until,
-          userId: completeData.live.user_id
-        });
-        setMetricsV2(result.metrics);
-        setExtractedDataV2(result.extractedData);
-        
-        // TODO: Implementar recálculo de dados hierárquicos de campanhas
-        
-        // TODO: Implementar busca de dados hierárquicos de campanhas
-        // Por enquanto, usar dados hierárquicos do cache se disponível
-        setCampaignsHierarchy({ campaigns: [] });
-      }
-      
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao aplicar filtros');
-    } finally {
-      setIsLoading(false);
-    }
-    */
+  // Função para aplicar filtros da análise profunda de campanhas
+  const handleApplyCampaignFilters = () => {
+    if (!tempCampaignStartDate || !tempCampaignEndDate) return;
+    
+    // Simplesmente atualizar as datas para filtrar a visualização
+    // Os dados já estão carregados no cache incremental
+    setCampaignStartDate(tempCampaignStartDate);
+    setCampaignEndDate(tempCampaignEndDate);
   };
   
   if (isLoading) {
@@ -1754,13 +1635,13 @@ const TrafficAnalysis = () => {
             <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
               <div className="flex items-center space-x-2">
                 <label className="text-sm font-medium">Data início:</label>
-                  <Input type="date" className="w-auto" value={tempStartDate} onChange={e => setTempStartDate(e.target.value)} />
+                  <Input type="date" className="w-auto" value={tempCampaignStartDate} onChange={e => setTempCampaignStartDate(e.target.value)} />
               </div>
               <div className="flex items-center space-x-2">
                 <label className="text-sm font-medium">Data fim:</label>
-                  <Input type="date" className="w-auto" value={tempEndDate} onChange={e => setTempEndDate(e.target.value)} />
+                  <Input type="date" className="w-auto" value={tempCampaignEndDate} onChange={e => setTempCampaignEndDate(e.target.value)} />
               </div>
-                <Button onClick={handleApplyFilters} className="flex items-center gap-2">
+                <Button onClick={handleApplyCampaignFilters} className="flex items-center gap-2">
                 <Filter className="h-4 w-4" />
                 Filtrar
               </Button>
