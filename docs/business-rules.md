@@ -78,11 +78,12 @@ const calculateCPLMeta = () => {
 
 ### 2.2 CPL Líquido (Custo por Lead Líquido)
 
-**Definição**: Custo por lead baseado apenas nas pessoas que efetivamente entraram nos grupos.
+**Definição**: Custo por lead baseado no número de leads ativos (pessoas que entraram menos as que saíram dos grupos).
 
 **Fórmula**:
 ```typescript
-CPL_Liquido = Total_Investido / Total_Pessoas_Entraram_Grupo
+CPL_Liquido = Total_Investido / Total_Leads_Ativos
+Total_Leads_Ativos = Total_Pessoas_Entraram_Grupo - Total_Pessoas_Sairam_Grupo
 ```
 
 **Implementação**:
@@ -90,7 +91,8 @@ CPL_Liquido = Total_Investido / Total_Pessoas_Entraram_Grupo
 const calculateCPLLiquido = () => {
   const totalSpent = calculateTotalSpent();
   const totalsData = calculateTotals();
-  return totalsData.totalGroup > 0 ? totalSpent / totalsData.totalGroup : 0;
+  const activeLeads = totalsData.totalGroup - totalsData.totalGroupExit;
+  return activeLeads > 0 ? totalSpent / activeLeads : 0;
 };
 ```
 

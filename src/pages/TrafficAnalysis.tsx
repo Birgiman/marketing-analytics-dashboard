@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PublicAudience, PublicAudienceCorrelation } from "@/types/audience";
 import { fetchPublicAudiences, generateAudienceCorrelation } from "@/utils/audienceService";
 // Removido imports legados: AdSetData, CampaignData, extractAdSetDataFromInsights, extractCampaignData
-import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2";
+// REMOVIDO: import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2"; // Não usado mais no filtro
 // Funções antigas removidas - agora usando Edge Function syncLiveMetaData
 // Removido import legado: fetchAdSetInsights
 import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Filter } from "lucide-react";
@@ -147,36 +147,6 @@ const TrafficAnalysis = () => {
   const [isButtonRefreshing, setIsButtonRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Estados para métricas V2
-  const [metricsV2, setMetricsV2] = useState<{
-    cplLiquido: number;
-    cplMeta: number;
-    retentionRate: number;
-  } | null>(null);
-  const [extractedDataV2, setExtractedDataV2] = useState<{
-    metaData: {
-      totalSpend: number;
-      totalResults: number;
-      totalImpressions: number;
-      totalClicks: number;
-      totalReach: number;
-      campaignCount: number;
-      insightsCount: number;
-    };
-    groupData: {
-      totalMembers: number;
-      totalGroups: number;
-      entries: number;
-      exits: number;
-      activeMembers: number;
-    };
-    liveInfo: {
-      id: string;
-      name: string;
-      orcamentoGasto?: number;
-      orcamentoTotal?: number;
-    };
-  } | null>(null);
   
   // Estados para dados hierárquicos de campanhas
   const [campaignsHierarchy, setCampaignsHierarchy] = useState<{
@@ -406,6 +376,7 @@ const TrafficAnalysis = () => {
             });
             
             setCampaignsWithInsights(Array.from(campaignMap.values()));
+          }
 
           // Carregar dados hierárquicos de campanhas (usar estrutura da Edge Function)
           if ((liveData.cached_traffic_data as any).campaign) {
@@ -435,6 +406,7 @@ const TrafficAnalysis = () => {
             };
             setCampaignsHierarchy(formattedHierarchy);
           }
+        }
         
         // Carregar públicos após carregar dados básicos
         try {
@@ -455,33 +427,33 @@ const TrafficAnalysis = () => {
             // Dados hierárquicos já estão no cache da Edge Function
             // Carregar do cache atualizado
             if (liveData.cached_traffic_data?.campaign) {
-            const formattedHierarchy = {
+              const formattedHierarchy = {
                 campaigns: liveData.cached_traffic_data.campaign.map((campaign: any) => ({
-                id: campaign.id,
-                name: campaign.name,
+                  id: campaign.id,
+                  name: campaign.name,
                   totalSpend: campaign.spend,
                   totalLeads: campaign.leads,
                   cpl: campaign.cpl_meta,
                   adSets: campaign.adsets.map((adSet: any) => ({
-                  id: adSet.id,
-                  name: adSet.name,
+                    id: adSet.id,
+                    name: adSet.name,
                     totalSpend: adSet.spend,
                     totalLeads: adSet.leads,
                     cpl: adSet.cpl_meta,
                     insights: adSet.ads.map((ad: any) => ({
-                    id: ad.id,
-                    name: ad.name,
+                      id: ad.id,
+                      name: ad.name,
                       spend: ad.spend,
                       leads: ad.leads,
                       cpl: ad.cpl_meta,
                       creativeUrl: ad.creative_url
+                    }))
                   }))
                 }))
-              }))
-            };
+              };
 
-            setCampaignsHierarchy(formattedHierarchy);
-            setHierarchicalCacheValid(true);
+              setCampaignsHierarchy(formattedHierarchy);
+              setHierarchicalCacheValid(true);
             }
 
           } catch (error) {
@@ -776,6 +748,7 @@ const TrafficAnalysis = () => {
   // Estados para controle de inicialização
   const [isInitialized, setIsInitialized] = useState(false);
   const [hierarchicalCacheValid, setHierarchicalCacheValid] = useState(false);
+  const [isHierarchicalRefreshing, setIsHierarchicalRefreshing] = useState(false);
 
   // Função para verificar se o cache ainda é válido (30 minutos)
   const isCacheValid = useCallback(async (liveId: string): Promise<boolean> => {
@@ -869,17 +842,7 @@ const TrafficAnalysis = () => {
   }, [liveId, isInitialized, syncLiveMetaData, loadDataFromDatabase]);
   
   
-  // Usar métricas do cache ou calcular se necessário
-  const cplLiquido = live?.cached_metrics?.cplLiquido || metricsV2?.cplLiquido || 0;
-  const cplMeta = live?.cached_metrics?.cplMeta || metricsV2?.cplMeta || 0;
-  const retentionRate = live?.cached_metrics?.retentionRate || metricsV2?.retentionRate || 0;
 
-  // Calcular dados dos grupos (usar cache se disponível)
-  const groupData = {
-    entrou: live?.cached_group_data?.entries || groups?.reduce((sum, group) => sum + (group.group_size || 0), 0) || 0,
-    saiu: live?.cached_group_data?.exits || 0,
-    ativos: live?.cached_group_data?.activeMembers || groups?.reduce((sum, group) => sum + (group.group_size || 0), 0) || 0
-  };
 
   // Debug: Log dos dados que serão exibidos nos cards
   // Debug: Log do timezone do servidor
@@ -916,8 +879,8 @@ const TrafficAnalysis = () => {
       const dayGroupJoin = dayCampaigns[0]?.whatsapp_joins || 0;
       const dayGroupExit = dayCampaigns[0]?.whatsapp_exits || 0;
 
-      // CPL Líquido baseado nos dados reais do dia
-      const dayCplLiquido = dayGroupJoin > 0 ? dayTotal.spend / dayGroupJoin : (live?.cached_metrics?.cplLiquido || 0);
+      // CPL Líquido baseado nas pessoas que entraram no grupo
+      const dayCplLiquido = dayGroupJoin > 0 ? dayTotal.spend / dayGroupJoin : 0;
 
       // Taxa de retenção do dia
       const dayRetention = dayTotal.leads > 0 ? Math.round((dayGroupJoin / dayTotal.leads) * 100) : 0;
@@ -937,13 +900,13 @@ const TrafficAnalysis = () => {
     let filteredInsights = dailyInsights;
 
     // Se não é "todos", filtrar por público selecionado
-    if (!selectedPublico.includes('todos')) {
-      const selectedAudience = publicAudiences.find(a => selectedPublico.includes(a.id));
+    if (!selectedPublico?.includes('todos')) {
+      const selectedAudience = publicAudiences?.find(a => selectedPublico?.includes(a.id));
       
       if (selectedAudience) {
         // Buscar grupos que correspondem ao emoji do público
-        const audienceGroups = groups.filter(group => 
-          group.group_name.includes(selectedAudience.emoji)
+        const audienceGroups = groups.filter(group =>
+          group?.group_name?.includes(selectedAudience?.emoji || '')
         );
         
         if (audienceGroups.length > 0) {
@@ -952,16 +915,20 @@ const TrafficAnalysis = () => {
           // mas ajustar os dados dos grupos para refletir apenas os grupos do público
           filteredInsights = dailyInsights.map(insight => {
             // Calcular proporção dos grupos do público em relação ao total
-            const totalGroupSize = groups.reduce((sum, group) => sum + group.group_size, 0);
-            const audienceGroupSize = audienceGroups.reduce((sum, group) => sum + group.group_size, 0);
+            const totalGroupSize = groups.reduce((sum, group) => sum + (group?.group_size || 0), 0);
+            const audienceGroupSize = audienceGroups.reduce((sum, group) => sum + (group?.group_size || 0), 0);
             const proportion = totalGroupSize > 0 ? audienceGroupSize / totalGroupSize : 0;
-            
+
+            // Calcular entradas e saídas proporcionais para o público
+            const audienceGroupJoin = Math.round(((insight as any).groupJoin || 0) * proportion);
+            const audienceGroupExit = Math.round(((insight as any).groupExit || 0) * proportion);
+
             return {
               ...insight,
               // Ajustar dados dos grupos proporcionalmente
-              groupJoin: Math.round(((insight as any).groupJoin || 0) * proportion),
-              groupExit: Math.round(((insight as any).groupExit || 0) * proportion),
-              cplLiquido: audienceGroupSize > 0 ? insight.spend / audienceGroupSize : 0,
+              groupJoin: audienceGroupJoin,
+              groupExit: audienceGroupExit,
+              cplLiquido: audienceGroupJoin > 0 ? insight.spend / audienceGroupJoin : 0,
               retention: insight.leads > 0 ? Math.round((audienceGroupSize / insight.leads) * 100) : 0
             };
           });
@@ -1010,11 +977,12 @@ const TrafficAnalysis = () => {
 
     const averageCplMeta = totalLeadsDaily > 0 ? totalInvestmentDaily / totalLeadsDaily : 0;
 
-    // Manter outros cálculos inalterados
+    // Calcular CPL Líquido correto baseado em pessoas que entraram no grupo
+    const averageCplLiquido = totalGroup > 0 ? totalInvestment / totalGroup : 0;
+
+    // Manter outros cálculos como média simples (corretos para seus contextos)
     const cplMetaValues = dailyData.map(day => day.cplMeta).filter(val => val > 0);
-    const cplLiquidoValues = dailyData.map(day => day.cplLiquido).filter(val => val > 0);
     const retentionValues = dailyData.map(day => day.retention).filter(val => val > 0);
-    const averageCplLiquido = cplLiquidoValues.length > 0 ? cplLiquidoValues.reduce((sum, val) => sum + val, 0) / cplLiquidoValues.length : 0;
     const averageRetention = retentionValues.length > 0 ? retentionValues.reduce((sum, val) => sum + val, 0) / retentionValues.length : 0;
     
     return {
@@ -1030,6 +998,81 @@ const TrafficAnalysis = () => {
   
   const tableData = calculateDailyData;
   const totals = calculateTotals;
+
+  // Calcular dados GLOBAIS para os cards (independente de filtros de público)
+  const globalCardData = useMemo(() => {
+    const campaignsByDate = live?.cached_traffic_data_incremented?.campaignsByDate;
+
+    if (!campaignsByDate || Object.keys(campaignsByDate).length === 0) {
+      return {
+        totalSpend: 0,
+        totalLeads: 0,
+        totalEntries: 0,
+        totalExits: 0,
+        cplMeta: 0,
+        cplLiquido: 0,
+        retentionRate: 0
+      };
+    }
+
+    let totalSpend = 0;
+    let totalLeads = 0;
+    let totalEntries = 0;
+    let totalExits = 0;
+    const dailyRetentions: number[] = [];
+
+    // Processar TODOS os dados diários (SEM filtro de público)
+    Object.values(campaignsByDate).forEach((dayCampaigns: any) => {
+      if (Array.isArray(dayCampaigns) && dayCampaigns.length > 0) {
+        const dayTotal = dayCampaigns.reduce((acc: { spend: number; leads: number }, campaign: any) => {
+          acc.spend += campaign.spend || 0;
+          acc.leads += campaign.leads || 0;
+          return acc;
+        }, { spend: 0, leads: 0 });
+
+        totalSpend += dayTotal.spend;
+        totalLeads += dayTotal.leads;
+
+        const dayGroupJoin = dayCampaigns[0]?.whatsapp_joins || 0;
+        const dayGroupExit = dayCampaigns[0]?.whatsapp_exits || 0;
+
+        totalEntries += dayGroupJoin;
+        totalExits += dayGroupExit;
+
+        const dayRetention = dayTotal.leads > 0 ? Math.round((dayGroupJoin / dayTotal.leads) * 100) : 0;
+        if (dayRetention > 0) {
+          dailyRetentions.push(dayRetention);
+        }
+      }
+    });
+
+    const cplMeta = totalLeads > 0 ? totalSpend / totalLeads : 0;
+    const cplLiquido = totalEntries > 0 ? totalSpend / totalEntries : 0;
+    const retentionRate = dailyRetentions.length > 0 ?
+      dailyRetentions.reduce((sum, val) => sum + val, 0) / dailyRetentions.length : 0;
+
+    return {
+      totalSpend,
+      totalLeads,
+      totalEntries,
+      totalExits,
+      cplMeta,
+      cplLiquido,
+      retentionRate
+    };
+  }, [live?.cached_traffic_data_incremented?.campaignsByDate]);
+
+  // Dados dos grupos para os cards (independente de filtros)
+  const groupData = {
+    entrou: globalCardData.totalEntries,
+    saiu: globalCardData.totalExits,
+    ativos: globalCardData.totalEntries - globalCardData.totalExits
+  };
+
+  // Usar métricas globais para os cards (independente de filtros)
+  const cplLiquido = globalCardData.cplLiquido;
+  const cplMeta = globalCardData.cplMeta;
+  const retentionRate = globalCardData.retentionRate;
   
   // Debug: Testar conversão de data
   if (tableData.length > 0) {
@@ -1231,16 +1274,14 @@ const TrafficAnalysis = () => {
     return rows;
   };
 
-  const handleApplyFilters = async () => {
+  const handleApplyFilters = () => {
     if (!tempStartDate || !tempEndDate) return;
     
-    try {
-      setIsLoading(true);
-      // Atualizar as datas ativas
-      setStartDate(tempStartDate);
-      setEndDate(tempEndDate);
-      
-      // Fazer nova requisição com o período filtrado
+    // Simplesmente atualizar as datas para filtrar a visualização
+    // Os dados já estão carregados no cache incremental
+    setStartDate(tempStartDate);
+    setEndDate(tempEndDate);
+      /* REMOVIDO: Código antigo que chamava Edge Function desnecessariamente
       if (liveId) {
         // Chamar Edge Function para atualizar dados com novo período
         const { data: session } = await supabase.auth.getSession();
@@ -1401,6 +1442,7 @@ const TrafficAnalysis = () => {
     } finally {
       setIsLoading(false);
     }
+    */
   };
   
   if (isLoading) {

@@ -373,7 +373,37 @@ Deno.serve(async (req: Request) => {
       console.log(`⚠️ [WhatsApp] Nenhum dado diário encontrado para adicionar`);
     }
 
-    // STEP 9: Salvar no Supabase
+    // STEP 9: Calcular métricas para cached_metrics
+    console.log(`🧮 [Metrics] Calculando métricas...`);
+
+    // Calcular totais do Meta
+    const totalSpend = globalHierarchy.campaigns.reduce((sum, campaign) => sum + campaign.spend, 0);
+    const totalLeads = globalHierarchy.campaigns.reduce((sum, campaign) => sum + campaign.leads, 0);
+
+    // Calcular totais do WhatsApp
+    const totalEntries = Object.values(whatsappData.dailyData).reduce((sum, day) => sum + day.joins, 0);
+    const totalExits = Object.values(whatsappData.dailyData).reduce((sum, day) => sum + day.exits, 0);
+    const totalActiveLeads = totalEntries - totalExits;
+
+    // Calcular CPLs
+    const cplMeta = totalLeads > 0 ? totalSpend / totalLeads : 0;
+    const cplLiquido = totalEntries > 0 ? totalSpend / totalEntries : 0; // Baseado em pessoas que entraram
+
+    // Calcular Taxa de Retenção
+    const retentionRate = totalLeads > 0 ? (totalEntries / totalLeads) * 100 : 0;
+
+    console.log(`✅ [Metrics] Métricas calculadas:`, {
+      totalSpend: totalSpend.toFixed(2),
+      totalLeads,
+      totalEntries,
+      totalExits,
+      totalActiveLeads,
+      cplMeta: cplMeta.toFixed(2),
+      cplLiquido: cplLiquido.toFixed(2),
+      retentionRate: retentionRate.toFixed(1)
+    });
+
+    // STEP 10: Salvar no Supabase
     console.log(`💾 [Database] Salvando no banco...`);
     const { error: updateError } = await supabaseClient
       .from('lives')
@@ -381,18 +411,25 @@ Deno.serve(async (req: Request) => {
         cached_traffic_data: {
           campaign: globalHierarchy.campaigns,
           groups: whatsappData.groups || [],
-          lastUpdated: new Date().toISOString(),
-          requestTime: Date.now(),
           campaignCount: globalHierarchy.campaigns.length,
           adSetCount: globalHierarchy.campaigns.reduce((sum, c) => sum + c.adsets.length, 0),
           adCount: globalHierarchy.campaigns.reduce((sum, c) =>
             sum + c.adsets.reduce((adSum, adSet) => adSum + adSet.ads.length, 0), 0
           )
         },
+        cached_metrics: {
+          cplLiquido,
+          cplMeta,
+          retentionRate,
+          cplLiquidoPlanejamento: cplLiquido, // Por enquanto, mesmo valor do CPL Líquido
+          totalSpend,
+          totalLeads,
+          totalEntries,
+          totalExits,
+          totalActiveLeads
+        },
         cached_traffic_data_incremented: {
           campaignsByDate: incrementalHierarchy.campaignsByDate,
-          lastUpdated: new Date().toISOString(),
-          requestTime: Date.now(),
           totalDays: Object.keys(incrementalHierarchy.campaignsByDate).length,
           dateRange: timeRange
         },

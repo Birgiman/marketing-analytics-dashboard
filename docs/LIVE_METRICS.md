@@ -47,10 +47,11 @@ cpl_bruto = total_leads > 0 ? total_spend / total_leads : null
 
 ### 5. **CPL Líquido (Custo por Lead Líquido)**
 ```javascript
-cpl_liquido = qualified_leads > 0 ? total_spend / qualified_leads : cpl_bruto
+active_leads = qualified_leads - leads_que_sairam
+cpl_liquido = active_leads > 0 ? total_spend / active_leads : cpl_bruto
 ```
 
-**Interpretação**: Custo médio por lead que efetivamente entrou nos grupos WhatsApp
+**Interpretação**: Custo médio por lead ativo (que entrou nos grupos WhatsApp menos os que saíram)
 
 ### 6. **CPL Meta (Custo por Lead Meta)**
 ```javascript

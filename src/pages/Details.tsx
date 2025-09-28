@@ -27,6 +27,19 @@ const Details = () => {
     leads_goal?: number;
     created_at: string;
     updated_at: string;
+    cached_metrics?: {
+      cplLiquido: number;
+      cplMeta: number;
+      retentionRate: number;
+      cplLiquidoPlanejamento: number;
+      totalSpend: number;
+      totalLeads: number;
+      totalEntries: number;
+      totalExits: number;
+      totalActiveLeads: number;
+    };
+    cached_traffic_data?: any;
+    cached_traffic_data_incremented?: any;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isButtonRefreshing, setIsButtonRefreshing] = useState(false);
@@ -65,7 +78,6 @@ const Details = () => {
         .single();
 
       if (error || !liveData?.traffic_last_synced_at) {
-        console.log(`📅 [Details] Sem cache válido para Live: ${liveId}`);
         return false;
       }
 
@@ -75,7 +87,6 @@ const Details = () => {
       const CACHE_DURATION_MINUTES = 30;
 
       const isValid = diffMinutes < CACHE_DURATION_MINUTES;
-      console.log(`📅 [Details] Cache ${isValid ? 'VÁLIDO' : 'EXPIRADO'} - Última sincronização: ${diffMinutes} min atrás`);
 
       return isValid;
     } catch (error) {
@@ -91,12 +102,10 @@ const Details = () => {
       if (!forceRefresh) {
         const cacheIsValid = await isCacheValid(liveId);
         if (cacheIsValid) {
-          console.log(`✅ [Details] Cache válido - pulando Edge Function para Live: ${liveId}`);
           return { status: 'cache_valid' };
         }
       }
 
-      console.log(`🚀 [Details] Chamando Edge Function syncLiveMetaData para Live: ${liveId}`);
 
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.user) {
@@ -111,7 +120,6 @@ const Details = () => {
         throw new Error(`Erro na Edge Function: ${response.error.message}`);
       }
 
-      console.log(`✅ [Details] Edge Function executada com sucesso:`, response.data);
       return response.data;
     } catch (error) {
       console.error(`❌ [Details] Erro ao chamar Edge Function:`, error);
@@ -136,7 +144,7 @@ const Details = () => {
         return;
       }
       if (liveData) {
-        // Atualizar dados básicos da Live
+        // Atualizar dados básicos da Live incluindo cached_metrics
         setLive({
           id: liveData.id,
           name: liveData.name,
@@ -149,7 +157,10 @@ const Details = () => {
           sales_goal: liveData.sales_goal,
           leads_goal: liveData.leads_goal,
           created_at: liveData.created_at,
-          updated_at: liveData.updated_at
+          updated_at: liveData.updated_at,
+          cached_metrics: liveData.cached_metrics,
+          cached_traffic_data: liveData.cached_traffic_data,
+          cached_traffic_data_incremented: liveData.cached_traffic_data_incremented
         });
 
         // Extrair dados do cache JSONB se existirem
@@ -217,7 +228,6 @@ const Details = () => {
         // Chamar Edge Function para sincronizar dados do Meta (com verificação de cache)
         try {
           await syncLiveMetaData(liveId, false); // false = não forçar refresh
-          console.log(`✅ [Details] Sincronização concluída`);
         } catch (edgeError) {
           console.warn(`⚠️ [Details] Edge Function falhou, continuando com dados do cache:`, edgeError);
           // Não interromper o fluxo se a Edge Function falhar
@@ -246,7 +256,6 @@ const Details = () => {
       // Chamar Edge Function para forçar sincronização (ignorar cache)
       try {
         await syncLiveMetaData(liveId!, true); // true = forçar refresh
-        console.log(`✅ [Details] Edge Function executada no refresh`);
       } catch (edgeError) {
         console.warn(`⚠️ [Details] Edge Function falhou no refresh, continuando:`, edgeError);
         // Não interromper o fluxo se a Edge Function falhar
@@ -280,11 +289,84 @@ const Details = () => {
       </div>;
   }
 
-  // Dados para exibição
-  const cplLiquido = metrics?.cplLiquido || 0;
-  const cplMeta = metrics?.cplMeta || 0;
-  const retentionRate = metrics?.retentionRate || 0;
-  const totalSpend = extractedData?.metaData?.totalSpend || 0;
+  // Calcular dados como fallback usando lógica do TrafficAnalysis
+  const calculateFallbackData = () => {
+    if (!live?.cached_traffic_data_incremented?.campaignsByDate) {
+      return {
+        totalSpend: 0,
+        totalLeads: 0,
+        totalEntries: 0,
+        totalExits: 0,
+        cplMeta: 0,
+        cplLiquido: 0,
+        retentionRate: 0
+      };
+    }
+
+    const campaignsByDate = live.cached_traffic_data_incremented.campaignsByDate;
+    let totalSpend = 0;
+    let totalLeads = 0;
+    let totalEntries = 0;
+    let totalExits = 0;
+    const dailyRetentions: number[] = [];
+
+    // Processar todos os dados diários (mesma lógica do TrafficAnalysis)
+    Object.values(campaignsByDate).forEach((dayCampaigns: any) => {
+      if (Array.isArray(dayCampaigns) && dayCampaigns.length > 0) {
+        // Agregar dados do dia para evitar duplicação
+        const dayTotal = dayCampaigns.reduce((acc: { spend: number; leads: number }, campaign: any) => {
+          acc.spend += campaign.spend || 0;
+          acc.leads += campaign.leads || 0;
+          return acc;
+        }, { spend: 0, leads: 0 });
+
+        totalSpend += dayTotal.spend;
+        totalLeads += dayTotal.leads;
+
+        // Dados do WhatsApp (no primeiro campaign do dia)
+        const dayGroupJoin = dayCampaigns[0]?.whatsapp_joins || 0;
+        const dayGroupExit = dayCampaigns[0]?.whatsapp_exits || 0;
+
+        totalEntries += dayGroupJoin;
+        totalExits += dayGroupExit;
+
+        // Calcular taxa de retenção do dia (mesma fórmula do TrafficAnalysis)
+        const dayRetention = dayTotal.leads > 0 ? Math.round((dayGroupJoin / dayTotal.leads) * 100) : 0;
+        if (dayRetention > 0) {
+          dailyRetentions.push(dayRetention);
+        }
+      }
+    });
+
+    const cplMeta = totalLeads > 0 ? totalSpend / totalLeads : 0;
+    const cplLiquido = totalEntries > 0 ? totalSpend / totalEntries : 0;
+    // Taxa de retenção como média das retenções diárias (igual TrafficAnalysis)
+    const retentionRate = dailyRetentions.length > 0 ?
+      dailyRetentions.reduce((sum, val) => sum + val, 0) / dailyRetentions.length : 0;
+
+    return {
+      totalSpend,
+      totalLeads,
+      totalEntries,
+      totalExits,
+      cplMeta,
+      cplLiquido,
+      retentionRate
+    };
+  };
+
+  const fallbackData = calculateFallbackData();
+
+
+
+  // Dados para exibição - usar APENAS fallback (dados corretos) até cached_metrics ser atualizado
+  const cplLiquido = fallbackData.cplLiquido;
+  const cplMeta = fallbackData.cplMeta;
+  const retentionRate = fallbackData.retentionRate;
+  const totalSpend = fallbackData.totalSpend;
+  const totalEntries = fallbackData.totalEntries;
+  const totalExits = fallbackData.totalExits;
+  const totalActiveLeads = totalEntries - totalExits;
 
   // Debug: Log dos dados que serão exibidos nos cards
   return <div className="flex flex-col min-h-screen bg-background">
@@ -323,10 +405,10 @@ const Details = () => {
           </div>}
 
         {/* Métricas Principais */}
-        <LiveMetricsCards cplLiquido={cplLiquido} cplMeta={cplMeta} retentionRate={retentionRate} groupMembers={extractedData?.groupData?.totalMembers || 0} groupExits={extractedData?.groupData?.exits || 0} activeLeads={extractedData?.groupData?.activeMembers || 0} isLoading={isLoading} />
+        <LiveMetricsCards cplLiquido={cplLiquido} cplMeta={cplMeta} retentionRate={retentionRate} groupMembers={totalEntries} groupExits={totalExits} activeLeads={totalActiveLeads} isLoading={isLoading} />
 
         {/* Análise de Performance */}
-        <PerformanceAnalysis live={live} totalSpend={totalSpend} totalGroupMembers={extractedData?.groupData?.totalMembers || 0} cplLiquido={cplLiquido} cplMeta={cplMeta} />
+        <PerformanceAnalysis live={live} totalSpend={totalSpend} totalGroupMembers={totalEntries} cplLiquido={cplLiquido} cplMeta={cplMeta} />
       </div>
 
       {/* BOTÃO DE TESTE - TEMPORÁRIO */}
