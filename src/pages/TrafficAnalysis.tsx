@@ -15,7 +15,7 @@ import { fetchPublicAudiences, generateAudienceCorrelation } from "@/utils/audie
 // Funções antigas removidas - agora usando Edge Function syncLiveMetaData
 // Removido import legado: fetchAdSetInsights
 import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Filter, Settings, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
@@ -341,16 +341,20 @@ const TrafficAnalysis = () => {
     };
   }, [showPublicoDropdown]);
 
+  // Ref para controlar se as datas já foram inicializadas
+  const datesInitialized = useRef(false);
+
   // Inicializar datas do modal de filtros avançados quando os dados são carregados
   useEffect(() => {
-    console.log('🟠 [Modal] useEffect inicialização datas EXECUTADO:', { 
-      hasLive: !!live, 
-      since: live?.insights_date_since, 
-      until: live?.insights_date_until, 
+    console.log('🟠 [Modal] useEffect inicialização datas EXECUTADO:', {
+      hasLive: !!live,
+      since: live?.insights_date_since,
+      until: live?.insights_date_until,
       currentStartDate: advancedFilters.startDate,
+      datesInitialized: datesInitialized.current,
       timestamp: new Date().toISOString()
     });
-    if (live?.insights_date_since && live?.insights_date_until && advancedFilters.startDate === '') {
+    if (live?.insights_date_since && live?.insights_date_until && !datesInitialized.current) {
       console.log('🟠 [Modal] Inicializando datas do modal');
       const initialDates = {
         startDate: live.insights_date_since || '',
@@ -358,8 +362,9 @@ const TrafficAnalysis = () => {
       };
       setAdvancedFilters(prev => ({ ...prev, ...initialDates }));
       setTempAdvancedFilters(prev => ({ ...prev, ...initialDates }));
+      datesInitialized.current = true;
     }
-  }, [live?.insights_date_since, live?.insights_date_until, advancedFilters.startDate]);
+  }, [live?.insights_date_since, live?.insights_date_until]);
 
   // Função para carregar públicos da Live
   const fetchPublicAudiencesData = useCallback(async () => {
@@ -1479,19 +1484,19 @@ const TrafficAnalysis = () => {
     setCampaignEndDate(tempCampaignEndDate);
   };
 
-  // Funções para gerenciar filtros avançados
+  // Funções para gerenciar filtros avançados - memoizadas para evitar re-renders
   const handleAdvancedFilterToggle = useCallback((type: 'campaigns' | 'adSets' | 'creatives', id: string) => {
     console.log('🟣 [Modal] handleAdvancedFilterToggle chamado:', { type, id });
     setTempAdvancedFilters(prev => {
       const newFilters = { ...prev };
       const selectedSet = new Set(prev[type === 'campaigns' ? 'selectedCampaigns' : type === 'adSets' ? 'selectedAdSets' : 'selectedCreatives']);
-      
+
       if (selectedSet.has(id)) {
         selectedSet.delete(id);
       } else {
         selectedSet.add(id);
       }
-      
+
       if (type === 'campaigns') {
         newFilters.selectedCampaigns = selectedSet;
       } else if (type === 'adSets') {
@@ -1499,41 +1504,45 @@ const TrafficAnalysis = () => {
       } else {
         newFilters.selectedCreatives = selectedSet;
       }
-      
+
       return newFilters;
     });
   }, []);
 
   const handleApplyAdvancedFilters = useCallback(() => {
     console.log('🟢 [Modal] Aplicando filtros avançados');
-    // Aplicar filtros temporários para os filtros reais
-    setAdvancedFilters(tempAdvancedFilters);
-    
+    setTempAdvancedFilters(current => {
+      // Aplicar filtros temporários para os filtros reais
+      setAdvancedFilters(current);
+
+      // Atualizar datas das campanhas com as datas do modal
+      setCampaignStartDate(current.startDate);
+      setCampaignEndDate(current.endDate);
+
+      return current;
+    });
+
     // Fechar modal
     setIsAdvancedFiltersOpen(false);
-    
-    // Atualizar datas das campanhas com as datas do modal
-    setCampaignStartDate(tempAdvancedFilters.startDate);
-    setCampaignEndDate(tempAdvancedFilters.endDate);
-  }, [tempAdvancedFilters]);
+  }, []);
 
   const clearAdvancedFilters = useCallback(() => {
     console.log('🟢 [Modal] Limpando filtros avançados');
     const emptyFilters = {
       startDate: '',
       endDate: '',
-      selectedCampaigns: new Set(),
-      selectedAdSets: new Set(),
-      selectedCreatives: new Set()
+      selectedCampaigns: new Set<string>(),
+      selectedAdSets: new Set<string>(),
+      selectedCreatives: new Set<string>()
     };
     setAdvancedFilters(emptyFilters);
     setTempAdvancedFilters(emptyFilters);
   }, []);
 
-  // Componente do Modal de Filtros Avançados
-  const AdvancedFiltersModal = () => (
+  // Componente do Modal de Filtros Avançados - memoizado para evitar re-renders
+  const AdvancedFiltersModal = useCallback(() => (
     <>
-      <Button 
+      <Button
         onClick={() => {
           console.log('🔵 [Modal] Botão clicado - abrindo modal');
           // Sincronizar estado temporário com o estado atual
@@ -1545,40 +1554,42 @@ const TrafficAnalysis = () => {
         <Settings className="h-4 w-4" />
         Filtros Avançados
       </Button>
-      
+
       <Dialog open={isAdvancedFiltersOpen} onOpenChange={setIsAdvancedFiltersOpen}>
         <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>🎯 Filtros Avançados de Campanhas</DialogTitle>
         </DialogHeader>
-        
+
         <div className="flex flex-col space-y-6 max-h-[80vh] overflow-y-auto">
           {/* Filtros de Data */}
           <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
             <div className="flex items-center space-x-2">
               <label className="text-sm font-medium">Data início:</label>
-              <Input 
-                type="date" 
-                className="w-auto" 
+              <Input
+                type="date"
+                className="w-auto"
                 value={tempAdvancedFilters.startDate}
                 onChange={e => {
                   console.log('🟢 [Modal] Data início alterada:', e.target.value);
                   e.stopPropagation();
                   setTempAdvancedFilters(prev => ({ ...prev, startDate: e.target.value }));
                 }}
+                onClick={e => e.stopPropagation()}
               />
             </div>
             <div className="flex items-center space-x-2">
               <label className="text-sm font-medium">Data fim:</label>
-              <Input 
-                type="date" 
-                className="w-auto" 
+              <Input
+                type="date"
+                className="w-auto"
                 value={tempAdvancedFilters.endDate}
                 onChange={e => {
                   console.log('🟢 [Modal] Data fim alterada:', e.target.value);
                   e.stopPropagation();
                   setTempAdvancedFilters(prev => ({ ...prev, endDate: e.target.value }));
                 }}
+                onClick={e => e.stopPropagation()}
               />
             </div>
           </div>
@@ -1604,6 +1615,7 @@ const TrafficAnalysis = () => {
                         e.stopPropagation();
                         handleAdvancedFilterToggle('campaigns', campaign.id);
                       }}
+                      onClick={(e) => e.stopPropagation()}
                       className="mt-1 rounded"
                     />
                     <div className="flex-1 min-w-0">
@@ -1643,6 +1655,7 @@ const TrafficAnalysis = () => {
                         e.stopPropagation();
                         handleAdvancedFilterToggle('adSets', adSet.id);
                       }}
+                      onClick={(e) => e.stopPropagation()}
                       className="mt-1 rounded"
                     />
                     <div className="flex-1 min-w-0">
@@ -1685,6 +1698,7 @@ const TrafficAnalysis = () => {
                         e.stopPropagation();
                         handleAdvancedFilterToggle('creatives', creative.id);
                       }}
+                      onClick={(e) => e.stopPropagation()}
                       className="mt-1 rounded"
                     />
                     <div className="flex-1 min-w-0">
@@ -1732,7 +1746,7 @@ const TrafficAnalysis = () => {
         </DialogContent>
       </Dialog>
     </>
-  );
+  ), [isAdvancedFiltersOpen, tempAdvancedFilters, availableItems, handleAdvancedFilterToggle, handleApplyAdvancedFilters, clearAdvancedFilters, advancedFilters]);
   
   if (isLoading) {
     return (
@@ -2056,7 +2070,7 @@ const TrafficAnalysis = () => {
               )}
               
               {/* Modal de Filtros Avançados */}
-              <AdvancedFiltersModal />
+              {AdvancedFiltersModal()}
             </div>
           </div>
         </CardHeader>
