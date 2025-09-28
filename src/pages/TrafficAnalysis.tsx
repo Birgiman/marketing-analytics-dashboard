@@ -218,6 +218,15 @@ const TrafficAnalysis = () => {
     selectedAdSets: new Set<string>(),
     selectedCreatives: new Set<string>()
   });
+  
+  // Estados temporários para o modal (não causam re-render da tabela)
+  const [tempAdvancedFilters, setTempAdvancedFilters] = useState({
+    startDate: '',
+    endDate: '',
+    selectedCampaigns: new Set<string>(),
+    selectedAdSets: new Set<string>(),
+    selectedCreatives: new Set<string>()
+  });
 
   // Extrair itens únicos dos dados incrementais para filtros avançados
   const availableItems = useMemo(() => {
@@ -341,11 +350,12 @@ const TrafficAnalysis = () => {
     });
     if (live?.insights_date_since && live?.insights_date_until && advancedFilters.startDate === '') {
       console.log('🟠 [Modal] Inicializando datas do modal');
-      setAdvancedFilters(prev => ({
-        ...prev,
+      const initialDates = {
         startDate: live.insights_date_since || '',
         endDate: live.insights_date_until || ''
-      }));
+      };
+      setAdvancedFilters(prev => ({ ...prev, ...initialDates }));
+      setTempAdvancedFilters(prev => ({ ...prev, ...initialDates }));
     }
   }, [live?.insights_date_since, live?.insights_date_until, advancedFilters.startDate]);
 
@@ -1470,7 +1480,7 @@ const TrafficAnalysis = () => {
   // Funções para gerenciar filtros avançados
   const handleAdvancedFilterToggle = (type: 'campaigns' | 'adSets' | 'creatives', id: string) => {
     console.log('🟣 [Modal] handleAdvancedFilterToggle chamado:', { type, id });
-    setAdvancedFilters(prev => {
+    setTempAdvancedFilters(prev => {
       const newFilters = { ...prev };
       const selectedSet = new Set(prev[type === 'campaigns' ? 'selectedCampaigns' : type === 'adSets' ? 'selectedAdSets' : 'selectedCreatives']);
       
@@ -1493,22 +1503,29 @@ const TrafficAnalysis = () => {
   };
 
   const handleApplyAdvancedFilters = () => {
-    // Aplicar filtros avançados
+    console.log('🟢 [Modal] Aplicando filtros avançados');
+    // Aplicar filtros temporários para os filtros reais
+    setAdvancedFilters(tempAdvancedFilters);
+    
+    // Fechar modal
     setIsAdvancedFiltersOpen(false);
     
     // Atualizar datas das campanhas com as datas do modal
-    setCampaignStartDate(advancedFilters.startDate);
-    setCampaignEndDate(advancedFilters.endDate);
+    setCampaignStartDate(tempAdvancedFilters.startDate);
+    setCampaignEndDate(tempAdvancedFilters.endDate);
   };
 
   const clearAdvancedFilters = () => {
-    setAdvancedFilters({
+    console.log('🟢 [Modal] Limpando filtros avançados');
+    const emptyFilters = {
       startDate: '',
       endDate: '',
       selectedCampaigns: new Set(),
       selectedAdSets: new Set(),
       selectedCreatives: new Set()
-    });
+    };
+    setAdvancedFilters(emptyFilters);
+    setTempAdvancedFilters(emptyFilters);
   };
 
   // Componente do Modal de Filtros Avançados
@@ -1517,6 +1534,8 @@ const TrafficAnalysis = () => {
       <Button 
         onClick={() => {
           console.log('🔵 [Modal] Botão clicado - abrindo modal');
+          // Sincronizar estado temporário com o estado atual
+          setTempAdvancedFilters(advancedFilters);
           setIsAdvancedFiltersOpen(true);
         }}
         className="flex items-center gap-2"
@@ -1546,11 +1565,11 @@ const TrafficAnalysis = () => {
               <Input 
                 type="date" 
                 className="w-auto" 
-                value={advancedFilters.startDate}
+                value={tempAdvancedFilters.startDate}
                 onChange={e => {
                   console.log('🟢 [Modal] Data início alterada:', e.target.value);
                   e.stopPropagation();
-                  setAdvancedFilters(prev => ({ ...prev, startDate: e.target.value }));
+                  setTempAdvancedFilters(prev => ({ ...prev, startDate: e.target.value }));
                 }}
               />
             </div>
@@ -1559,11 +1578,11 @@ const TrafficAnalysis = () => {
               <Input 
                 type="date" 
                 className="w-auto" 
-                value={advancedFilters.endDate}
+                value={tempAdvancedFilters.endDate}
                 onChange={e => {
                   console.log('🟢 [Modal] Data fim alterada:', e.target.value);
                   e.stopPropagation();
-                  setAdvancedFilters(prev => ({ ...prev, endDate: e.target.value }));
+                  setTempAdvancedFilters(prev => ({ ...prev, endDate: e.target.value }));
                 }}
               />
             </div>
@@ -1576,7 +1595,7 @@ const TrafficAnalysis = () => {
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-lg">📊 Campanhas</h3>
                 <span className="text-sm text-gray-500">
-                  {advancedFilters.selectedCampaigns.size} / {availableItems.campaigns.length}
+                  {tempAdvancedFilters.selectedCampaigns.size} / {availableItems.campaigns.length}
                 </span>
               </div>
               <div className="max-h-80 overflow-y-auto border rounded p-3 space-y-2">
@@ -1584,7 +1603,7 @@ const TrafficAnalysis = () => {
                   <label key={campaign.id} className="flex items-start space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                     <input
                       type="checkbox"
-                      checked={advancedFilters.selectedCampaigns.has(campaign.id)}
+                      checked={tempAdvancedFilters.selectedCampaigns.has(campaign.id)}
                       onChange={(e) => {
                         console.log('🟢 [Modal] Checkbox campanha clicado:', campaign.name);
                         e.stopPropagation();
@@ -1615,7 +1634,7 @@ const TrafficAnalysis = () => {
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-lg">🎯 Conjuntos de Anúncios</h3>
                 <span className="text-sm text-gray-500">
-                  {advancedFilters.selectedAdSets.size} / {availableItems.adSets.length}
+                  {tempAdvancedFilters.selectedAdSets.size} / {availableItems.adSets.length}
                 </span>
               </div>
               <div className="max-h-80 overflow-y-auto border rounded p-3 space-y-2">
@@ -1623,7 +1642,7 @@ const TrafficAnalysis = () => {
                   <label key={adSet.id} className="flex items-start space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                     <input
                       type="checkbox"
-                      checked={advancedFilters.selectedAdSets.has(adSet.id)}
+                      checked={tempAdvancedFilters.selectedAdSets.has(adSet.id)}
                       onChange={(e) => {
                         console.log('🟢 [Modal] Checkbox adset clicado:', adSet.name);
                         e.stopPropagation();
@@ -1657,7 +1676,7 @@ const TrafficAnalysis = () => {
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-lg">🎨 Criativos</h3>
                 <span className="text-sm text-gray-500">
-                  {advancedFilters.selectedCreatives.size} / {availableItems.creatives.length}
+                  {tempAdvancedFilters.selectedCreatives.size} / {availableItems.creatives.length}
                 </span>
               </div>
               <div className="max-h-80 overflow-y-auto border rounded p-3 space-y-2">
@@ -1665,7 +1684,7 @@ const TrafficAnalysis = () => {
                   <label key={creative.id} className="flex items-start space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                     <input
                       type="checkbox"
-                      checked={advancedFilters.selectedCreatives.has(creative.id)}
+                      checked={tempAdvancedFilters.selectedCreatives.has(creative.id)}
                       onChange={(e) => {
                         console.log('🟢 [Modal] Checkbox criativo clicado:', creative.name);
                         e.stopPropagation();
