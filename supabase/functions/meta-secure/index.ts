@@ -116,6 +116,41 @@ interface MetaTokenValidation {
 const BASE_URL = 'https://graph.facebook.com/v23.0';
 
 /**
+ * Monitora headers de rate limit do Meta API
+ */
+function logRateLimitHeaders(response: Response, endpoint: string): void {
+  const appUsage = response.headers.get('X-App-Usage');
+  const bucUsage = response.headers.get('X-Business-Use-Case-Usage');
+
+  if (appUsage) {
+    try {
+      const usage = JSON.parse(appUsage);
+      console.log(`📊 [Rate Limit] ${endpoint} - App Usage:`, {
+        call_count: usage.call_count || 0,
+        total_time: usage.total_time || 0,
+        total_cputime: usage.total_cputime || 0
+      });
+
+      // Avisar se próximo do limite (>80%)
+      if (usage.call_count > 80 || usage.total_time > 80 || usage.total_cputime > 80) {
+        console.warn('⚠️ [Rate Limit] Próximo do limite! Considere reduzir chamadas');
+      }
+    } catch (e) {
+      console.log(`📊 [Rate Limit] ${endpoint} - App Usage (raw):`, appUsage);
+    }
+  }
+
+  if (bucUsage) {
+    try {
+      const usage = JSON.parse(bucUsage);
+      console.log(`📊 [Rate Limit] ${endpoint} - Business Use Case:`, usage);
+    } catch (e) {
+      console.log(`📊 [Rate Limit] ${endpoint} - BUC Usage (raw):`, bucUsage);
+    }
+  }
+}
+
+/**
  * Valida um token de acesso do Meta/Facebook
  */
 async function validateMetaToken(accessToken: string): Promise<MetaTokenValidation> {
@@ -124,6 +159,9 @@ async function validateMetaToken(accessToken: string): Promise<MetaTokenValidati
     const userResponse = await fetch(`${BASE_URL}/me?access_token=${accessToken}`, {
       signal: AbortSignal.timeout(15000)
     });
+
+    // Log headers de rate limit
+    logRateLimitHeaders(userResponse, '/me');
 
     if (!userResponse.ok) {
       return {
@@ -139,12 +177,15 @@ async function validateMetaToken(accessToken: string): Promise<MetaTokenValidati
       { signal: AbortSignal.timeout(15000) }
     );
 
+    // Log headers de rate limit
+    logRateLimitHeaders(adAccountsResponse, '/me/adaccounts');
+
     if (!adAccountsResponse.ok) {
       const error = await adAccountsResponse.json();
 
       // Se for rate limit (80004), token ainda é válido
       if (error.error?.code === 80004) {
-        console.warn('Rate limit atingido para /me/adaccounts, mas token é válido');
+        console.warn('⚠️ [Rate Limit] Rate limit atingido para /me/adaccounts, mas token é válido');
         return {
           isValid: true,
           accountCount: 0,
@@ -187,16 +228,19 @@ async function syncAdAccounts(supabaseClient: any, userId: string, accessToken: 
       { signal: AbortSignal.timeout(15000) }
     );
 
+    // Log headers de rate limit
+    logRateLimitHeaders(response, '/me/adaccounts (sync)');
+
     if (!response.ok) {
       const errorData = await response.json();
 
       // Se for rate limit, não sincronizar mas não falhar
       if (errorData.error?.code === 80004) {
-        console.warn('Rate limit atingido para sync de ad accounts - pulando sincronização');
+        console.warn('⚠️ [Rate Limit] Rate limit atingido para sync de ad accounts - pulando sincronização');
         return;
       }
 
-      console.warn(`Erro ao acessar ad accounts: ${errorData.error?.message || 'Unknown error'}`);
+      console.warn(`❌ [Sync] Erro ao acessar ad accounts: ${errorData.error?.message || 'Unknown error'}`);
       return;
     }
 
@@ -428,6 +472,19 @@ Deno.serve(async (req: Request) => {
         const validation = await validateMetaToken(accessToken);
 
         if (!validation.isValid) {
+          // Verificar se o erro é rate limit
+          if (validation.error?.includes('Rate limit temporário')) {
+            // Token válido mas com rate limit - manter como ativo
+            return new Response(
+              JSON.stringify({
+                status: 'connected',
+                connected: true,
+                message: 'Meta conectado (rate limit temporário em /me/adaccounts)',
+                warning: validation.error
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
           // Token inválido - desativar integração
           await supabaseClient
             .from('meta_integrations')
@@ -455,15 +512,23 @@ Deno.serve(async (req: Request) => {
           .eq('is_active', true);
 
         // SEGURANÇA: Resposta SEM token - apenas status
+        const response = {
+          status: 'connected',
+          connected: true,
+          account_count: validation.accountCount,
+          connected_at: integration.connected_at,
+          last_validated_at: new Date().toISOString(),
+          message: 'Meta conectado com sucesso!'
+          // NÃO retornar token ou user_info para o frontend
+        };
+
+        // Adicionar warning se houver rate limit
+        if (validation.error?.includes('Rate limit temporário')) {
+          response.warning = validation.error;
+        }
+
         return new Response(
-          JSON.stringify({
-            status: 'connected',
-            connected: true,
-            account_count: validation.accountCount,
-            connected_at: integration.connected_at,
-            last_validated_at: new Date().toISOString()
-            // NÃO retornar token ou user_info para o frontend
-          }),
+          JSON.stringify(response),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }

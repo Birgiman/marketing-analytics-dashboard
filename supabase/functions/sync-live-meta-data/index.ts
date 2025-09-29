@@ -354,16 +354,24 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Live não encontrada: ${liveError?.message}`);
     }
 
-    // STEP 2: Buscar integração Meta ativa
+    // STEP 2: Buscar integração Meta (mais recente, independente do status)
     const { data: metaIntegration, error: metaError } = await supabaseClient
       .from('meta_integrations')
-      .select('access_token')
+      .select('access_token, is_active')
       .eq('user_id', liveData.user_id)
-      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
 
     if (metaError || !metaIntegration) {
       throw new Error(`Integração Meta não encontrada: ${metaError?.message}`);
+    }
+
+    // Log do status da integração para debug
+    console.log(`🔍 [Meta Integration] Status: ${metaIntegration.is_active ? 'ativa' : 'inativa (tentando usar mesmo assim)'}`);
+
+    if (!metaIntegration.is_active) {
+      console.warn('⚠️ [Meta Integration] Usando token de integração marcada como inativa - pode estar em rate limit temporário');
     }
 
     // STEP 2.1: Descriptografar token se necessário
