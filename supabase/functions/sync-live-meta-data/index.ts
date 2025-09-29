@@ -186,11 +186,10 @@ async function aggregateWhatsAppData(
   const groupIds = liveGroups.map(g => g.group_id);
 
   try {
-    console.log(`🔍 [WhatsApp] Buscando dados para ${groupIds.length} grupos no período ${timeRange.since} a ${timeRange.until}`);
-    console.log(`🔍 [WhatsApp] Group IDs:`, groupIds);
+    // WhatsApp data processing
 
     // Buscar dados completos com paginação (Supabase limita em 1000 registros por página)
-    console.log(`🔄 [WhatsApp] Buscando joins com paginação...`);
+    // Buscar joins com paginação
     let allJoins: any[] = [];
     let page = 0;
     const pageSize = 1000;
@@ -216,7 +215,7 @@ async function aggregateWhatsAppData(
       }
 
       allJoins = allJoins.concat(joinsPage);
-      console.log(`📄 [WhatsApp] Página ${page}: ${joinsPage.length} joins encontrados`);
+      // Página processada
 
       if (joinsPage.length < pageSize) {
         break; // Última página
@@ -225,7 +224,7 @@ async function aggregateWhatsAppData(
       page++;
     }
 
-    console.log(`🔄 [WhatsApp] Buscando exits com paginação...`);
+    // Buscar exits com paginação
     let allExits: any[] = [];
     page = 0;
 
@@ -241,7 +240,7 @@ async function aggregateWhatsAppData(
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
       if (exitsError) {
-        console.error(`❌ [WhatsApp] Erro ao buscar exits página ${page}:`, exitsError);
+        // Erro ao buscar exits
         break;
       }
 
@@ -250,7 +249,7 @@ async function aggregateWhatsAppData(
       }
 
       allExits = allExits.concat(exitsPage);
-      console.log(`📄 [WhatsApp] Página ${page}: ${exitsPage.length} exits encontrados`);
+      // Página exits processada
 
       if (exitsPage.length < pageSize) {
         break; // Última página
@@ -262,7 +261,7 @@ async function aggregateWhatsAppData(
     const rawJoins = allJoins;
     const rawExits = allExits;
 
-    console.log(`📊 [WhatsApp] TOTAL encontrado: ${rawJoins?.length || 0} joins e ${rawExits?.length || 0} exits`);
+    // Total de registros WhatsApp processados
 
     // Processar dados diários (agregação geral por data)
     const dailyData: { [date: string]: { joins: number; exits: number } } = {};
@@ -306,9 +305,7 @@ async function aggregateWhatsAppData(
       total_exits: groupData[group.group_id]?.exits || 0
     }));
 
-    console.log(`📊 [WhatsApp] Processados ${Object.keys(dailyData).length} dias de dados`);
-    console.log(`📊 [WhatsApp] Dados por dia:`, dailyData);
-    console.log(`📊 [WhatsApp] Dados por grupo:`, groups);
+    // Dados WhatsApp processados
 
     return {
       groups,
@@ -316,7 +313,7 @@ async function aggregateWhatsAppData(
     };
 
   } catch (error) {
-    console.error(`❌ [WhatsApp] Erro ao agregar dados:`, error);
+    // Erro na agregação de dados WhatsApp
     return { groups: [], dailyData: {} };
   }
 }
@@ -449,14 +446,13 @@ Deno.serve(async (req: Request) => {
 
     console.log(`🚀 [Meta API] TOTAL DE CHAMADAS REALIZADAS: ${metaApiCallsCount} (otimizado vs ${globalData.filter(d => d.level === 'ad').length + incrementalData.filter(d => d.level === 'ad').length + 6} chamadas antes da otimização)`);
 
-    // STEP 7: Construir hierarquia em memória
-    const globalHierarchy = await buildHierarchy(globalData, accessToken);
-    const incrementalHierarchy = await buildIncrementalHierarchy(incrementalData, accessToken);
+    // STEP 7: Construir hierarquia em memória com cache inteligente
+    const globalHierarchy = await buildHierarchy(globalData, accessToken, supabaseClient, liveId);
+    const incrementalHierarchy = await buildIncrementalHierarchy(incrementalData, accessToken, supabaseClient, liveId);
 
     // Dados processados com sucesso
 
     // STEP 8: Processar dados do WhatsApp
-    console.log(`🔄 [WhatsApp] Processando dados do WhatsApp...`);
 
     // Buscar grupos da live
     const { data: liveGroups, error: groupsError } = await supabaseClient
@@ -465,22 +461,16 @@ Deno.serve(async (req: Request) => {
       .eq('live_id', liveId);
 
     if (groupsError) {
-      console.warn(`⚠️ [WhatsApp] Erro ao buscar grupos da live: ${groupsError.message}`);
+      // Erro ao buscar grupos da live
     }
-
-    console.log(`📊 [WhatsApp] Encontrados ${liveGroups?.length || 0} grupos para processar`);
 
     // Agregar dados de WhatsApp
     const whatsappData = await aggregateWhatsAppData(supabaseClient, liveGroups || [], timeRange);
-    console.log(`🔄 [WhatsApp] Resultado da agregação:`, whatsappData);
 
     // Adicionar dados de WhatsApp aos dados incrementais
     if (whatsappData.dailyData && Object.keys(whatsappData.dailyData).length > 0) {
-      console.log(`🔄 [WhatsApp] Adicionando dados a ${Object.keys(incrementalHierarchy.campaignsByDate).length} dias`);
-
       Object.keys(incrementalHierarchy.campaignsByDate).forEach(date => {
         const dayWhatsApp = whatsappData.dailyData[date] || { joins: 0, exits: 0 };
-        console.log(`📅 [WhatsApp] Data ${date}: ${dayWhatsApp.joins} joins, ${dayWhatsApp.exits} exits`);
 
         // Adicionar dados de WhatsApp a cada campanha do dia
         incrementalHierarchy.campaignsByDate[date].forEach(campaign => {
@@ -489,9 +479,6 @@ Deno.serve(async (req: Request) => {
           campaign.whatsapp_active = dayWhatsApp.joins - dayWhatsApp.exits;
         });
       });
-      console.log(`✅ [WhatsApp] Dados de WhatsApp adicionados aos dados incrementais`);
-    } else {
-      console.log(`⚠️ [WhatsApp] Nenhum dado diário encontrado para adicionar`);
     }
 
     // STEP 9: Calcular métricas para cached_metrics
@@ -716,7 +703,7 @@ async function fetchIncrementalData(
   return allData;
 }
 
-async function buildHierarchy(globalData: any[], accessToken: string): Promise<{ campaigns: CampaignHierarchy[] }> {
+async function buildHierarchy(globalData: any[], accessToken: string, supabaseClient?: any, liveId?: string): Promise<{ campaigns: CampaignHierarchy[] }> {
 
   const campaignMap = new Map<string, CampaignHierarchy>();
   const adSetMap = new Map<string, any>();
@@ -763,16 +750,25 @@ async function buildHierarchy(globalData: any[], accessToken: string): Promise<{
     }
   });
 
-  // Processar ads
+  // Processar ads com cache inteligente
   const adItems = globalData.filter(item => item.level === 'ad');
+  console.log(`🎨 [Creative] Total de ads encontrados: ${adItems.length}`);
+
+  // Usar cache inteligente se disponível
+  let creativeUrls: Record<string, string> = {};
+  if (supabaseClient && liveId) {
+    const adIds = adItems.map(item => item.ad_id);
+    creativeUrls = await getCreativeUrlsWithCache(supabaseClient, liveId, adIds, accessToken);
+  }
+
   for (const item of adItems) {
     const spend = parseFloat(item.spend || '0');
     const leads = item.actions?.find((a: any) => a.action_type === 'lead')?.value ?
       parseInt(item.actions.find((a: any) => a.action_type === 'lead')!.value) : 0;
     const cpl = leads > 0 ? spend / leads : 0;
 
-    // Processar creative_url diretamente dos dados já obtidos
-    const creative_url = buildCreativeUrl(item.ad_id, item.creative);
+    // Usar URL do cache ou fallback para buildCreativeUrl
+    const creative_url = creativeUrls[item.ad_id] || buildCreativeUrl(item.ad_id, item.creative);
 
     const ad = {
       id: item.ad_id,
@@ -795,7 +791,7 @@ async function buildHierarchy(globalData: any[], accessToken: string): Promise<{
   };
 }
 
-async function buildIncrementalHierarchy(incrementalData: any[], accessToken: string): Promise<{ campaignsByDate: Record<string, CampaignHierarchy[]> }> {
+async function buildIncrementalHierarchy(incrementalData: any[], accessToken: string, supabaseClient?: any, liveId?: string): Promise<{ campaignsByDate: Record<string, CampaignHierarchy[]> }> {
 
   const campaignsByDate: Record<string, CampaignHierarchy[]> = {};
 
@@ -814,7 +810,7 @@ async function buildIncrementalHierarchy(incrementalData: any[], accessToken: st
 
   // Para cada data, construir hierarquia
   for (const [date, dayData] of Array.from(dataByDate.entries())) {
-    const hierarchy = await buildHierarchy(dayData, accessToken);
+    const hierarchy = await buildHierarchy(dayData, accessToken, supabaseClient, liveId);
     campaignsByDate[date] = hierarchy.campaigns;
   }
 
@@ -859,6 +855,90 @@ function buildCreativeUrl(adId: string, creative: any): string {
     // Erro no processamento - retornar link para gerenciador
     return `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
   }
+}
+
+// Cache inteligente de criativos
+async function getCreativeUrlsWithCache(
+  supabaseClient: any,
+  liveId: string,
+  adIds: string[],
+  accessToken: string
+): Promise<Record<string, string>> {
+  const cacheUrls: Record<string, string> = {};
+
+  try {
+    // Buscar cache existente
+    const { data: liveData } = await supabaseClient
+      .from('lives')
+      .select('cache_creative_links')
+      .eq('id', liveId)
+      .single();
+
+    const existingCache = liveData?.cache_creative_links || {};
+
+    // Identificar IDs que precisam ser buscados
+    const missingIds = adIds.filter(id => !existingCache[id]);
+
+    console.log(`🔗 [Creative Cache] Total ads: ${adIds.length}, Cache hits: ${adIds.length - missingIds.length}, Miss: ${missingIds.length}`);
+
+    // Usar cache existente
+    Object.assign(cacheUrls, existingCache);
+
+    // Buscar apenas IDs faltantes (otimização crítica)
+    if (missingIds.length > 0) {
+      console.log(`🔍 [Creative Cache] Buscando ${missingIds.length} criativos novos...`);
+
+      for (const adId of missingIds) {
+        try {
+          const adUrl = `https://graph.facebook.com/v21.0/${adId}?fields=creative{effective_object_story_id,object_story_id}&access_token=${accessToken}`;
+          const response = await fetch(adUrl);
+
+          if (response.ok) {
+            const data = await response.json();
+            const creative = data.creative;
+
+            if (creative) {
+              const storyId = creative.effective_object_story_id || creative.object_story_id;
+
+              if (storyId && storyId.includes('_')) {
+                const [pageId, postId] = storyId.split('_');
+                if (pageId && postId) {
+                  cacheUrls[adId] = `https://www.facebook.com/${pageId}/posts/${postId}`;
+                } else {
+                  cacheUrls[adId] = `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
+                }
+              } else {
+                cacheUrls[adId] = `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
+              }
+            } else {
+              cacheUrls[adId] = `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
+            }
+          } else {
+            cacheUrls[adId] = `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
+          }
+        } catch (error) {
+          cacheUrls[adId] = `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
+        }
+      }
+
+      // Salvar cache atualizado
+      await supabaseClient
+        .from('lives')
+        .update({ cache_creative_links: cacheUrls })
+        .eq('id', liveId);
+
+      console.log(`💾 [Creative Cache] Cache atualizado com ${missingIds.length} novos links`);
+    }
+
+  } catch (error) {
+    console.error('❌ [Creative Cache] Erro no cache de criativos:', error);
+    // Fallback: URLs padrão para todos os IDs
+    adIds.forEach(id => {
+      cacheUrls[id] = `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${id}`;
+    });
+  }
+
+  return cacheUrls;
 }
 
 // FUNÇÃO ANTIGA - REMOVER APÓS TESTES
