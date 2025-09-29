@@ -67,14 +67,10 @@ const adminItems = [
 ];
 
 export function AppSidebar() {
-  const { open, isMobile } = useSidebar();
   const navigate = useNavigate();
   const location = useLocation();
   const [userName, setUserName] = useState("");
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
-  
-  // Hook para acessar dados de conexão do WhatsApp
-  const { currentInstance } = useWhatsAppConnection();
 
   useEffect(() => {
     const getUser = async () => {
