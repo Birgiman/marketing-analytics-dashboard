@@ -133,9 +133,7 @@ async function validateMetaToken(accessToken: string): Promise<MetaTokenValidati
       };
     }
 
-    const userData = await userResponse.json();
-
-    // 2. Verificar se pode acessar ad accounts
+    // 2. Tentar acessar ad accounts - se falhar por rate limit, token ainda é válido
     const adAccountsResponse = await fetch(
       `${BASE_URL}/me/adaccounts?fields=id,name&limit=1&access_token=${accessToken}`,
       { signal: AbortSignal.timeout(15000) }
@@ -143,6 +141,17 @@ async function validateMetaToken(accessToken: string): Promise<MetaTokenValidati
 
     if (!adAccountsResponse.ok) {
       const error = await adAccountsResponse.json();
+
+      // Se for rate limit (80004), token ainda é válido
+      if (error.error?.code === 80004) {
+        console.warn('Rate limit atingido para /me/adaccounts, mas token é válido');
+        return {
+          isValid: true,
+          accountCount: 0,
+          error: 'Rate limit temporário - token válido'
+        };
+      }
+
       return {
         isValid: false,
         accountCount: 0,
@@ -150,17 +159,9 @@ async function validateMetaToken(accessToken: string): Promise<MetaTokenValidati
       };
     }
 
-    // 3. Contar total de contas
-    const countResponse = await fetch(
-      `${BASE_URL}/me/adaccounts?summary=1&access_token=${accessToken}`,
-      { signal: AbortSignal.timeout(15000) }
-    );
-
-    let accountCount = 0;
-    if (countResponse.ok) {
-      const countData = await countResponse.json();
-      accountCount = countData.data?.length || 0;
-    }
+    // 3. Se chegou aqui, conseguiu acessar - contar contas na mesma resposta
+    const accountsData = await adAccountsResponse.json();
+    const accountCount = accountsData.data?.length || 0;
 
     return {
       isValid: true,
@@ -187,6 +188,15 @@ async function syncAdAccounts(supabaseClient: any, userId: string, accessToken: 
     );
 
     if (!response.ok) {
+      const errorData = await response.json();
+
+      // Se for rate limit, não sincronizar mas não falhar
+      if (errorData.error?.code === 80004) {
+        console.warn('Rate limit atingido para sync de ad accounts - pulando sincronização');
+        return;
+      }
+
+      console.warn(`Erro ao acessar ad accounts: ${errorData.error?.message || 'Unknown error'}`);
       return;
     }
 
