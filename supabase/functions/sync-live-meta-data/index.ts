@@ -419,21 +419,35 @@ Deno.serve(async (req: Request) => {
       timeRange = { since, until };
     }
 
+    // ETAPA 2 - META API: Logs de debug para monitorar chamadas
+    let metaApiCallsCount = 0;
+    console.log(`🔍 [Meta API] Iniciando busca de dados para account_id: ${accountId}`);
+    console.log(`📅 [Meta API] Período: ${timeRange.since} até ${timeRange.until}`);
+    console.log(`🔎 [Meta API] Termo de busca: "${liveData.campaign_search_term}"`);
+
     // STEP 5: Buscar snapshot global (sem time_increment)
+    console.log(`📊 [Meta API] Buscando snapshot global...`);
     const globalData = await fetchGlobalSnapshot(
       accountId,
       accessToken,
       timeRange,
       liveData.campaign_search_term
     );
+    metaApiCallsCount += 3; // 3 chamadas (campaign, adset, ad)
+    console.log(`✅ [Meta API] Snapshot global: ${globalData.length} registros obtidos`);
 
     // STEP 6: Buscar dados incrementais diários (time_increment=1)
+    console.log(`📈 [Meta API] Buscando dados incrementais...`);
     const incrementalData = await fetchIncrementalData(
       accountId,
       accessToken,
       timeRange,
       liveData.campaign_search_term
     );
+    metaApiCallsCount += 3; // 3 chamadas (campaign, adset, ad)
+    console.log(`✅ [Meta API] Dados incrementais: ${incrementalData.length} registros obtidos`);
+
+    console.log(`🚀 [Meta API] TOTAL DE CHAMADAS REALIZADAS: ${metaApiCallsCount} (otimizado vs ${globalData.filter(d => d.level === 'ad').length + incrementalData.filter(d => d.level === 'ad').length + 6} chamadas antes da otimização)`);
 
     // STEP 7: Construir hierarquia em memória
     const globalHierarchy = await buildHierarchy(globalData, accessToken);
@@ -592,7 +606,7 @@ async function fetchGlobalSnapshot(
   const levelConfigs = {
     campaign: 'campaign_id,campaign_name,spend,actions',
     adset: 'campaign_id,campaign_name,adset_id,adset_name,spend,actions',
-    ad: 'campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,actions'
+    ad: 'campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,actions,creative{effective_object_story_id,object_story_id}'
   };
 
   for (const [level, fields] of Object.entries(levelConfigs)) {
@@ -653,7 +667,7 @@ async function fetchIncrementalData(
   const levelConfigs = {
     campaign: 'campaign_id,campaign_name,spend,actions,date_start',
     adset: 'campaign_id,campaign_name,adset_id,adset_name,spend,actions,date_start',
-    ad: 'campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,actions,date_start'
+    ad: 'campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,actions,date_start,creative{effective_object_story_id,object_story_id}'
   };
 
   for (const [level, fields] of Object.entries(levelConfigs)) {
@@ -757,8 +771,8 @@ async function buildHierarchy(globalData: any[], accessToken: string): Promise<{
       parseInt(item.actions.find((a: any) => a.action_type === 'lead')!.value) : 0;
     const cpl = leads > 0 ? spend / leads : 0;
 
-    // Buscar link correto do criativo
-    const creative_url = await fetchCreativeUrl(item.ad_id, accessToken);
+    // Processar creative_url diretamente dos dados já obtidos
+    const creative_url = buildCreativeUrl(item.ad_id, item.creative);
 
     const ad = {
       id: item.ad_id,
@@ -807,7 +821,48 @@ async function buildIncrementalHierarchy(incrementalData: any[], accessToken: st
   return { campaignsByDate };
 }
 
-async function fetchCreativeUrl(adId: string, accessToken: string): Promise<string> {
+function buildCreativeUrl(adId: string, creative: any): string {
+  try {
+    if (!creative) {
+      // Creative não encontrado - retornar link para gerenciador de anúncios
+      return `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
+    }
+
+    // Usar effective_object_story_id (mais confiável) ou object_story_id como fallback
+    const storyId = creative.effective_object_story_id || creative.object_story_id;
+
+    if (!storyId) {
+      // Story ID não encontrado
+      return `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
+    }
+
+    // Validar se o storyId tem o formato correto (pageId_postId)
+    if (!storyId.includes('_')) {
+      // Formato inválido
+      return `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
+    }
+
+    // Fazer split no _ para obter pageId e postId
+    const [pageId, postId] = storyId.split('_');
+
+    if (!pageId || !postId) {
+      // pageId/postId inválido
+      return `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
+    }
+
+    // Construir permalink: https://www.facebook.com/{pageId}/posts/{postId}
+    const permalinkUrl = `https://www.facebook.com/${pageId}/posts/${postId}`;
+
+    return permalinkUrl;
+
+  } catch (error) {
+    // Erro no processamento - retornar link para gerenciador
+    return `https://www.facebook.com/ads/manage/ads/?selected_ad_ids=${adId}`;
+  }
+}
+
+// FUNÇÃO ANTIGA - REMOVER APÓS TESTES
+async function fetchCreativeUrl_OLD(adId: string, accessToken: string): Promise<string> {
   try {
     // Buscar dados do ad para obter o creative com effective_object_story_id
     const adUrl = `https://graph.facebook.com/v21.0/${adId}?fields=creative{effective_object_story_id,object_story_id}&access_token=${accessToken}`;
