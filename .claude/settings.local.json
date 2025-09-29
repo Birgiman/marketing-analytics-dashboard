@@ -40,7 +40,8 @@
       "Bash(node:*)",
       "Bash(pkill:*)",
       "Bash(findstr:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "WebFetch(domain:developers.facebook.com)"
     ],
     "deny": [],
     "ask": []

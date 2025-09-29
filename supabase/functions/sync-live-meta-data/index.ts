@@ -593,7 +593,7 @@ async function fetchGlobalSnapshot(
   const levelConfigs = {
     campaign: 'campaign_id,campaign_name,spend,actions',
     adset: 'campaign_id,campaign_name,adset_id,adset_name,spend,actions',
-    ad: 'campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,actions,creative{effective_object_story_id,object_story_id}'
+    ad: 'campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,actions'
   };
 
   for (const [level, fields] of Object.entries(levelConfigs)) {
@@ -654,7 +654,7 @@ async function fetchIncrementalData(
   const levelConfigs = {
     campaign: 'campaign_id,campaign_name,spend,actions,date_start',
     adset: 'campaign_id,campaign_name,adset_id,adset_name,spend,actions,date_start',
-    ad: 'campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,actions,date_start,creative{effective_object_story_id,object_story_id}'
+    ad: 'campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,actions,date_start'
   };
 
   for (const [level, fields] of Object.entries(levelConfigs)) {
