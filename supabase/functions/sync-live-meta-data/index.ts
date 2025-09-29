@@ -6,6 +6,105 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// ========================================================================================
+// UTILITÁRIO DE CRIPTOGRAFIA - APENAS PARA USO INTERNO DA EDGE FUNCTION
+// ========================================================================================
+
+/**
+ * Utilitário de criptografia AES-256-GCM para tokens sensíveis
+ * SEGURANÇA: Este código roda apenas no ambiente seguro da Edge Function
+ */
+class TokenCrypto {
+  private static cryptoKey: CryptoKey | null = null;
+
+  private static async getCryptoKey(): Promise<CryptoKey> {
+    if (this.cryptoKey) {
+      return this.cryptoKey;
+    }
+
+    const secretKey = Deno.env.get('AES_SECRET_KEY');
+
+    if (!secretKey) {
+      throw new Error('Chave de criptografia não encontrada no environment');
+    }
+
+    const keyData = new TextEncoder().encode(secretKey);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', keyData);
+
+    this.cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      hashBuffer,
+      { name: 'AES-GCM' },
+      false,
+      ['encrypt', 'decrypt']
+    );
+
+    return this.cryptoKey;
+  }
+
+  static async encryptToken(plaintext: string): Promise<string> {
+    try {
+      const key = await this.getCryptoKey();
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const data = new TextEncoder().encode(plaintext);
+
+      const encrypted = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv, tagLength: 128 },
+        key,
+        data
+      );
+
+      const encryptedArray = new Uint8Array(encrypted);
+      const encryptedData = encryptedArray.slice(0, -16);
+      const tag = encryptedArray.slice(-16);
+
+      return JSON.stringify({
+        encrypted: btoa(String.fromCharCode(...encryptedData)),
+        iv: btoa(String.fromCharCode(...iv)),
+        tag: btoa(String.fromCharCode(...tag))
+      });
+    } catch (error) {
+      throw new Error(`Falha na criptografia: ${error.message}`);
+    }
+  }
+
+  static async decryptToken(encryptedString: string): Promise<string> {
+    try {
+      const key = await this.getCryptoKey();
+      const { encrypted, iv, tag } = JSON.parse(encryptedString);
+
+      const ivArray = new Uint8Array(atob(iv).split('').map(c => c.charCodeAt(0)));
+      const encryptedArray = new Uint8Array(atob(encrypted).split('').map(c => c.charCodeAt(0)));
+      const tagArray = new Uint8Array(atob(tag).split('').map(c => c.charCodeAt(0)));
+
+      const combinedData = new Uint8Array(encryptedArray.length + tagArray.length);
+      combinedData.set(encryptedArray, 0);
+      combinedData.set(tagArray, encryptedArray.length);
+
+      const decrypted = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: ivArray, tagLength: 128 },
+        key,
+        combinedData
+      );
+
+      return new TextDecoder().decode(decrypted);
+    } catch (error) {
+      throw new Error(`Falha na descriptografia: ${error.message}`);
+    }
+  }
+
+  static isEncrypted(value: string): boolean {
+    try {
+      const parsed = JSON.parse(value);
+      return !!(parsed.encrypted && parsed.iv && parsed.tag);
+    } catch {
+      return false;
+    }
+  }
+}
+
+// ========================================================================================
+
 interface LiveMetaData {
   id: string;
   campaign_search_term: string;
@@ -255,8 +354,6 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Live não encontrada: ${liveError?.message}`);
     }
 
-    console.log(`📊 [Live Data] ${liveData.campaign_search_term} | ${liveData.insights_date_since} → ${liveData.insights_date_until}`);
-
     // STEP 2: Buscar integração Meta ativa
     const { data: metaIntegration, error: metaError } = await supabaseClient
       .from('meta_integrations')
@@ -267,6 +364,21 @@ Deno.serve(async (req: Request) => {
 
     if (metaError || !metaIntegration) {
       throw new Error(`Integração Meta não encontrada: ${metaError?.message}`);
+    }
+
+    // STEP 2.1: Descriptografar token se necessário
+    let accessToken: string;
+    try {
+      if (TokenCrypto.isEncrypted(metaIntegration.access_token)) {
+        accessToken = await TokenCrypto.decryptToken(metaIntegration.access_token);
+        console.log('🔐 [Security] Token Meta descriptografado com sucesso');
+      } else {
+        // Token ainda em plaintext (durante migração)
+        accessToken = metaIntegration.access_token;
+        console.log('⚠️ [Security] Token Meta em plaintext detectado - considere migração');
+      }
+    } catch (error) {
+      throw new Error(`Falha na descriptografia do token Meta: ${error.message}`);
     }
 
     // STEP 3: Buscar account_id das campanhas da Live
@@ -281,8 +393,6 @@ Deno.serve(async (req: Request) => {
       throw new Error('Account ID não encontrado');
     }
 
-    console.log(`🔑 [Meta Config] Account: ${accountId}`);
-
     // STEP 4: Definir time_range válido
     const hoje = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const since = liveData.insights_date_since;
@@ -291,48 +401,37 @@ Deno.serve(async (req: Request) => {
     let timeRange: { since: string; until: string };
 
     if (hoje < since) {
-      // Caso 1: hoje < since - usar intervalo original
       timeRange = { since, until };
-      console.log(`📅 [Time Range] Caso 1 (futuro): ${since} → ${until}`);
     } else if (since <= hoje && hoje <= until) {
-      // Caso 2: since <= hoje <= until - usar até hoje + 1 dia para incluir registros do dia atual
       const amanha = new Date();
       amanha.setDate(amanha.getDate() + 1);
       const amanhaStr = amanha.toISOString().split('T')[0];
       timeRange = { since, until: amanhaStr };
-      console.log(`📅 [Time Range] Caso 2 (ativo): ${since} → ${amanhaStr} (incluindo dia atual completo)`);
     } else {
-      // Caso 3: hoje > until - usar intervalo original
       timeRange = { since, until };
-      console.log(`📅 [Time Range] Caso 3 (passado): ${since} → ${until}`);
     }
 
     // STEP 5: Buscar snapshot global (sem time_increment)
-    console.log(`🌐 [Global Snapshot] Buscando dados globais...`);
     const globalData = await fetchGlobalSnapshot(
       accountId,
-      metaIntegration.access_token,
+      accessToken,
       timeRange,
       liveData.campaign_search_term
     );
 
     // STEP 6: Buscar dados incrementais diários (time_increment=1)
-    console.log(`📊 [Incremental Data] Buscando dados diários...`);
     const incrementalData = await fetchIncrementalData(
       accountId,
-      metaIntegration.access_token,
+      accessToken,
       timeRange,
       liveData.campaign_search_term
     );
 
     // STEP 7: Construir hierarquia em memória
-    console.log(`🏗️ [Hierarchy] Construindo hierarquia...`);
-    const globalHierarchy = await buildHierarchy(globalData, metaIntegration.access_token);
-    const incrementalHierarchy = await buildIncrementalHierarchy(incrementalData, metaIntegration.access_token);
+    const globalHierarchy = await buildHierarchy(globalData, accessToken);
+    const incrementalHierarchy = await buildIncrementalHierarchy(incrementalData, accessToken);
 
-    // Log dos objetos antes de salvar
-    console.log(`💾 [Final Data] Snapshot Global:`, JSON.stringify(globalHierarchy, null, 2));
-    console.log(`💾 [Final Data] Dados Incrementais:`, JSON.stringify(incrementalHierarchy, null, 2));
+    // Dados processados com sucesso
 
     // STEP 8: Processar dados do WhatsApp
     console.log(`🔄 [WhatsApp] Processando dados do WhatsApp...`);
@@ -489,8 +588,6 @@ async function fetchGlobalSnapshot(
   };
 
   for (const [level, fields] of Object.entries(levelConfigs)) {
-    console.log(`📊 [Global ${level}] Buscando dados...`);
-
     const params = new URLSearchParams({
       level,
       fields,
@@ -530,7 +627,6 @@ async function fetchGlobalSnapshot(
       });
     });
 
-    console.log(`✅ [Global ${level}] ${insights.length} registros encontrados`);
   }
 
   return allData;
@@ -553,8 +649,6 @@ async function fetchIncrementalData(
   };
 
   for (const [level, fields] of Object.entries(levelConfigs)) {
-    console.log(`📅 [Incremental ${level}] Buscando dados diários...`);
-
     const params = new URLSearchParams({
       level,
       fields,
@@ -595,7 +689,6 @@ async function fetchIncrementalData(
       });
     });
 
-    console.log(`✅ [Incremental ${level}] ${insights.length} registros encontrados`);
   }
 
   return allData;

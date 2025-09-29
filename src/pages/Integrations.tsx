@@ -4,7 +4,7 @@ import { QRCodeDisplay } from '@/components/QRCodeDisplay';
 import { Button } from '@/components/ui/button';
 import { WhatsAppAdvancedSettingsWrapper } from '@/components/WhatsAppAdvancedSettingsWrapper';
 import { useMetaIntegration } from '@/hooks/useMetaIntegration';
-import { useWhatsAppConnection } from '@/hooks/useWhatsAppConnection';
+import { useWhatsAppSecureConnection } from '@/hooks/useWhatsAppSecureConnection';
 import { supabase } from '@/integrations/supabase/client';
 import { DEMO_MODE } from '@/lib/demo-mode';
 import { Facebook, MessageSquare } from 'lucide-react';
@@ -30,10 +30,12 @@ export default function Integrations() {
     disconnect,
     generateQR,
     refreshInstances
-  } = useWhatsAppConnection();
+  } = useWhatsAppSecureConnection();
 
   const {
     isConnected: metaAdsConnected,
+    isLoading: metaIsLoading,
+    isValidating: metaIsValidating,
     disconnect: disconnectMetaAdsIntegration,
     validateConnection: refreshMetaAdsData
   } = useMetaIntegration();
@@ -285,52 +287,66 @@ export default function Integrations() {
 
             {/* Meta Ads Integration */}
             <div className="bg-white rounded-lg shadow-md p-6 flex flex-col h-full">
-              {/* Header - Título e Status */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 rounded-lg mr-3">
-                    <Facebook className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900">Meta Ads</h3>
-                </div>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  metaAdsConnected 
-                    ? 'bg-green-100 text-green-600' 
-                    : 'bg-gray-100 text-gray-600'
-                }`}>
-                  {metaAdsConnected ? 'Conectado' : 'Desconectado'}
-                </span>
-              </div>
-
-              {/* Content - Descrição e Botões */}
-              <div className="flex flex-col justify-between flex-1">
-                <div>
-                  <p className="text-gray-600 mb-4">
-                    Sincronize dados de campanhas do Facebook e Instagram Ads para análise unificada
+              {metaIsLoading || metaIsValidating ? (
+                // Loading state - mantém o mesmo tamanho da div
+                <div className="flex flex-col items-center justify-center py-16">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                  <p className="text-gray-600 text-sm">
+                    {metaIsValidating ? 'Validando token...' : 'Verificando status do Meta Ads...'}
                   </p>
+                  <p className="text-gray-500 text-xs mt-1">Conectando com Facebook Graph API</p>
                 </div>
+              ) : (
+                // Conteúdo normal
+                <>
+                  {/* Header - Título e Status */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-blue-100 rounded-lg mr-3">
+                        <Facebook className="h-6 w-6 text-blue-600" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-900">Meta Ads</h3>
+                    </div>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      metaAdsConnected
+                        ? 'bg-green-100 text-green-600'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {metaAdsConnected ? 'Conectado' : 'Desconectado'}
+                    </span>
+                  </div>
 
-                {/* Botões na parte inferior */}
-                <div className="mt-auto space-y-3">
-                  <Button 
-                    onClick={() => setShowMetaAdsModal(true)} 
-                    variant={metaAdsConnected ? "outline" : "default"} 
-                    className="w-full"
-                  >
-                    {metaAdsConnected ? 'Gerenciar Meta Ads' : 'Conectar Meta Ads'}
-                  </Button>
-                  
-                  {metaAdsConnected && (
-                    <Button 
-                      onClick={disconnectMetaAdsIntegration} 
-                      variant="danger" 
-                      className="w-full"
-                    >
-                      Desconectar Meta Ads
-                    </Button>
-                  )}
-                </div>
-              </div>
+                  {/* Content - Descrição e Botões */}
+                  <div className="flex flex-col justify-between flex-1">
+                    <div>
+                      <p className="text-gray-600 mb-4">
+                        Sincronize dados de campanhas do Facebook e Instagram Ads para análise unificada
+                      </p>
+                    </div>
+
+                    {/* Botões na parte inferior */}
+                    <div className="mt-auto space-y-3">
+                      <Button
+                        onClick={() => setShowMetaAdsModal(true)}
+                        variant={metaAdsConnected ? "outline" : "default"}
+                        className="w-full"
+                      >
+                        {metaAdsConnected ? 'Gerenciar Meta Ads' : 'Conectar Meta Ads'}
+                      </Button>
+
+                      {metaAdsConnected && (
+                        <Button
+                          onClick={disconnectMetaAdsIntegration}
+                          variant="danger"
+                          className="w-full"
+                        >
+                          Desconectar Meta Ads
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

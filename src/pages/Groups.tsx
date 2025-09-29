@@ -8,8 +8,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { Live, LiveGroup } from "@/types";
 import {
-    ArrowDown,
-    ArrowUp,
     BarChart3,
     DollarSign,
     Download,
@@ -20,7 +18,7 @@ import {
     UserMinus,
     Users
 } from "lucide-react";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 export default function Groups() {

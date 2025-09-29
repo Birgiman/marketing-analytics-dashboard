@@ -26,7 +26,7 @@ interface UseMetaIntegrationReturn {
 const DEMO_INTEGRATION: MetaIntegration = {
   id: 'demo-integration',
   user_id: 'demo-user',
-  access_token: 'demo_token_123',
+  // REMOVIDO: access_token (nunca mais exposto no frontend)
   is_active: true,
   account_count: 3,
   connected_at: '2024-11-01T10:00:00Z',
@@ -105,25 +105,19 @@ export function useMetaIntegration(): UseMetaIntegrationReturn {
     setError(null);
 
     try {
-      // 1. Validar token
-      const validation = await metaTokenService.validateToken(accessToken);
+      // SEGURANÇA: Conectar via Edge Function segura (valida + salva + criptografa)
+      const validation = await metaTokenService.connectWithToken(userId, accessToken);
 
       if (!validation.isValid) {
         setError(validation.error || 'Token inválido');
         return;
       }
 
-      // 2. Salvar integração
-      const newIntegration = await metaTokenService.saveIntegration(
-        userId,
-        accessToken,
-        validation
-      );
-
+      // Buscar integração atualizada (sem token)
+      const newIntegration = await metaTokenService.getUserIntegration(userId);
       setIntegration(newIntegration);
 
     } catch (err: unknown) {
-
       const errorMessage = err instanceof Error ? err.message : 'Erro ao conectar com token';
       setError(errorMessage);
     } finally {
@@ -134,14 +128,21 @@ export function useMetaIntegration(): UseMetaIntegrationReturn {
   const disconnect = useCallback(async () => {
     if (!userId || DEMO_MODE) return;
 
+    setIsLoading(true); // Adicionar loading state
+    setError(null);
+
     try {
       await metaTokenService.disconnectIntegration(userId);
       setIntegration(null);
-    } catch (err: unknown) {
 
+      // Forçar refresh do status após desconectar
+      await loadIntegration();
+    } catch (err: unknown) {
       setError('Erro ao desconectar');
+    } finally {
+      setIsLoading(false);
     }
-  }, [userId]);
+  }, [userId, loadIntegration]);
 
   const validateConnection = useCallback(async () => {
     if (!integration || DEMO_MODE) return;
@@ -160,7 +161,6 @@ export function useMetaIntegration(): UseMetaIntegrationReturn {
         await loadIntegration();
       }
     } catch (err: unknown) {
-
       setError('Erro na validação');
     } finally {
       setIsValidating(false);
