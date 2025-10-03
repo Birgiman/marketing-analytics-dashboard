@@ -2,6 +2,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 // @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { TokenCrypto } from '../_shared/token-crypto.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -258,7 +259,29 @@ serve(async (req: any) => {
           continue;
         }
 
-        const apiKey = instanceData.api_token;
+        // SEGURANÇA: Descriptografar token se estiver criptografado
+        let apiKey = instanceData.api_token;
+        
+        try {
+          if (TokenCrypto.isEncrypted(apiKey)) {
+            console.log(`🔐 [process-fetch-groups-job] Token criptografado detectado, descriptografando...`);
+            apiKey = await TokenCrypto.decryptToken(apiKey);
+            console.log(`✅ [process-fetch-groups-job] Token descriptografado com sucesso`);
+          } else {
+            console.log(`⚠️ [process-fetch-groups-job] Token não está criptografado (formato legacy)`);
+          }
+        } catch (decryptError) {
+          console.error(`❌ [process-fetch-groups-job] Erro ao descriptografar token:`, decryptError);
+          await supabase
+            .from('whatsapp_group_fetch_jobs')
+            .update({
+              status: 'failed',
+              last_error: `Erro ao descriptografar token: ${decryptError.message}`,
+              finished_at: new Date().toISOString()
+            })
+            .eq('id', job.id);
+          continue;
+        }
 
         // @ts-ignore
         const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || 'https://evolution-api-2-3-0-production-6d75.up.railway.app';

@@ -3,8 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { fetchAdAccounts, fetchCampaigns, MetaAdAccount, MetaCampaign } from '@/utils/metaApi';
-import { getUserMetaToken } from '@/utils/metaApiLives';
+import { metaSecureService, MetaAdAccount, MetaCampaign } from '@/services/metaSecureService';
 import { AlertCircle, ArrowLeft, Building2, Calendar, DollarSign, Loader2, Search, Target } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
@@ -130,18 +129,16 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
     setError(null);
     
     try {
-      // Buscar token do usuário
-      const accessToken = await getUserMetaToken(userId);
-      if (!accessToken) {
-        throw new Error('Token de acesso do Meta não encontrado. Configure sua integração primeiro.');
-      }
-
-      // Buscar contas de anúncios
-      const accounts = await fetchAdAccounts(accessToken);
+      console.info('[CampaignSelector] Carregando ad accounts via metaSecureService');
+      
+      // SEGURANÇA: Usar Edge Function proxy - token nunca exposto ao frontend
+      const accounts = await metaSecureService.fetchAdAccounts(userId);
+      
       if (accounts.length === 0) {
         throw new Error('Nenhuma conta de anúncios encontrada.');
       }
 
+      console.info(`[CampaignSelector] ${accounts.length} contas de anúncios carregadas`);
       setAdAccounts(accounts);
       
       // Se só tem 1 conta, seleciona automaticamente (mas não carrega campanhas)
@@ -152,72 +149,54 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
       }
       
     } catch (err) {
+      console.error('[CampaignSelector] Erro ao carregar contas:', err);
       setError(err instanceof Error ? err.message : 'Erro desconhecido ao carregar contas');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadCampaignsFromAccount = async (account: MetaAdAccount, accessToken?: string) => {
+  const loadCampaignsFromAccount = async (account: MetaAdAccount) => {
+    if (!userId) return;
+    
     setLoading(true);
     setError(null);
 
     try {
-      const token = accessToken || await getUserMetaToken(userId!);
-      if (!token) {
-        throw new Error('Token de acesso não encontrado');
-      }
-
-      // Preparar opções da requisição
+      console.info(`[CampaignSelector] Carregando campanhas da conta ${account.id}`);
+      
+      // SEGURANÇA: Usar Edge Function proxy - token nunca exposto ao frontend
       const options: {
         limit: number;
-        fields: string[];
-        status: string[];
+        fields?: string[];
+        searchTerm?: string;
       } = {
         limit: 50,
-        fields: ['id', 'name', 'status', 'objective', 'daily_budget', 'lifetime_budget', 'created_time', 'updated_time'],
-        status: [] // Sem filtro de status na API para evitar erros
+        fields: ['id', 'name', 'status', 'objective', 'daily_budget', 'lifetime_budget', 'created_time', 'updated_time']
       };
+
       // Buscar campanhas com filtro se solicitado
       if (useSearch && searchTerm.trim()) {
-        // Usar a API do Meta com filtering
-        const url = `https://graph.facebook.com/v23.0/${account.id}/campaigns?` +
-          new URLSearchParams({
-            fields: options.fields.join(','),
-            access_token: token,
-            limit: options.limit.toString(),
-            filtering: JSON.stringify([{
-              field: 'name',
-              operator: 'CONTAIN',
-              value: searchTerm.trim()
-            }])
-          });
-        const response = await fetch(url);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Erro na API: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        const campaignsWithAccount = (data.data || []).map((campaign: MetaCampaign) => ({
-          ...campaign,
-          account_name: account.name,
-          account_id: account.id
-        }));
-        setCampaigns(campaignsWithAccount);
-      } else {
-        // Buscar todas as campanhas
-        const campaignsData = await fetchCampaigns(account.id, token, options);
-        const campaignsWithAccount = campaignsData.map(campaign => ({
-          ...campaign,
-          account_name: account.name,
-          account_id: account.id
-        }));
-        setCampaigns(campaignsWithAccount);
+        options.searchTerm = searchTerm.trim();
       }
+
+      const campaignsData = await metaSecureService.fetchCampaigns(
+        userId,
+        account.id,
+        options
+      );
+
+      const campaignsWithAccount = campaignsData.map(campaign => ({
+        ...campaign,
+        account_name: account.name,
+        account_id: account.id
+      }));
+
+      console.info(`[CampaignSelector] ${campaignsWithAccount.length} campanhas carregadas`);
+      setCampaigns(campaignsWithAccount);
       
     } catch (err) {
+      console.error('[CampaignSelector] Erro ao carregar campanhas:', err);
       setError(err instanceof Error ? err.message : 'Erro desconhecido ao carregar campanhas');
     } finally {
       setLoading(false);
