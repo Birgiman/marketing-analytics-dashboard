@@ -219,12 +219,13 @@ async function validateMetaToken(accessToken: string): Promise<MetaTokenValidati
 }
 
 /**
- * Sincroniza contas de anúncios para compatibilidade com sistema existente
+ * ✅ CORREÇÃO: Sincroniza contas de anúncios em JSONB
+ * Busca todas as contas do Meta e salva em ad_accounts (JSONB)
  */
-async function syncAdAccounts(supabaseClient: any, userId: string, accessToken: string): Promise<void> {
+async function syncAdAccounts(supabaseClient: any, userId: string, accessToken: string): Promise<number> {
   try {
     const response = await fetch(
-      `${BASE_URL}/me/adaccounts?fields=id,name,currency,timezone_name&access_token=${accessToken}`,
+      `${BASE_URL}/me/adaccounts?fields=id,name,currency,timezone_name,account_status&access_token=${accessToken}`,
       { signal: AbortSignal.timeout(15000) }
     );
 
@@ -237,50 +238,56 @@ async function syncAdAccounts(supabaseClient: any, userId: string, accessToken: 
       // Se for rate limit, não sincronizar mas não falhar
       if (errorData.error?.code === 80004) {
         console.warn('⚠️ [Rate Limit] Rate limit atingido para sync de ad accounts - pulando sincronização');
-        return;
+        return 0;
       }
 
       console.warn(`❌ [Sync] Erro ao acessar ad accounts: ${errorData.error?.message || 'Unknown error'}`);
-      return;
+      return 0;
     }
 
     const data = await response.json();
 
     if (!data.data || data.data.length === 0) {
-      return;
+      return 0;
     }
 
-    // Desativar contas anteriores
-    await supabaseClient
-      .from('meta_ad_accounts')
-      .update({ is_active: false })
-      .eq('user_id', userId)
-      .eq('is_active', true);
-
-    // Inserir novas contas
-    for (const account of data.data) {
-      const adAccountData = {
-        user_id: userId,
+    // ✅ NOVA ESTRUTURA: Preparar dados JSONB
+    const adAccountsData = {
+      accounts: data.data.map((account: any) => ({
         ad_account_id: account.id,
-        access_token: accessToken,
         account_name: account.name,
         currency: account.currency,
         timezone_name: account.timezone_name,
-        is_active: true,
-        last_sync_at: new Date().toISOString()
-      };
+        account_status: account.account_status,
+        is_active: account.account_status === 1 // 1 = ativo, 101 = desabilitado
+      })),
+      total_count: data.data.length,
+      active_count: data.data.filter((a: any) => a.account_status === 1).length,
+      last_synced_at: new Date().toISOString()
+    };
 
-      await supabaseClient
-        .from('meta_ad_accounts')
-        .upsert(adAccountData, {
-          onConflict: 'user_id,ad_account_id',
-          ignoreDuplicates: false
-        });
+    // ✅ ATUALIZAR meta_integrations com JSONB
+    const { error: updateError } = await supabaseClient
+      .from('meta_integrations')
+      .update({
+        ad_accounts: adAccountsData,
+        account_count: adAccountsData.total_count, // ✅ USAR total_count do JSONB
+        last_validated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId)
+      .eq('is_active', true);
+
+    if (updateError) {
+      console.error('❌ [Sync] Erro ao atualizar ad_accounts:', updateError);
+      return 0;
     }
 
+    console.log(`✅ [Sync] ${adAccountsData.total_count} contas sincronizadas com sucesso`);
+    return adAccountsData.total_count;
+
   } catch (error) {
-    // Não falhar a integração por causa disso
     console.warn('Erro ao sincronizar ad accounts:', error.message);
+    return 0;
   }
 }
 
@@ -336,7 +343,8 @@ Deno.serve(async (req: Request) => {
         const integrationData = {
           access_token: encryptedToken, // Token criptografado
           is_active: true,
-          account_count: validation.accountCount,
+          account_count: 0, // ✅ Inicializar com 0, será atualizado pelo syncAdAccounts
+          ad_accounts: { accounts: [], total_count: 0, active_count: 0, last_synced_at: new Date().toISOString() },
           connected_at: new Date().toISOString(),
           last_validated_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -384,15 +392,15 @@ Deno.serve(async (req: Request) => {
           result = data;
         }
 
-        // Sincronizar ad accounts para compatibilidade
-        await syncAdAccounts(supabaseClient, userId, accessToken);
+        // ✅ SINCRONIZAR CONTAS E OBTER CONTAGEM CORRETA
+        const accountCount = await syncAdAccounts(supabaseClient, userId, accessToken);
 
         // SEGURANÇA: Resposta SEM token - apenas status
         return new Response(
           JSON.stringify({
             success: true,
             status: 'connected',
-            account_count: validation.accountCount
+            account_count: accountCount // ✅ USAR VALOR DO JSONB
             // NÃO retornar token ou user_info para o frontend
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -405,13 +413,6 @@ Deno.serve(async (req: Request) => {
           .from('meta_integrations')
           .update({ is_active: false })
           .eq('user_id', userId);
-
-        // Desativar contas de anúncios para compatibilidade
-        await supabaseClient
-          .from('meta_ad_accounts')
-          .update({ is_active: false })
-          .eq('user_id', userId)
-          .eq('is_active', true);
 
         return new Response(
           JSON.stringify({
@@ -426,7 +427,7 @@ Deno.serve(async (req: Request) => {
         // Buscar integração ativa do usuário
         const { data: integration, error } = await supabaseClient
           .from('meta_integrations')
-          .select('access_token, account_count, connected_at, last_validated_at')
+          .select('access_token, account_count, ad_accounts, connected_at, last_validated_at')
           .eq('user_id', userId)
           .eq('is_active', true)
           .single();
@@ -501,12 +502,23 @@ Deno.serve(async (req: Request) => {
           );
         }
 
+        // ✅ CORREÇÃO: Contar contas no JSONB
+        let accountCount = 0;
+        
+        if (integration.ad_accounts && integration.ad_accounts.accounts) {
+          accountCount = integration.ad_accounts.accounts.length;
+          console.log(`📊 [Status] Contando contas no JSONB: ${accountCount} contas`);
+        } else {
+          console.log(`⚠️ [Status] JSONB vazio, usando account_count: ${integration.account_count}`);
+          accountCount = integration.account_count || 0;
+        }
+
         // Atualizar timestamp de validação
         await supabaseClient
           .from('meta_integrations')
           .update({
             last_validated_at: new Date().toISOString(),
-            account_count: validation.accountCount
+            account_count: accountCount
           })
           .eq('user_id', userId)
           .eq('is_active', true);
@@ -515,7 +527,7 @@ Deno.serve(async (req: Request) => {
         const response = {
           status: 'connected',
           connected: true,
-          account_count: validation.accountCount,
+          account_count: accountCount, // ✅ USAR VALOR DO JSONB
           connected_at: integration.connected_at,
           last_validated_at: new Date().toISOString(),
           message: 'Meta conectado com sucesso!'

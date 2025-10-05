@@ -138,10 +138,10 @@ export const MetaAdsConnection = ({ isOpen, onClose, onConnectionSuccess }: Meta
                     Conecte sua conta Meta Ads
                   </h3>
                   <p className="text-gray-600 mb-6">
-                    Escolha uma das opções abaixo para conectar sua conta
+                    Cole seu token de acesso do Meta para conectar sua conta
                   </p>
                   
-                  {/* OAuth Option - Recommended */}
+                  {/* OAuth Option - Commented until Meta approves
                   <div className="max-w-md mx-auto space-y-4 mb-6">
                     <div className="border rounded-lg p-4 bg-blue-50">
                       <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
@@ -170,11 +170,12 @@ export const MetaAdsConnection = ({ isOpen, onClose, onConnectionSuccess }: Meta
                       </Button>
                     </div>
                   </div>
+                  */}
 
                   {/* Manual Token Option */}
                   <div className="max-w-md mx-auto">
-                    <div className="border-t pt-4">
-                      <p className="text-sm text-gray-500 mb-3">Ou cole seu token manualmente:</p>
+                    <div className="pt-4">
+                      <p className="text-sm text-gray-500 mb-3">Cole seu token manualmente:</p>
                       
                       {!showTokenInput ? (
                         <Button 
