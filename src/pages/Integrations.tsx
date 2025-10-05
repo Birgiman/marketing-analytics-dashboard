@@ -134,45 +134,6 @@ export default function Integrations() {
     refreshMetaAdsData();
   };
 
-  // Pre-fetch groups when WhatsApp is connected (background sync)
-  const preloadGroups = async () => {
-    if (!currentInstance?.instance_name) return;
-    
-    try {
-
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.user) return;
-
-      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-fetch-groups`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.session.access_token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-        },
-        body: JSON.stringify({
-          instanceName: currentInstance.instance_name,
-          userId: session.session.user.id
-        })
-      });
-
-    } catch (error) {
-
-    }
-  };
-
-  // Trigger group pre-loading when connection becomes active
-  useEffect(() => {
-    if (connectionState === 'connected' && currentInstance) {
-      // Add a small delay to ensure connection is stable
-      const timer = setTimeout(() => {
-        preloadGroups();
-      }, 1000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [connectionState, currentInstance]);
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

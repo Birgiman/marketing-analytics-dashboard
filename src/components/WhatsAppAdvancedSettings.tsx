@@ -147,43 +147,41 @@ export function WhatsAppAdvancedSettings({
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) return;
 
-      // Call our Edge Function to fetch groups from Evolution API
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-fetch-groups`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.session.access_token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-        },
-        body: JSON.stringify({
+      // Call start-fetch-groups Edge Function (new job queue architecture)
+      const response = await supabase.functions.invoke('start-fetch-groups', {
+        body: {
           instanceName: currentInstance.instance_name,
-          userId: session.session.user.id
-        })
+          userId: session.session.user.id,
+          searchTerm: searchTerm || undefined
+        }
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-
+      if (response.error) {
+        console.error('Erro ao iniciar sincronização:', response.error);
         return;
       }
 
-      const result = await response.json();
+      const result = response.data;
 
       if (result.success) {
-
-        // Reload groups from database to show the updated list
-        await loadGroupsFromDatabase();
+        // Job iniciado com sucesso - grupos serão carregados em background
+        console.log('Job de sincronização iniciado com sucesso');
+        
+        // Aguardar um pouco e recarregar grupos do banco
+        setTimeout(async () => {
+          await loadGroupsFromDatabase();
+        }, 2000);
       } else {
-
+        console.error('Falha ao iniciar job:', result.error);
       }
 
     } catch (error) {
-
+      console.error('Erro ao buscar grupos:', error);
     } finally {
       setFetchingGroups(false);
-      setIsFetchingFromAPI(false); // Release the lock
-      setLoading(false); // Always turn off loading when fetch completes
-      setHasInitiallyFetched(true); // Mark as initially fetched for future cache use
+      setIsFetchingFromAPI(false);
+      setLoading(false);
+      setHasInitiallyFetched(true);
     }
   };
 
