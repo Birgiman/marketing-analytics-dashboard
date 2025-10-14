@@ -5,7 +5,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { AppSidebar } from "./components/AppSidebar";
-import { CreateTestUser } from "./components/CreateTestUser";
 import Admin from "./pages/Admin";
 import Analytics from "./pages/Analytics";
 import Calculator from "./pages/Calculator";
@@ -24,7 +23,6 @@ import TrafficAnalysis from "./pages/TrafficAnalysis";
 import AccountDisabled from "./pages/auth/AccountDisabled";
 import PendingApproval from "./pages/auth/PendingApproval";
 import ResetPassword from "./pages/auth/ResetPassword";
-import SeedTestUser from "./pages/auth/SeedTestUser";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 
@@ -44,7 +42,6 @@ function AppContent() {
         <Route path="/auth/reset-password" element={<ResetPassword />} />
         <Route path="/auth/pending-approval" element={<PendingApproval />} />
         <Route path="/auth/account-disabled" element={<AccountDisabled />} />
-        <Route path="/auth/seed-test-user" element={<SeedTestUser />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     );
@@ -78,7 +75,6 @@ function AppContent() {
             <Route path="/leads" element={<Leads />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<Admin />} />
-            <Route path="/admin/create-test-user" element={<CreateTestUser />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

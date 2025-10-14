@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Search, RefreshCw, Users, MessageSquare, Loader } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { DEMO_MODE } from '@/lib/demo-mode';
+import { Loader, MessageSquare, RefreshCw, Search, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface WhatsAppGroup {
   id: string;
