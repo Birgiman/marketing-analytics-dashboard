@@ -14,7 +14,7 @@ import { fetchPublicAudiences, generateAudienceCorrelation } from "@/utils/audie
 // REMOVIDO: import { calculateCompleteLiveMetrics } from "@/utils/live-metrics-v2"; // Não usado mais no filtro
 // Funções antigas removidas - agora usando Edge Function syncLiveMetaData
 // Removido import legado: fetchAdSetInsights
-import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Filter, Settings, X } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Filter, Settings, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
@@ -207,8 +207,11 @@ const TrafficAnalysis = () => {
     insights: true
   });
   
-  // Estados para expansão hierárquica
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  // Estado para controle de nível de visualização
+  const [viewLevel, setViewLevel] = useState<'campaigns' | 'adSets' | 'insights'>('campaigns');
+  
+  // Estados para expansão hierárquica (removido - não usado mais)
+  // const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
   // Estados para modal de filtros avançados
   const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false);
@@ -1244,7 +1247,7 @@ const TrafficAnalysis = () => {
   }
   
   // Debug: Verificar cálculos dos totais
-  // Calcular totais para a tabela hierárquica de campanhas baseado nos filtros aplicados
+  // Calcular totais para a tabela hierárquica de campanhas baseado no nível de visualização
   const filteredCampaignTotals = useMemo(() => {
     let totalLeads = 0;
     let totalInvestment = 0;
@@ -1254,50 +1257,70 @@ const TrafficAnalysis = () => {
                               advancedFilters.selectedAdSets.size > 0 ||
                               advancedFilters.selectedCreatives.size > 0;
 
-    campaignsHierarchy.campaigns.forEach(campaign => {
-      // Aplicar filtro de campanhas se houver seleção específica
-      const shouldShowCampaign = !hasAdvancedFilters ||
-                                advancedFilters.selectedCampaigns.size === 0 ||
-                                advancedFilters.selectedCampaigns.has(campaign.id);
+    // Calcular totais baseado no nível de visualização selecionado
+    if (viewLevel === 'campaigns') {
+      // Para campanhas: somar valores das campanhas
+      campaignsHierarchy.campaigns.forEach(campaign => {
+        const shouldShowCampaign = !hasAdvancedFilters ||
+                                  advancedFilters.selectedCampaigns.size === 0 ||
+                                  advancedFilters.selectedCampaigns.has(campaign.id);
 
-      if (!shouldShowCampaign) return;
+        if (shouldShowCampaign) {
+          totalLeads += campaign.totalLeads || 0;
+          totalInvestment += campaign.totalSpend || 0;
+        }
+      });
+    } else if (viewLevel === 'adSets') {
+      // Para ad sets: somar valores dos ad sets
+      campaignsHierarchy.campaigns.forEach(campaign => {
+        const shouldShowCampaign = !hasAdvancedFilters ||
+                                  advancedFilters.selectedCampaigns.size === 0 ||
+                                  advancedFilters.selectedCampaigns.has(campaign.id);
 
-      // Se há filtros específicos de adSets ou criativos, calcular apenas os selecionados
-      if (advancedFilters.selectedAdSets.size > 0 || advancedFilters.selectedCreatives.size > 0) {
-        campaign.adSets.forEach(adSet => {
-          // Aplicar filtro de adsets se houver seleção específica
-          const shouldShowAdSet = !hasAdvancedFilters ||
-                                 advancedFilters.selectedAdSets.size === 0 ||
-                                 advancedFilters.selectedAdSets.has(adSet.id);
+        if (shouldShowCampaign) {
+          campaign.adSets.forEach(adSet => {
+            const shouldShowAdSet = !hasAdvancedFilters ||
+                                   advancedFilters.selectedAdSets.size === 0 ||
+                                   advancedFilters.selectedAdSets.has(adSet.id);
 
-          if (!shouldShowAdSet) return;
+            if (shouldShowAdSet) {
+              totalLeads += adSet.totalLeads || 0;
+              totalInvestment += adSet.totalSpend || 0;
+            }
+          });
+        }
+      });
+    } else if (viewLevel === 'insights') {
+      // Para criativos: somar valores dos criativos (lógica já existente)
+      campaignsHierarchy.campaigns.forEach(campaign => {
+        const shouldShowCampaign = !hasAdvancedFilters ||
+                                  advancedFilters.selectedCampaigns.size === 0 ||
+                                  advancedFilters.selectedCampaigns.has(campaign.id);
 
-          // Se há filtros específicos de criativos, calcular apenas os selecionados
-          if (advancedFilters.selectedCreatives.size > 0) {
-            adSet.insights.forEach(insight => {
-              // Aplicar filtro de criativos se houver seleção específica
-              const shouldShowCreative = !hasAdvancedFilters ||
-                                        advancedFilters.selectedCreatives.size === 0 ||
-                                        advancedFilters.selectedCreatives.has(insight.id);
+        if (shouldShowCampaign) {
+          campaign.adSets.forEach(adSet => {
+            const shouldShowAdSet = !hasAdvancedFilters ||
+                                   advancedFilters.selectedAdSets.size === 0 ||
+                                   advancedFilters.selectedAdSets.has(adSet.id);
 
-              if (shouldShowCreative) {
-                totalLeads += insight.leads || 0;
-                totalInvestment += insight.spend || 0;
-              }
-            });
-          } else {
-            // Se não há filtro de criativos, somar todo o adSet
-            totalLeads += adSet.totalLeads || 0;
-            totalInvestment += adSet.totalSpend || 0;
-          }
-        });
-      } else {
-        // Se não há filtros específicos de adSets/criativos, somar toda a campanha
-        totalLeads += campaign.totalLeads || 0;
-        totalInvestment += campaign.totalSpend || 0;
-      }
-    });
+            if (shouldShowAdSet) {
+              adSet.insights.forEach(insight => {
+                const shouldShowCreative = !hasAdvancedFilters ||
+                                          advancedFilters.selectedCreatives.size === 0 ||
+                                          advancedFilters.selectedCreatives.has(insight.id);
 
+                if (shouldShowCreative) {
+                  totalLeads += insight.leads || 0;
+                  totalInvestment += insight.spend || 0;
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+
+    // Calcular CPL médio (divisão total do investimento pelo total de leads)
     const averageCPL = totalLeads > 0 ? totalInvestment / totalLeads : 0;
 
     return {
@@ -1305,7 +1328,7 @@ const TrafficAnalysis = () => {
       totalInvestment,
       averageCPL
     };
-  }, [campaignsHierarchy, advancedFilters]);
+  }, [campaignsHierarchy, advancedFilters, viewLevel]);
   
 
   // Filtrar dados por data - memoizado para evitar re-renders
@@ -1375,45 +1398,29 @@ const TrafficAnalysis = () => {
     return `${selectedPublico.length} públicos selecionados`;
   };
 
-  // Funções para expansão hierárquica
-  const toggleExpansion = (itemId: string) => {
-    setExpandedItems(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(itemId)) {
-        newSet.delete(itemId);
-      } else {
-        newSet.add(itemId);
-      }
-      return newSet;
-    });
-  };
+  // Funções para expansão hierárquica (removido - não usado mais)
+  // const toggleExpansion = (itemId: string) => {
+  //   setExpandedItems(prev => {
+  //     const newSet = new Set(prev);
+  //     if (newSet.has(itemId)) {
+  //       newSet.delete(itemId);
+  //     } else {
+  //       newSet.add(itemId);
+  //     }
+  //     return newSet;
+  //   });
+  // };
 
-  const isExpanded = (itemId: string) => expandedItems.has(itemId);
+  // const isExpanded = (itemId: string) => expandedItems.has(itemId);
 
   // Função para renderizar linha hierárquica
   const renderHierarchicalRow = (item: any, level: number, type: 'campaign' | 'adSet' | 'insight') => {
-    const isItemExpanded = isExpanded(item.id);
-    const hasChildren = type === 'campaign' ? item.adSets.length > 0 : type === 'adSet' ? item.insights.length > 0 : false;
-    
     return (
       <TableRow key={item.id} className="hover:bg-muted/50">
         <TableCell>
-          <div className="flex items-center" style={{ paddingLeft: `${level * 20}px` }}>
-            {hasChildren && (
-              <button
-                onClick={() => toggleExpansion(item.id)}
-                className="mr-2 p-1 hover:bg-muted rounded"
-              >
-                {isItemExpanded ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </button>
-            )}
-            {!hasChildren && <div className="w-6" />}
+          <div className="flex items-center">
             <div>
-              <div className={`font-semibold ${level === 0 ? 'text-base' : level === 1 ? 'text-sm' : 'text-xs'}`}>
+              <div className="font-semibold text-base">
                 {item.name}
               </div>
               {type === 'adSet' && (
@@ -1465,48 +1472,66 @@ const TrafficAnalysis = () => {
                               advancedFilters.selectedAdSets.size > 0 || 
                               advancedFilters.selectedCreatives.size > 0;
 
-    campaignsHierarchy.campaigns.forEach(campaign => {
-      // Aplicar filtro de campanhas se houver seleção específica
-      const shouldShowCampaign = !hasAdvancedFilters || 
-                                advancedFilters.selectedCampaigns.size === 0 || 
-                                advancedFilters.selectedCampaigns.has(campaign.id);
-
-      if (!shouldShowCampaign) return;
-
-      // Renderizar campanha
-      if (levelFilters.campaigns) {
-        rows.push(renderHierarchicalRow(campaign, 0, 'campaign'));
-      }
-
-      // Renderizar ad sets se campanha estiver expandida
-      if (isExpanded(campaign.id) && levelFilters.adSets) {
-        campaign.adSets.forEach(adSet => {
-          // Aplicar filtro de adsets se houver seleção específica
-          const shouldShowAdSet = !hasAdvancedFilters || 
-                                 advancedFilters.selectedAdSets.size === 0 || 
-                                 advancedFilters.selectedAdSets.has(adSet.id);
-
-          if (!shouldShowAdSet) return;
-
-          const adSetWithCampaign = { ...adSet, campaignName: campaign.name };
-          rows.push(renderHierarchicalRow(adSetWithCampaign, 1, 'adSet'));
-
-          // Renderizar insights se ad set estiver expandido
-          if (isExpanded(adSet.id) && levelFilters.insights) {
-            adSet.insights.forEach(insight => {
-              // Aplicar filtro de criativos se houver seleção específica
-              const shouldShowCreative = !hasAdvancedFilters || 
-                                        advancedFilters.selectedCreatives.size === 0 || 
-                                        advancedFilters.selectedCreatives.has(insight.id);
-
-              if (!shouldShowCreative) return;
-
-              rows.push(renderHierarchicalRow(insight, 2, 'insight'));
-            });
-          }
-        });
-      }
-    });
+    // Lógica baseada no nível de visualização selecionado
+    if (viewLevel === 'campaigns') {
+      // Mostrar apenas campanhas
+      campaignsHierarchy.campaigns.forEach(campaign => {
+        const shouldShowCampaign = !hasAdvancedFilters || 
+                                  advancedFilters.selectedCampaigns.size === 0 || 
+                                  advancedFilters.selectedCampaigns.has(campaign.id);
+        
+        if (shouldShowCampaign) {
+          rows.push(renderHierarchicalRow(campaign, 0, 'campaign'));
+        }
+      });
+    } else if (viewLevel === 'adSets') {
+      // Mostrar apenas ad sets
+      campaignsHierarchy.campaigns.forEach(campaign => {
+        const shouldShowCampaign = !hasAdvancedFilters || 
+                                  advancedFilters.selectedCampaigns.size === 0 || 
+                                  advancedFilters.selectedCampaigns.has(campaign.id);
+        
+        if (shouldShowCampaign) {
+          campaign.adSets.forEach(adSet => {
+            const shouldShowAdSet = !hasAdvancedFilters || 
+                                   advancedFilters.selectedAdSets.size === 0 || 
+                                   advancedFilters.selectedAdSets.has(adSet.id);
+            
+            if (shouldShowAdSet) {
+              const adSetWithCampaign = { ...adSet, campaignName: campaign.name };
+              rows.push(renderHierarchicalRow(adSetWithCampaign, 0, 'adSet')); // Nível 0 para ad sets
+            }
+          });
+        }
+      });
+    } else if (viewLevel === 'insights') {
+      // Mostrar apenas criativos
+      campaignsHierarchy.campaigns.forEach(campaign => {
+        const shouldShowCampaign = !hasAdvancedFilters || 
+                                  advancedFilters.selectedCampaigns.size === 0 || 
+                                  advancedFilters.selectedCampaigns.has(campaign.id);
+        
+        if (shouldShowCampaign) {
+          campaign.adSets.forEach(adSet => {
+            const shouldShowAdSet = !hasAdvancedFilters || 
+                                   advancedFilters.selectedAdSets.size === 0 || 
+                                   advancedFilters.selectedAdSets.has(adSet.id);
+            
+            if (shouldShowAdSet) {
+              adSet.insights.forEach(insight => {
+                const shouldShowCreative = !hasAdvancedFilters || 
+                                          advancedFilters.selectedCreatives.size === 0 || 
+                                          advancedFilters.selectedCreatives.has(insight.id);
+                
+                if (shouldShowCreative) {
+                  rows.push(renderHierarchicalRow(insight, 0, 'insight')); // Nível 0 para criativos
+                }
+              });
+            }
+          });
+        }
+      });
+    }
 
     return rows;
   };
@@ -1616,6 +1641,36 @@ const TrafficAnalysis = () => {
     setAdvancedFilters(emptyFilters);
     setTempAdvancedFilters(emptyFilters);
   }, []);
+
+  // Componente dos Botões de Nível de Visualização - memoizado para evitar re-renders
+  const ViewLevelButtons = useCallback(() => (
+    <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-lg">
+      <Button
+        variant={viewLevel === 'campaigns' ? 'default' : 'ghost'}
+        size="sm"
+        onClick={() => setViewLevel('campaigns')}
+        className="px-3 py-1 text-sm font-medium"
+      >
+        Campanhas
+      </Button>
+      <Button
+        variant={viewLevel === 'adSets' ? 'default' : 'ghost'}
+        size="sm"
+        onClick={() => setViewLevel('adSets')}
+        className="px-3 py-1 text-sm font-medium"
+      >
+        Conjuntos
+      </Button>
+      <Button
+        variant={viewLevel === 'insights' ? 'default' : 'ghost'}
+        size="sm"
+        onClick={() => setViewLevel('insights')}
+        className="px-3 py-1 text-sm font-medium"
+      >
+        Criativos
+      </Button>
+    </div>
+  ), [viewLevel]);
 
   // Componente do Modal de Filtros Avançados - memoizado para evitar re-renders
   const AdvancedFiltersModal = useCallback(() => (
@@ -2146,6 +2201,9 @@ const TrafficAnalysis = () => {
                   ].filter(Boolean).join(', ')}
               </div>
               )}
+              
+              {/* Botões de Nível de Visualização */}
+              <ViewLevelButtons />
               
               {/* Modal de Filtros Avançados */}
               {AdvancedFiltersModal()}
