@@ -8,15 +8,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { Live, LiveGroup } from "@/types";
 import {
-    BarChart3,
-    DollarSign,
-    Download,
-    Search,
-    ShoppingCart,
-    TrendingUp,
-    UserCheck,
-    UserMinus,
-    Users
+  BarChart3,
+  DollarSign,
+  Download,
+  Search,
+  ShoppingCart,
+  TrendingUp,
+  UserCheck,
+  UserMinus,
+  Users
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -50,9 +50,9 @@ export default function Groups() {
         }
         setUserId(session.user.id);
 
-        // Fetch all lives for filtering with cached_group_data
+        // Fetch all captações for filtering with cached_group_data
         const { data: livesData, error: livesError } = await supabase
-          .from('lives')
+          .from('captações')
           .select('*')
           .eq('user_id', session.user.id)
           .order('created_at', { ascending: false });
@@ -61,14 +61,14 @@ export default function Groups() {
         setAllLives(livesData || []);
         setLivesGroupData(livesData || []);
 
-        // Fetch all groups for all lives
+        // Fetch all groups for all captações
         const { data: groupsData, error: groupsError } = await supabase
           .from('live_groups')
           .select(`
             *,
-            lives!inner(id, name, user_id)
+            captações!inner(id, name, user_id)
           `)
-          .eq('lives.user_id', session.user.id);
+          .eq('captações.user_id', session.user.id);
 
         if (groupsError) throw groupsError;
         setAllGroups(groupsData || []);
@@ -76,7 +76,7 @@ export default function Groups() {
         // If specific live is requested, fetch that live's data
         if (liveId) {
           const { data: liveData, error: liveError } = await supabase
-            .from('lives')
+            .from('captações')
             .select('*')
             .eq('id', liveId)
             .single();
@@ -153,7 +153,7 @@ export default function Groups() {
 
   // Calculate totals for the cards (global aggregated data from cached_group_data)
   const cardTotals = useMemo(() => {
-    // Filter lives based on selected live and dates
+    // Filter captações based on selected live and dates
     let relevantLives = selectedLive === "todas" ? livesGroupData : livesGroupData.filter(live => live.id === selectedLive);
 
     // Apply date filtering if dates are provided
@@ -286,10 +286,10 @@ export default function Groups() {
             <div className="space-y-1">
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5" />
-                Grupos WhatsApp por Live
+                Grupos WhatsApp por Captação
               </CardTitle>
               <CardDescription>
-                {liveId ? `Grupos vinculados à Live específica` : 'Visualize todos os grupos vinculados às suas Lives'}
+                {liveId ? `Grupos vinculados à Captação específica` : 'Visualize todos os grupos vinculados às suas Captações'}
               </CardDescription>
             </div>
             <div className="flex items-center gap-4">
@@ -332,10 +332,10 @@ export default function Groups() {
             </div>
             <Select value={selectedLive} onValueChange={setSelectedLive}>
               <SelectTrigger className="w-48">
-                <SelectValue placeholder="Todas as lives" />
+                <SelectValue placeholder="Todas as captações" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todas">Todas as lives</SelectItem>
+                <SelectItem value="todas">Todas as captações</SelectItem>
                 {allLives.map((live) => (
                   <SelectItem key={live.id} value={live.id}>
                     {live.name}
@@ -351,7 +351,7 @@ export default function Groups() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Grupo</TableHead>
-                  <TableHead>Live</TableHead>
+                  <TableHead>Captação</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                   <TableHead className="text-center">
                     Tamanho do Grupo
@@ -377,7 +377,7 @@ export default function Groups() {
               </TableHeader>
               <TableBody>
                 {filteredData.map((group) => {
-                  const liveName = allLives.find(live => live.id === group.live_id)?.name || 'Live não encontrada';
+                  const liveName = allLives.find(live => live.id === group.live_id)?.name || 'Captação não encontrada';
                   const groupValues = calculateGroupValues(group);
 
                   return (
@@ -410,7 +410,7 @@ export default function Groups() {
                 {filteredData.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      {selectedLive === "todas" ? "Nenhum grupo encontrado" : "Nenhum grupo vinculado a esta Live"}
+                      {selectedLive === "todas" ? "Nenhum grupo encontrado" : "Nenhum grupo vinculado a esta Captação"}
                     </TableCell>
                   </TableRow>
                 )}

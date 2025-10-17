@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { DEMO_MODE } from "@/lib/demo-mode";
+import { MOCK_LIVE } from "@/mocks/data";
 import { PublicAudience, PublicAudienceCorrelation } from "@/types/audience";
 import { fetchPublicAudiences, generateAudienceCorrelation } from "@/utils/audienceService";
 // Removido imports legados: AdSetData, CampaignData, extractAdSetDataFromInsights, extractCampaignData
@@ -20,7 +22,6 @@ import { useLocation, useSearchParams } from "react-router-dom";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
 const TrafficAnalysis = () => {
-  console.log('🔄 [TrafficAnalysis] Componente re-renderizado:', new Date().toISOString());
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const liveId = searchParams.get('live');
@@ -247,52 +248,62 @@ const TrafficAnalysis = () => {
     Object.values(campaignsByDate).forEach((dayCampaigns: any) => {
       if (Array.isArray(dayCampaigns)) {
         dayCampaigns.forEach((campaign: any) => {
+          // Usar campaign_id como fallback se id não existir
+          const campaignId = campaign.id || campaign.campaign_id;
+          const campaignName = campaign.name || campaign.campaign_name;
+          
           // Adicionar campanha
-          if (!campaignsMap.has(campaign.id)) {
-            campaignsMap.set(campaign.id, {
-              id: campaign.id,
-              name: campaign.name,
+          if (!campaignsMap.has(campaignId)) {
+            campaignsMap.set(campaignId, {
+              id: campaignId,
+              name: campaignName,
               leads: 0,
               spend: 0
             });
           }
           
           // Atualizar totais da campanha
-          const campaignData = campaignsMap.get(campaign.id);
+          const campaignData = campaignsMap.get(campaignId);
           campaignData.leads += campaign.leads || 0;
           campaignData.spend += campaign.spend || 0;
 
           // Processar adsets
           if (campaign.adsets && Array.isArray(campaign.adsets)) {
             campaign.adsets.forEach((adset: any) => {
+              const adsetId = adset.id || adset.adset_id;
+              const adsetName = adset.name || adset.adset_name;
+              
               // Adicionar adset
-              if (!adSetsMap.has(adset.id)) {
-                adSetsMap.set(adset.id, {
-                  id: adset.id,
-                  name: adset.name,
-                  campaignId: campaign.id,
-                  campaignName: campaign.name,
+              if (!adSetsMap.has(adsetId)) {
+                adSetsMap.set(adsetId, {
+                  id: adsetId,
+                  name: adsetName,
+                  campaignId: campaignId,
+                  campaignName: campaignName,
                   leads: 0,
                   spend: 0
                 });
               }
               
               // Atualizar totais do adset
-              const adsetData = adSetsMap.get(adset.id);
+              const adsetData = adSetsMap.get(adsetId);
               adsetData.leads += adset.leads || 0;
               adsetData.spend += adset.spend || 0;
 
               // Processar ads (criativos)
               if (adset.ads && Array.isArray(adset.ads)) {
                 adset.ads.forEach((ad: any) => {
-                  if (!creativesMap.has(ad.id)) {
-                    creativesMap.set(ad.id, {
-                      id: ad.id,
-                      name: ad.name,
-                      adsetId: adset.id,
-                      adsetName: adset.name,
-                      campaignId: campaign.id,
-                      campaignName: campaign.name,
+                  const adId = ad.id || ad.ad_id;
+                  const adName = ad.name || ad.ad_name;
+                  
+                  if (!creativesMap.has(adId)) {
+                    creativesMap.set(adId, {
+                      id: adId,
+                      name: adName,
+                      adsetId: adsetId,
+                      adsetName: adsetName,
+                      campaignId: campaignId,
+                      campaignName: campaignName,
                       leads: 0,
                       spend: 0,
                       creative_url: ad.creative_url
@@ -300,7 +311,7 @@ const TrafficAnalysis = () => {
                   }
                   
                   // Atualizar totais do criativo
-                  const creativeData = creativesMap.get(ad.id);
+                  const creativeData = creativesMap.get(adId);
                   creativeData.leads += ad.leads || 0;
                   creativeData.spend += ad.spend || 0;
                 });
@@ -349,16 +360,7 @@ const TrafficAnalysis = () => {
 
   // Inicializar datas do modal de filtros avançados quando os dados são carregados
   useEffect(() => {
-    console.log('🟠 [Modal] useEffect inicialização datas EXECUTADO:', {
-      hasLive: !!live,
-      since: live?.insights_date_since,
-      until: live?.insights_date_until,
-      currentStartDate: advancedFilters.startDate,
-      datesInitialized: datesInitialized.current,
-      timestamp: new Date().toISOString()
-    });
     if (live?.insights_date_since && live?.insights_date_until && !datesInitialized.current) {
-      console.log('🟠 [Modal] Inicializando datas do modal');
       const initialDates = {
         startDate: live.insights_date_since || '',
         endDate: live.insights_date_until || ''
@@ -400,7 +402,7 @@ const TrafficAnalysis = () => {
             if (liveCampaigns && liveCampaigns.length > 0) {
               // Buscar dados da live para obter as datas
               const { data: liveData } = await supabase
-                .from('lives')
+                .from('captações')
                 .select('insights_date_since, insights_date_until')
                 .eq('id', liveId)
                 .single();
@@ -421,7 +423,7 @@ const TrafficAnalysis = () => {
         }
       }
     } catch (error) {
-      console.error('Erro ao carregar públicos:', error);
+      // Erro ao carregar públicos
     }
   }, [liveId]);
 
@@ -429,17 +431,52 @@ const TrafficAnalysis = () => {
   const loadDataFromDatabase = useCallback(async (isFromButton = false) => {
     if (!liveId) return;
     
-    
     try {
+      // Se estiver em modo demo, carregar dados mocados
+      if (DEMO_MODE && liveId === 'live-1') {
+        const liveData = MOCK_LIVE;
+        
+        // Atualizar dados básicos da Live
+        setLive({
+          id: liveData.id,
+          name: liveData.name,
+          ad_budget: liveData.ad_budget,
+          insights_date_since: liveData.insights_date_since,
+          insights_date_until: liveData.insights_date_until,
+          cached_metrics: liveData.cached_metrics || undefined,
+          cached_group_data: liveData.cached_group_data || undefined,
+          cached_traffic_data: liveData.cached_meta_data as any || undefined,
+          cached_traffic_metrics: liveData.cached_metrics as any || undefined,
+          cached_traffic_data_incremented: liveData.cached_traffic_data_incremented || undefined,
+          traffic_last_synced_at: liveData.traffic_last_synced_at
+        });
+        
+        // Carregar grupos
+        if (liveData.live_groups) {
+          setGroups(liveData.live_groups as any);
+        }
+        
+        // Carregar campanhas
+        if (liveData.live_campaigns) {
+          const campaigns = liveData.live_campaigns.map((campaign: any) => ({
+            campaign_id: campaign.campaign_id,
+            campaign_name: campaign.campaign_name
+          }));
+          setCampaigns(campaigns);
+        }
+        
+        setIsLoading(false);
+        return;
+      }
+      
       // Buscar dados básicos da Live diretamente do Supabase
       const { data: liveData, error } = await supabase
-        .from('lives')
+        .from('captações')
         .select('*')
         .eq('id', liveId)
         .single();
 
       if (error || !liveData) {
-        console.error('[TrafficAnalysis] Erro ao buscar Live:', error);
         return;
       }
       
@@ -556,7 +593,7 @@ const TrafficAnalysis = () => {
           const audiences = await fetchPublicAudiences(liveId);
           setPublicAudiences(audiences);
         } catch (error) {
-          console.error('Erro ao carregar públicos:', error);
+          // Erro ao carregar públicos
         }
         
         // Atualizar dados hierárquicos se chamado pelo botão principal (isFromButton = true)
@@ -600,7 +637,6 @@ const TrafficAnalysis = () => {
             }
 
           } catch (error) {
-            console.error('❌ [Global Refresh] Erro ao atualizar dados hierárquicos:', error);
             setHierarchicalCacheValid(false);
           } finally {
             setIsHierarchicalRefreshing(false);
@@ -612,7 +648,6 @@ const TrafficAnalysis = () => {
             const hasHierarchicalData = !!(liveData.cached_traffic_data?.campaign);
             setHierarchicalCacheValid(hasHierarchicalData);
           } catch (error) {
-            console.error('Erro ao verificar cache hierárquico:', error);
             setHierarchicalCacheValid(false);
           }
         }
@@ -620,7 +655,6 @@ const TrafficAnalysis = () => {
         setIsLoading(false);
       }
     } catch (error) {
-      console.error('❌ [TrafficAnalysis] Erro ao carregar dados:', error);
       setIsLoading(false);
     } finally {
       // Só controla isButtonRefreshing se foi chamado pelo botão
@@ -640,7 +674,7 @@ const TrafficAnalysis = () => {
     try {
       // Verificar cache primeiro
       const { data: live, error } = await supabase
-        .from('lives')
+        .from('captações')
         .select('*, cached_traffic_data, cached_traffic_metrics, traffic_last_synced_at')
         .eq('id', liveId)
         .single();
@@ -726,7 +760,7 @@ const TrafficAnalysis = () => {
           
         // Recarregar dados do cache atualizado
         const { data: updatedLive, error: reloadError } = await supabase
-          .from('lives')
+          .from('captações')
           .select('*')
           .eq('id', liveId)
           .single();
@@ -829,7 +863,6 @@ const TrafficAnalysis = () => {
         }
         
       } catch (error) {
-        console.error('❌ [TrafficAnalysis] Erro ao chamar Edge Function:', error);
         throw error;
       }
       
@@ -842,7 +875,7 @@ const TrafficAnalysis = () => {
       });
       
     } catch (error) {
-      console.error('❌ [TrafficAnalysis] Erro ao carregar dados:', error);
+      // Erro ao carregar dados
     } finally {
       setCacheStatus(prev => ({ ...prev, isLoading: false }));
       setIsLoading(false);
@@ -856,17 +889,19 @@ const TrafficAnalysis = () => {
   const handleRefreshStart = async () => {
     setIsButtonRefreshing(true);
     try {
-      // Chamar Edge Function para forçar sincronização (ignorar cache)
-      try {
-        await syncLiveMetaData(liveId!, true); // true = forçar refresh
-      } catch (edgeError) {
-        // Não interromper o fluxo se a Edge Function falhar
+      // No modo demo, não chamar Edge Function
+      if (!DEMO_MODE) {
+        // Chamar Edge Function para forçar sincronização (ignorar cache)
+        try {
+          await syncLiveMetaData(liveId!, true); // true = forçar refresh
+        } catch (edgeError) {
+          // Não interromper o fluxo se a Edge Function falhar
+        }
       }
 
-      // Recarregar dados do cache atualizado
+      // Recarregar dados do cache atualizado (ou dados mocados se DEMO_MODE)
       await loadDataFromDatabase(true);
     } catch (error) {
-      console.error('❌ [TrafficAnalysis] Erro ao atualizar dados:', error);
       setError(`Erro ao atualizar dados: ${error}`);
     } finally {
       setIsButtonRefreshing(false);
@@ -882,7 +917,7 @@ const TrafficAnalysis = () => {
     try {
       // Limpar cache atual
       const { error } = await supabase
-        .from('lives')
+        .from('captações')
         .update({
           traffic_last_synced_at: null,
           cached_traffic_data: null,
@@ -897,7 +932,7 @@ const TrafficAnalysis = () => {
       // Buscar dados frescos
       await fetchTrafficDataWithCache();
     } catch (error) {
-      console.error('❌ [TrafficAnalysis] Erro ao forçar refresh:', error);
+      // Erro ao forçar refresh
     } finally {
       setCacheStatus(prev => ({ ...prev, isLoading: false }));
     }
@@ -912,7 +947,7 @@ const TrafficAnalysis = () => {
   const isCacheValid = useCallback(async (liveId: string): Promise<boolean> => {
     try {
       const { data: liveData, error } = await supabase
-        .from('lives')
+        .from('captações')
         .select('traffic_last_synced_at')
         .eq('id', liveId)
         .single();
@@ -930,7 +965,6 @@ const TrafficAnalysis = () => {
 
       return isValid;
     } catch (error) {
-      console.error(`❌ [TrafficAnalysis] Erro ao verificar cache:`, error);
       return false;
     }
   }, []);
@@ -962,7 +996,6 @@ const TrafficAnalysis = () => {
 
       return response.data;
     } catch (error) {
-      console.error('❌ [TrafficAnalysis] Erro ao chamar Edge Function:', error);
       throw error;
     }
   }, [isCacheValid]);
@@ -976,20 +1009,22 @@ const TrafficAnalysis = () => {
         setIsLoading(true);
         setError(null);
 
-        // Chamar Edge Function para sincronizar dados do Meta (com verificação de cache)
-        try {
-          await syncLiveMetaData(liveId, false); // false = não forçar refresh
-        } catch (edgeError) {
-          // Não interromper o fluxo se a Edge Function falhar
+        // No modo demo, não chamar Edge Function
+        if (!DEMO_MODE) {
+          // Chamar Edge Function para sincronizar dados do Meta (com verificação de cache)
+          try {
+            await syncLiveMetaData(liveId, false); // false = não forçar refresh
+          } catch (edgeError) {
+            // Não interromper o fluxo se a Edge Function falhar
+          }
         }
 
-        // Carregar dados do cache atualizado
+        // Carregar dados do cache atualizado (ou dados mocados se DEMO_MODE)
         await loadDataFromDatabase(false);
         
         setIsInitialized(true);
         
       } catch (error) {
-        console.error('❌ [TrafficAnalysis] Erro ao inicializar dados:', error);
         setError(`Erro ao inicializar dados: ${error}`);
       } finally {
         setIsLoading(false);
@@ -1558,7 +1593,6 @@ const TrafficAnalysis = () => {
 
   // Funções para gerenciar filtros avançados - memoizadas para evitar re-renders
   const handleAdvancedFilterToggle = useCallback((type: 'campaigns' | 'adSets' | 'creatives', id: string) => {
-    console.log('🟣 [Modal] handleAdvancedFilterToggle chamado:', { type, id });
     setTempAdvancedFilters(prev => {
       const newFilters = { ...prev };
       const selectedSet = new Set(prev[type === 'campaigns' ? 'selectedCampaigns' : type === 'adSets' ? 'selectedAdSets' : 'selectedCreatives']);
@@ -1580,11 +1614,6 @@ const TrafficAnalysis = () => {
           if (adset) {
             // Selecionar a campanha pai
             newFilters.selectedCampaigns.add(adset.campaignId);
-            
-            console.log('🟢 [Modal] Seleção hierárquica automática:', {
-              adset: adset.name,
-              campaign: adset.campaignName
-            });
           }
         }
       } else {
@@ -1598,12 +1627,6 @@ const TrafficAnalysis = () => {
             newFilters.selectedAdSets.add(creative.adsetId);
             // Selecionar a campanha pai
             newFilters.selectedCampaigns.add(creative.campaignId);
-            
-            console.log('🟢 [Modal] Seleção hierárquica automática:', {
-              creative: creative.name,
-              adset: creative.adsetName,
-              campaign: creative.campaignName
-            });
           }
         }
       }
@@ -1613,7 +1636,6 @@ const TrafficAnalysis = () => {
   }, [availableItems.creatives, availableItems.adSets]);
 
   const handleApplyAdvancedFilters = useCallback(() => {
-    console.log('🟢 [Modal] Aplicando filtros avançados');
     setTempAdvancedFilters(current => {
       // Aplicar filtros temporários para os filtros reais
       setAdvancedFilters(current);
@@ -1630,7 +1652,6 @@ const TrafficAnalysis = () => {
   }, []);
 
   const clearAdvancedFilters = useCallback(() => {
-    console.log('🟢 [Modal] Limpando filtros avançados');
     const emptyFilters = {
       startDate: '',
       endDate: '',
@@ -1674,10 +1695,9 @@ const TrafficAnalysis = () => {
 
   // Componente do Modal de Filtros Avançados - memoizado para evitar re-renders
   const AdvancedFiltersModal = useCallback(() => (
-    <>
+    <div className="inline-flex items-center gap-2">
       <Button
         onClick={() => {
-          console.log('🔵 [Modal] Botão clicado - abrindo modal');
           // Sincronizar estado temporário com o estado atual
           setTempAdvancedFilters(advancedFilters);
           setIsAdvancedFiltersOpen(true);
@@ -1704,7 +1724,6 @@ const TrafficAnalysis = () => {
                 className="w-auto"
                 value={tempAdvancedFilters.startDate}
                 onChange={e => {
-                  console.log('🟢 [Modal] Data início alterada:', e.target.value);
                   e.stopPropagation();
                   setTempAdvancedFilters(prev => ({ ...prev, startDate: e.target.value }));
                 }}
@@ -1718,7 +1737,6 @@ const TrafficAnalysis = () => {
                 className="w-auto"
                 value={tempAdvancedFilters.endDate}
                 onChange={e => {
-                  console.log('🟢 [Modal] Data fim alterada:', e.target.value);
                   e.stopPropagation();
                   setTempAdvancedFilters(prev => ({ ...prev, endDate: e.target.value }));
                 }}
@@ -1738,13 +1756,12 @@ const TrafficAnalysis = () => {
                 </span>
               </div>
               <div className="max-h-80 overflow-y-auto border rounded p-3 space-y-2">
-                {availableItems.campaigns.map(campaign => (
-                  <label key={campaign.id} className="flex items-start space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                {availableItems.campaigns.map((campaign, index) => (
+                  <label key={`campaign-${campaign.id}-${index}`} className="flex items-start space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                     <input
                       type="checkbox"
                       checked={tempAdvancedFilters.selectedCampaigns.has(campaign.id)}
                       onChange={(e) => {
-                        console.log('🟢 [Modal] Checkbox campanha clicado:', campaign.name);
                         e.stopPropagation();
                         handleAdvancedFilterToggle('campaigns', campaign.id);
                       }}
@@ -1778,13 +1795,12 @@ const TrafficAnalysis = () => {
                 </span>
               </div>
               <div className="max-h-80 overflow-y-auto border rounded p-3 space-y-2">
-                {availableItems.adSets.map(adSet => (
-                  <label key={adSet.id} className="flex items-start space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                {availableItems.adSets.map((adSet, index) => (
+                  <label key={`adset-${adSet.id}-${index}`} className="flex items-start space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                     <input
                       type="checkbox"
                       checked={tempAdvancedFilters.selectedAdSets.has(adSet.id)}
                       onChange={(e) => {
-                        console.log('🟢 [Modal] Checkbox adset clicado:', adSet.name);
                         e.stopPropagation();
                         handleAdvancedFilterToggle('adSets', adSet.id);
                       }}
@@ -1821,13 +1837,12 @@ const TrafficAnalysis = () => {
                 </span>
               </div>
               <div className="max-h-80 overflow-y-auto border rounded p-3 space-y-2">
-                {availableItems.creatives.map(creative => (
-                  <label key={creative.id} className="flex items-start space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                {availableItems.creatives.map((creative, index) => (
+                  <label key={`creative-${creative.id}-${index}`} className="flex items-start space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                     <input
                       type="checkbox"
                       checked={tempAdvancedFilters.selectedCreatives.has(creative.id)}
                       onChange={(e) => {
-                        console.log('🟢 [Modal] Checkbox criativo clicado:', creative.name);
                         e.stopPropagation();
                         handleAdvancedFilterToggle('creatives', creative.id);
                       }}
@@ -1878,7 +1893,7 @@ const TrafficAnalysis = () => {
         </div>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   ), [isAdvancedFiltersOpen, tempAdvancedFilters, availableItems, handleAdvancedFilterToggle, handleApplyAdvancedFilters, clearAdvancedFilters, advancedFilters]);
   
   if (isLoading) {

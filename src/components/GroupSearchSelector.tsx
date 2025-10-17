@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { DEMO_MODE } from '@/lib/demo-mode';
+import { MOCK_WHATSAPP_GROUPS } from '@/mocks/data';
 import { fetchWhatsAppGroups, hasWhatsAppGroups } from '@/utils/whatsapp-groups';
 import { AlertCircle, Calendar, Crown, Loader, Search, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -46,6 +47,13 @@ export function GroupSearchSelector({
   useEffect(() => {
     if (isOpen && !DEMO_MODE) {
       checkGroupsAvailability();
+    } else if (isOpen && DEMO_MODE) {
+      // In demo mode, groups are always available
+      setGroupsAvailable(true);
+      // Auto-search in demo mode if searchTerm is pre-filled
+      if (searchTerm && searchTerm.trim().length >= 2) {
+        handleSearch();
+      }
     }
   }, [isOpen]);
 
@@ -80,33 +88,24 @@ export function GroupSearchSelector({
     }
 
     if (DEMO_MODE) {
-      // Demo data
+      // Use mock data direto do arquivo
       setIsSearching(true);
       setTimeout(() => {
-        const demoResults = [
-          {
-            id: 'demo1',
-            group_id: 'demo1@g.us',
-            group_name: `${searchTerm} - Demo Group 1`,
-            group_size: 25,
-            group_created_formatted: '15/01/2024',
-            group_owner_formatted: '(11) 99999-9999',
-            selectable: true
-          },
-          {
-            id: 'demo2', 
-            group_id: 'demo2@g.us',
-            group_name: `Grupo ${searchTerm} Teste`,
-            group_size: 42,
-            group_created_formatted: '22/02/2024',
-            group_owner_formatted: '(11) 98888-8888',
-            selectable: true
-          }
-        ];
-        setSearchResults(demoResults as GroupResult[]);
+        const mockGroups = MOCK_WHATSAPP_GROUPS;
+        const demoResults = mockGroups.map((group, index) => ({
+          id: group.id,
+          group_id: `${group.id}@g.us`,
+          group_name: group.name,
+          group_size: group.participants,
+          group_created_formatted: new Date(group.created_at).toLocaleDateString('pt-BR'),
+          group_owner_formatted: '(11) 99999-9999',
+          selectable: true
+        }));
+        
+        setSearchResults(demoResults);
         setHasSearched(true);
         setIsSearching(false);
-      }, 1500);
+      }, 500);
       return;
     }
 
@@ -189,6 +188,7 @@ export function GroupSearchSelector({
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                readOnly={DEMO_MODE}
               />
             </div>
             <Button

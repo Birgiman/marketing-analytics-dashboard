@@ -1,5 +1,5 @@
 /**
- * Cálculos V2 - Funções Corretas para LiveShop
+ * Cálculos V2 - Funções Corretas para Analytics
  * Baseado nas especificações da empresa
  * 
  * CPL Líquido: Total de pessoas que entrou no grupo / Total gasto (Meta)

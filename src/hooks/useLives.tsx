@@ -1,5 +1,6 @@
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
+import { DEMO_MODE } from '@/lib/demo-mode'
 import { useCallback, useState } from 'react'
 
 interface LiveData {
@@ -53,7 +54,7 @@ export function useLives() {
 
       // Create the live first
       const { data: liveResult, error: liveError } = await supabase
-        .from('lives')
+        .from('captações')
         .insert({
           user_id: session.session.user.id,
           name: liveData.name,
@@ -96,7 +97,7 @@ export function useLives() {
 
         if (groupsError) {
           // Optionally delete the created live if groups fail
-          await supabase.from('lives').delete().eq('id', liveResult.id)
+          await supabase.from('captações').delete().eq('id', liveResult.id)
           throw new Error(`Erro ao vincular grupos: ${groupsError.message}`)
         }
       }
@@ -127,7 +128,7 @@ export function useLives() {
 
         if (campaignsError) {
           // Optionally delete the created live if campaigns fail
-          await supabase.from('lives').delete().eq('id', liveResult.id)
+          await supabase.from('captações').delete().eq('id', liveResult.id)
           throw new Error(`Erro ao vincular campanhas: ${campaignsError.message}`)
         }
       }
@@ -165,7 +166,7 @@ export function useLives() {
 
       // Buscar live atual para comparação
       const { data: currentLive, error: fetchError } = await supabase
-        .from('lives')
+        .from('captações')
         .select('*')
         .eq('id', liveId)
         .eq('user_id', session.session.user.id)
@@ -253,7 +254,7 @@ export function useLives() {
       if (Object.keys(updateFields).length > 0) {
         
         const { error: liveError } = await supabase
-          .from('lives')
+          .from('captações')
           .update(updateFields)
           .eq('id', liveId)
           .eq('user_id', session.session.user.id)
@@ -373,7 +374,7 @@ export function useLives() {
 
       // Get the live and its groups before moving to deleted tables
       const { data: liveData, error: fetchLiveError } = await supabase
-        .from('lives')
+        .from('captações')
         .select(`
           *,
           live_groups (*)
@@ -446,9 +447,9 @@ export function useLives() {
         }
       }
 
-      // Finally, delete the live from lives table
+      // Finally, delete the live from captações table
       const { error: deleteLiveError } = await supabase
-        .from('lives')
+        .from('captações')
         .delete()
         .eq('id', liveId)
         .eq('user_id', session.session.user.id)
@@ -478,11 +479,19 @@ export function useLives() {
 
   const fetchUserLives = useCallback(async () => {
     try {
+      // No modo demo, só retornar captações se o usuário já "criou" uma campanha
+      if (DEMO_MODE) {
+        const { getMockLives } = await import('@/integrations/supabase/client');
+        const captações = getMockLives();
+        return captações;
+      }
+      
+      // Código de produção
       const { data: session } = await supabase.auth.getSession()
       if (!session?.session?.user) return []
 
-      const { data: lives, error } = await supabase
-        .from('lives')
+      const { data: captações, error } = await supabase
+        .from('captações')
         .select(`
           id,
           user_id,
@@ -514,11 +523,11 @@ export function useLives() {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      return lives || []
+      return captações || []
     } catch (error) {
       return []
     }
-  }, [supabase])
+  }, [])
 
   return {
     createLiveWithGroups,

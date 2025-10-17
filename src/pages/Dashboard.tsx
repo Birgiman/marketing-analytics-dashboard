@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 import { useLives } from "@/hooks/useLives";
 import { useWhatsAppInstances } from "@/hooks/useWhatsAppInstances";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,10 +27,11 @@ interface DashboardStats {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [isCreateLiveOpen, setIsCreateLiveOpen] = useState(false);
   const [isLivesListOpen, setIsLivesListOpen] = useState(false);
-const [lives, setLives] = useState<Live[]>([]);
+const [captações, setLives] = useState<Live[]>([]);
   const [editingLive, setEditingLive] = useState<Live | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [liveToDelete, setLiveToDelete] = useState<Live | null>(null);
@@ -60,13 +62,11 @@ const [lives, setLives] = useState<Live[]>([]);
 
     // Verificações de segurança com refs para evitar loops
     if (!instanceName || syncInProgress.current || hasSyncedGroups) {
-      console.log(`🚫 [Dashboard] Sync bloqueado: instanceName=${!!instanceName}, syncInProgress=${syncInProgress.current}, hasSyncedGroups=${hasSyncedGroups}`);
       return;
     }
 
     // Verificar cooldown
     if (lastSyncAttempt && (now - lastSyncAttempt) < COOLDOWN_PERIOD) {
-      console.log(`⏳ [Dashboard] Cooldown ativo: ${Math.round((COOLDOWN_PERIOD - (now - lastSyncAttempt)) / 1000)}s restantes`);
       return;
     }
 
@@ -90,11 +90,11 @@ const [lives, setLives] = useState<Live[]>([]);
 
       // Iniciar sincronização assíncrona usando nova arquitetura de filas
       whatsappService.syncGroupsWithQueue(instanceName, userId).catch((error) => {
-        console.error(`Erro na sincronização:`, error.message);
+        // Erro na sincronização
       });
       
     } catch (error) {
-      console.error(`Erro na sincronização:`, error);
+      // Erro na sincronização
     } finally {
       syncInProgress.current = false;
       setIsSyncingGroups(false);
@@ -114,13 +114,13 @@ const [lives, setLives] = useState<Live[]>([]);
     if (hasLoadedStats && !forceReload) return; // Evitar carregamento duplicado
     
     try {
-      // Fetch user lives with groups
+      // Fetch user captações with groups
       const userLives = await fetchUserLives();
       setLives(userLives);
 
       const totalLives = userLives.length;
       
-      // Calculate total participants from all groups in all lives
+      // Calculate total participants from all groups in all captações
       const totalParticipants = userLives.reduce((sum: number, live: any) => {
         const liveParticipants = live.live_groups?.reduce((groupSum: number, group: LiveGroup) => {
           return groupSum + (group.group_size || 0);
@@ -150,12 +150,8 @@ const [lives, setLives] = useState<Live[]>([]);
     const checkAuth = async () => {
       try {
         if (DEMO_MODE) {
-          setStats({
-            totalLives: 0,
-            totalParticipants: 0,
-            totalSales: 0,
-            totalRevenue: 0,
-          });
+          // No modo demo, carregar captações mocadas
+          await loadStats('demo-user-123');
           return;
         }
 
@@ -168,7 +164,6 @@ const [lives, setLives] = useState<Live[]>([]);
         await loadStats(session.user.id);
         
       } catch (error) {
-        console.log(`❌ [Dashboard] Erro na autenticação:`, error);
         if (!DEMO_MODE) {
           navigate("/auth/signin");
         }
@@ -200,7 +195,7 @@ const [lives, setLives] = useState<Live[]>([]);
         }, 1000);
         
       } catch (error) {
-        console.log(`⚠️ [Dashboard] Erro na sincronização inicial:`, error);
+        // Erro na sincronização inicial
       }
     };
 
@@ -220,6 +215,29 @@ const [lives, setLives] = useState<Live[]>([]);
   const confirmDeleteLive = async () => {
     if (liveToDelete) {
       try {
+        // No modo demo, apenas remover do estado local e mostrar toast
+        if (DEMO_MODE) {
+          // Remover a live do estado local
+          setLives(prevLives => prevLives.filter(live => live.id !== liveToDelete.id));
+          
+          // Atualizar estatísticas
+          setStats(prevStats => ({
+            ...prevStats,
+            totalLives: prevStats.totalLives - 1
+          }));
+          
+          // Mostrar toast de sucesso
+          toast({
+            title: "✅ Captação excluída com sucesso!",
+            description: `Captação "${liveToDelete.name}" foi excluída.`
+          });
+          
+          setShowDeleteModal(false);
+          setLiveToDelete(null);
+          return;
+        }
+        
+        // Código de produção
         await softDeleteLive(liveToDelete.id);
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
@@ -228,15 +246,19 @@ const [lives, setLives] = useState<Live[]>([]);
         setShowDeleteModal(false);
         setLiveToDelete(null);
       } catch (error) {
-
+        toast({
+          title: "❌ Erro ao excluir live",
+          description: error instanceof Error ? error.message : "Erro desconhecido",
+          variant: "destructive"
+        });
       }
     }
   };
 
 
-  // Filter lives based on search term
-  const filteredLives = lives.filter(live =>
-    live.name.toLowerCase().includes(searchTerm.toLowerCase())
+  // Filter captações based on search term
+  const filteredLives = captações.filter(live =>
+    live?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -254,7 +276,7 @@ const [lives, setLives] = useState<Live[]>([]);
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setIsLivesListOpen(true)}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Lives</CardTitle>
+              <CardTitle className="text-sm font-medium">Total de Captações</CardTitle>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -270,7 +292,7 @@ const [lives, setLives] = useState<Live[]>([]);
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalParticipants}</div>
-              <p className="text-xs text-muted-foreground">Média: 0 por live</p>
+              <p className="text-xs text-muted-foreground">Média: 0 por captação</p>
             </CardContent>
           </Card>
 
@@ -297,17 +319,17 @@ const [lives, setLives] = useState<Live[]>([]);
           </Card>
         </div>
 
-        {/* Lives Section */}
+        {/* Captações Section */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-xl">Gerenciar Lives</CardTitle>
-                <p className="text-sm text-muted-foreground">Crie, edite e acompanhe suas lives</p>
+                <CardTitle className="text-xl">Gerenciar Captações</CardTitle>
+                <p className="text-sm text-muted-foreground">Crie, edite e acompanhe suas captações</p>
               </div>
               <Button variant="primary" className="gap-2" onClick={() => setIsCreateLiveOpen(true)}>
                 <Plus className="w-4 h-4" />
-                Nova Live
+                Nova Captação
               </Button>
             </div>
           </CardHeader>
@@ -316,7 +338,7 @@ const [lives, setLives] = useState<Live[]>([]);
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar lives..."
+                  placeholder="Buscar captações..."
                   className="pl-9"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -327,8 +349,8 @@ const [lives, setLives] = useState<Live[]>([]);
             {/* Table Headers */}
             <div className="border rounded-lg">
               <div className="grid grid-cols-7 gap-4 p-4 bg-white border-b">
-                <div className="text-sm font-medium">Nome da Live</div>
-                <div className="text-sm font-medium">Data da Live</div>
+                <div className="text-sm font-medium">Nome da Captação</div>
+                <div className="text-sm font-medium">Data da Captação</div>
                 <div className="text-sm font-medium">Status</div>
                 <div className="text-sm font-medium">Entrou no grupo</div>
                 <div className="text-sm font-medium">Pedidos</div>
@@ -336,7 +358,7 @@ const [lives, setLives] = useState<Live[]>([]);
                 <div className="text-sm font-medium">Ações</div>
               </div>
               
-              {/* Lives List */}
+              {/* Captações List */}
               {filteredLives.length > 0 ? (
                 filteredLives.map((live) => (
                   <div key={live.id} className="grid grid-cols-7 gap-4 p-4 border-b items-center">
@@ -389,11 +411,11 @@ const [lives, setLives] = useState<Live[]>([]);
                     </div>
                   </div>
                 ))
-              ) : lives.length > 0 ? (
+              ) : captações.length > 0 ? (
                 /* No search results */
                 <div className="flex flex-col items-center justify-center py-16">
                   <Search className="w-12 h-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground mb-4">Nenhuma live encontrada para "{searchTerm}"</p>
+                  <p className="text-muted-foreground mb-4">Nenhuma captação encontrada para "{searchTerm}"</p>
                   <Button variant="outline" onClick={() => setSearchTerm("")}>
                     Limpar busca
                   </Button>
@@ -402,10 +424,10 @@ const [lives, setLives] = useState<Live[]>([]);
                 /* Empty State */
                 <div className="flex flex-col items-center justify-center py-16">
                   <Video className="w-12 h-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground mb-4">Você ainda não possui lives cadastradas</p>
+                  <p className="text-muted-foreground mb-4">Você ainda não possui captações cadastradas</p>
                   <Button variant="primary" onClick={() => setIsCreateLiveOpen(true)}>
                     <Plus className="w-4 h-4 mr-2" />
-                    Criar sua primeira live
+                    Criar sua primeira captação
                   </Button>
                 </div>
               )}
@@ -457,11 +479,11 @@ const [lives, setLives] = useState<Live[]>([]);
         }}
       />
 
-      {/* Lives List Modal */}
+      {/* Captações List Modal */}
       <LivesListModal 
         open={isLivesListOpen} 
         onOpenChange={setIsLivesListOpen}
-        lives={lives}
+        captações={captações}
         currentInstance={currentInstance as any}
         onLivesUpdated={() => {
           const checkAuth = async () => {
@@ -483,7 +505,7 @@ const [lives, setLives] = useState<Live[]>([]);
         open={showDeleteModal} 
         onOpenChange={setShowDeleteModal}
         title="Confirmar Exclusão"
-        description={liveToDelete ? `Tem certeza que deseja excluir a live "${liveToDelete.name}"? Esta ação não pode ser desfeita.` : ""}
+        description={liveToDelete ? `Tem certeza que deseja excluir a captação "${liveToDelete.name}"? Esta ação não pode ser desfeita.` : ""}
         onConfirm={confirmDeleteLive}
         onCancel={() => {
           setShowDeleteModal(false);

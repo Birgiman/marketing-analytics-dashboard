@@ -1,7 +1,7 @@
 /**
  * Meta API Utilities
  * Funções reutilizáveis para interação com Facebook Marketing API
- * Podem ser usadas em Lives, Campanhas, etc.
+ * Podem ser usadas em Captações, Campanhas, etc.
  */
 
 import {
@@ -77,7 +77,7 @@ export interface MetaInsight {
   ad_name?: string;
 }
 
-const BASE_URL = 'https://graph.facebook.com/v23.0';
+const BASE_URL = import.meta.env.VITE_META_GRAPH_API_URL || 'https://graph.facebook.com/v23.0';
 
 /**
  * Busca contas de anúncios de um usuário
@@ -770,7 +770,7 @@ export async function fetchMetaInsights(
   }
 
   // NOTA: Validação de 1 ano removida daqui para permitir visualização de dados históricos
-  // A validação deve ser aplicada apenas na criação/edição de Lives
+  // A validação deve ser aplicada apenas na criação/edição de Captações
 
   // CAMPOS MÍNIMOS OBRIGATÓRIOS incluindo actions para capturar leads
   const minimumFields = ['campaign_id', 'campaign_name', 'spend', 'impressions', 'clicks', 'actions'];

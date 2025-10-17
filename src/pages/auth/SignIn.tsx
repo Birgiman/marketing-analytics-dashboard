@@ -6,8 +6,9 @@ import { Link, useNavigate } from 'react-router-dom';
 
 export default function SignIn() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  // Demo user credentials (hardcoded for demo version)
+  const [email, setEmail] = useState('demo@marketing-analytics.com');
+  const [password, setPassword] = useState('12345678');
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
@@ -133,7 +134,7 @@ export default function SignIn() {
           <div>
             <h2 className="mt-6 text-center text-3xl font-extrabold text-foreground leading-tight">
               Faça login no<br />
-              LiveShop Analytics
+              Marketing Analytics Dashboard
             </h2>
             <p className="mt-2 text-center text-sm text-muted-foreground">
               Ou{' '}
@@ -155,7 +156,8 @@ export default function SignIn() {
                   type="email"
                   autoComplete="email"
                   required
-                  className="relative block w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-foreground placeholder-muted-foreground focus:z-10 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:text-sm"
+                  readOnly
+                  className="relative block w-full appearance-none rounded-md border border-input bg-muted px-3 py-2 text-muted-foreground placeholder-muted-foreground sm:text-sm cursor-not-allowed"
                   placeholder="Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -171,7 +173,8 @@ export default function SignIn() {
                   name="password"
                   autoComplete="current-password"
                   required
-                  className="relative block w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-foreground placeholder-muted-foreground focus:z-10 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:text-sm"
+                  readOnly
+                  className="relative block w-full appearance-none rounded-md border border-input bg-muted px-3 py-2 text-muted-foreground placeholder-muted-foreground sm:text-sm cursor-not-allowed"
                   placeholder="Senha"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

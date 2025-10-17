@@ -7,6 +7,7 @@ import { useMetaIntegration } from '@/hooks/useMetaIntegration';
 import { useWhatsAppSecureConnection } from '@/hooks/useWhatsAppSecureConnection';
 import { supabase } from '@/integrations/supabase/client';
 import { DEMO_MODE } from '@/lib/demo-mode';
+import { generateDemoQR } from '@/lib/demo-qr';
 import { Facebook, MessageSquare } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +19,7 @@ export default function Integrations() {
   const [qrAttempts, setQrAttempts] = useState(0);
   const [qrCountdown, setQrCountdown] = useState(50);
   const [showMetaAdsModal, setShowMetaAdsModal] = useState(false);
+  const [demoQrCode, setDemoQrCode] = useState<string | null>(null);
 
   const {
     currentInstance,
@@ -98,27 +100,44 @@ export default function Integrations() {
 
   const handleConnectWhatsApp = async () => {
     try {
+      if (DEMO_MODE) {
+        // Modo demo - gerar QR code fake
+        setDemoQrCode(generateDemoQR());
+        setShowQRModal(true);
+        setQrAttempts(prev => prev + 1);
+        return;
+      }
+      
       await connect();
       setShowQRModal(true);
       setQrAttempts(prev => prev + 1);
     } catch (error) {
-
+      // Erro ao conectar
     }
   };
 
   const handleRefreshQR = async () => {
     try {
+      if (DEMO_MODE) {
+        // Modo demo - gerar novo QR code fake
+        setDemoQrCode(generateDemoQR());
+        setQrAttempts(prev => prev + 1);
+        setQrCountdown(50);
+        return;
+      }
+      
       await generateQR();
       setQrAttempts(prev => prev + 1);
       setQrCountdown(50);
     } catch (error) {
-
+      // Erro ao gerar QR
     }
   };
 
   const handleCloseQRModal = () => {
     setShowQRModal(false);
     setQrCountdown(50);
+    setDemoQrCode(null);
   };
 
   const handleDisconnectWhatsApp = async () => {
@@ -321,8 +340,9 @@ export default function Integrations() {
               </div>
               
               <QRCodeDisplay
-                qrCode={qrCode}
-                status={connectionState === 'connected' ? 'connected' : 
+                qrCode={DEMO_MODE ? demoQrCode : qrCode}
+                status={DEMO_MODE ? 'active' : 
+                       connectionState === 'connected' ? 'connected' : 
                        connectionState === 'pending-qr' ? 'active' :
                        connectionState === 'connecting' ? 'generating' :
                        connectionState === 'error' ? 'error' : 'generating'}

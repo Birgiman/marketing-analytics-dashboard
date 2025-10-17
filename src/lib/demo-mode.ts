@@ -1,9 +1,9 @@
 // Demo mode para testes sem Supabase
-export const DEMO_MODE = false; // Desativar modo demo para testes com Supabase real
+export const DEMO_MODE = true; // Ativado para versão demo sem banco de dados
 
 export const DEMO_USER = {
   id: 'demo-user-123',
-  email: 'demo@liveshop.com',
+  email: 'demo@analytics.com',
   created_at: new Date().toISOString()
 };
 
@@ -28,7 +28,7 @@ export const DEMO_WHATSAPP_INSTANCES = [
   {
     id: 'demo-instance-1',
     user_id: 'demo-user-123',
-    instance_name: 'liveshop_demo_user',
+    instance_name: 'analytics_demo_user',
     instance_id: 'demo-123',
     phone_number: '+5511999999999',
     status: 'disconnected' as const,

@@ -9,6 +9,7 @@ import { MaskedInput } from '@/components/ui/masked-input';
 import { useToast } from '@/hooks/use-toast';
 import { useLives } from '@/hooks/useLives';
 import { supabase } from '@/integrations/supabase/client';
+import { DEMO_MODE } from '@/lib/demo-mode';
 import { Live, LiveCampaign, LiveGroup, WhatsAppInstance } from '@/types/live';
 import { MetaCampaign } from '@/utils/metaApi';
 import { ChevronLeft, ChevronRight, Target, Users } from 'lucide-react';
@@ -53,20 +54,20 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
   const [showGroupSelector, setShowGroupSelector] = useState(false);
   const [showCampaignSelector, setShowCampaignSelector] = useState(false);
   const [linkedCampaigns, setLinkedCampaigns] = useState<LiveCampaign[]>([]);
-  const [campaignSearchTerm, setCampaignSearchTerm] = useState<string>('');
-  const [whatsappSearchTerm, setWhatsappSearchTerm] = useState<string>('');
+  const [campaignSearchTerm, setCampaignSearchTerm] = useState<string>('Meta Campanha');
+  const [whatsappSearchTerm, setWhatsappSearchTerm] = useState<string>('WhatsApp Grupos Teste');
   const [userId, setUserId] = useState<string | null>(null);
   const { createLiveWithGroups, updateLiveWithGroups, isLoading } = useLives();
   const { toast } = useToast();
   
   const [formData, setFormData] = useState({
-    liveName: '',
-    captureStart: '',
-    liveStart: '',
-    liveEnd: '',
-    salesTarget: '',
-    leadsTarget: '',
-    adsBudget: ''
+    liveName: 'Campanha Teste',
+    captureStart: '2025-01-01T08:00',
+    liveStart: '2025-01-01T10:00',
+    liveEnd: '2025-01-31T18:00',
+    salesTarget: '2000',
+    leadsTarget: '5000',
+    adsBudget: '2000'
   });
 
   // Estado para intervalo de datas dos insights das campanhas
@@ -80,8 +81,12 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
     if (open) {
       const getCurrentUser = async () => {
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('🔍 [CreateLiveModal] Session:', session);
         if (session?.user) {
+          console.log('✅ [CreateLiveModal] Setting userId:', session.user.id);
           setUserId(session.user.id);
+        } else {
+          console.log('❌ [CreateLiveModal] No session or user found');
         }
       };
       getCurrentUser();
@@ -238,6 +243,27 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         group_size: group.group_size
       }));
 
+      // No modo demo, apenas "criar" via Supabase mock
+      if (DEMO_MODE) {
+        console.log('🎯 [CreateLiveModal] DEMO MODE - Criando campanha via mock');
+        
+        // O insert no Supabase mock vai marcar a flag hasCreatedLive = true
+        await createLiveWithGroups(liveData, selectedGroups, selectedCampaigns);
+        
+        console.log('✅ [CreateLiveModal] Campanha mockada criada');
+        console.log('📝 [CreateLiveModal] Dados:', liveData);
+        
+        toast({
+          title: "Campanha criada!",
+          description: `${formData.liveName} foi criada com sucesso.`
+        });
+        
+        onLiveCreated?.();
+        handleClose();
+        return;
+      }
+      
+      // Código de produção (com Supabase real)
       if (editingLive) {
         await updateLiveWithGroups(editingLive.id, liveData, groups, selectedCampaigns);
       } else {
@@ -285,8 +311,8 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
         <DialogContent className="max-w-4xl w-full max-h-[850px] overflow-y-auto flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-center">
-              {editingLive ? 'Editar LiveShop 🛍️' : (
-                currentStep === 1 ? 'Vamos criar sua LiveShop! 🛍️' : 
+              {editingLive ? 'Editar Analytics 🛍️' : (
+                currentStep === 1 ? 'Vamos criar sua Analytics! 🛍️' : 
                 currentStep === 2 ? 'Adicionar Grupos WhatsApp 📱' : 
                 'Vincular Campanhas Meta Ads 🎯'
               )}
@@ -301,10 +327,10 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
 
           {currentStep === 1 ? (
             <div className="space-y-4">
-              {/* Nome da Live */}
+              {/* Nome da Campanha */}
               <div className="space-y-2">
                 <Label htmlFor="liveName" className="text-sm font-medium">
-                  Nome da Live
+                  Nome da Campanha
                 </Label>
                 <Input
                   id="liveName"
@@ -327,10 +353,10 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                 />
               </div>
 
-              {/* Quando é sua LiveShop */}
+              {/* Quando é sua Analytics */}
               <div className="space-y-2">
                 <Label htmlFor="liveStart" className="text-sm font-medium">
-                  Quando é sua LiveShop?
+                  Quando é sua Analytics?
                 </Label>
                 <Input
                   id="liveStart"
@@ -578,7 +604,7 @@ export const CreateLiveModal = ({ open, onOpenChange, currentInstance, onLiveCre
                   className="flex-1 max-w-[180px]"
                   disabled={isLoading}
                 >
-                  {isLoading ? (editingLive ? 'Salvando...' : 'Criando...') : (editingLive ? 'Salvar Alterações' : 'Criar LiveShop')}
+                  {isLoading ? (editingLive ? 'Salvando...' : 'Criando...') : (editingLive ? 'Salvar Alterações' : 'Criar Analytics')}
                 </Button>
               </div>
             </div>

@@ -2,29 +2,29 @@ import Header from "@/components/Header";
 import { MetricCard } from "@/components/MetricCard";
 import { ScreenNavigatorLives } from "@/components/ScreenNavigatorLives";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { PublicAudience, PublicAudienceCorrelation } from "@/types/audience";
 import { LiveGroup as LiveGroupType } from "@/types/live";
 import {
-  createPublicAudience,
-  deletePublicAudience,
-  fetchPublicAudiences,
-  generateAudienceCorrelation
+    createPublicAudience,
+    deletePublicAudience,
+    fetchPublicAudiences,
+    generateAudienceCorrelation
 } from "@/utils/audienceService";
 // Funções antigas removidas - agora usando Edge Function syncLiveMetaData
 import { MetaCampaign } from '@/utils/metaApi';
@@ -201,7 +201,7 @@ const SalesByGroup = () => {
       }
       // Buscar dados básicos da Live diretamente do Supabase
       const { data: liveData, error } = await supabase
-        .from('lives')
+        .from('captações')
         .select('*')
         .eq('id', liveId)
         .single();
@@ -286,7 +286,7 @@ const SalesByGroup = () => {
   const isCacheValid = useCallback(async (liveId: string): Promise<boolean> => {
     try {
       const { data: liveData, error } = await supabase
-        .from('lives')
+        .from('captações')
         .select('traffic_last_synced_at')
         .eq('id', liveId)
         .single();

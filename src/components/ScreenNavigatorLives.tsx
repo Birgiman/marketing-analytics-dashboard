@@ -41,7 +41,7 @@ export function ScreenNavigatorLives({
         onDataUpdated();
       }
     } catch (error) {
-      console.error('Erro no refresh:', error);
+      // Erro no refresh
     } finally {
       setIsButtonLoading(false);
     }
@@ -62,9 +62,6 @@ export function ScreenNavigatorLives({
           <Button variant={location.pathname === "/traffic-analysis" ? "default" : "outline"} size="sm" asChild>
             <Link to={`/traffic-analysis?live=${liveId}`}>Análise de Tráfego</Link>
           </Button>
-          {/* <Button variant={location.pathname === "/research-insights" ? "default" : "outline"} size="sm" asChild>
-            <Link to={`/research-insights?live=${liveId}`}>Insights de Pesquisa</Link>
-          </Button> */}
           <Button variant={location.pathname === "/sales-by-group" ? "default" : "outline"} size="sm" asChild>
             <Link to={`/sales-by-group?live=${liveId}`}>Públicos</Link>
           </Button>

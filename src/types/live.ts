@@ -1,9 +1,9 @@
 /**
- * Interfaces centrais para o sistema de Lives
+ * Interfaces centrais para o sistema de Captações
  * Criado para substituir 'any' types e melhorar type safety
  */
 
-// Interface para Lives do banco
+// Interface para Captações do banco
 export interface Live {
   id: string;
   name: string;

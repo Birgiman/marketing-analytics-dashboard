@@ -12,11 +12,9 @@ import Dashboard from "./pages/Dashboard";
 import Details from "./pages/Details";
 import Groups from "./pages/Groups";
 import Integrations from "./pages/Integrations";
-import Leads from "./pages/Leads";
 import NotFound from "./pages/NotFound";
 import PrivacyPage from "./pages/PrivacyPage";
 import Profile from "./pages/Profile";
-import ResearchInsights from "./pages/ResearchInsights";
 import SalesByGroup from "./pages/SalesByGroup";
 import TermsPage from "./pages/TermsPage";
 import TrafficAnalysis from "./pages/TrafficAnalysis";
@@ -67,12 +65,10 @@ function AppContent() {
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/details" element={<Details />} />
             <Route path="/traffic-analysis" element={<TrafficAnalysis />} />
-            <Route path="/research-insights" element={<ResearchInsights />} />
             <Route path="/sales-by-group" element={<SalesByGroup />} />
             <Route path="/calculator" element={<Calculator />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/groups" element={<Groups />} />
-            <Route path="/leads" element={<Leads />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="*" element={<NotFound />} />

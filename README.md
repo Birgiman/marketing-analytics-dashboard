@@ -1,6 +1,6 @@
-# Live Shop Analytics - Rebuilt
+# Marketing Analytics Dashboard
 
-Sistema de analytics para LiveShop com foco em métricas de desempenho e análise de dados de WhatsApp e Meta Ads.
+Sistema de analytics para marketing digital com foco em métricas de desempenho e análise de dados de WhatsApp e Meta Ads.
 
 ## Arquitetura do Projeto
 
@@ -10,9 +10,10 @@ Sistema de analytics para LiveShop com foco em métricas de desempenho e anális
 - **Estado:** React Hooks + Supabase Client
 
 ### Backend
-- **Database:** Supabase (PostgreSQL)
-- **Auth:** Supabase Auth
+- **Database:** Dados mocados para versão demo (projeto original usava Supabase PostgreSQL com RLS)
+- **Auth:** Sistema de autenticação simulado
 - **APIs:** Meta Marketing API + WhatsApp Evolution API
+- **Edge Functions:** Mantidas na pasta `supabase/functions/` para referência (caso desenvolvedores queiram implementar backend real)
 
 ### Estrutura de Pastas
 
@@ -57,12 +58,12 @@ src/
 ### ✅ Dashboard Principal
 - Métricas básicas (visualizações, vendas, receita)
 - Cards de navegação rápida
-- **Lives navegáveis**: Nomes das lives clicáveis para detalhes
+- **Captações navegáveis**: Nomes das captações clicáveis para detalhes
 - Estatísticas de integrações conectadas
 
 ### ✅ Sistema de Tipos
 - Interfaces TypeScript completas para todas as entidades
-- Tipos para WhatsApp, Analytics, Lives, etc.
+- Tipos para WhatsApp, Analytics, Captações, etc.
 
 ## Configuração e Instalação
 
@@ -71,7 +72,7 @@ src/
 Para testar a interface imediatamente **SEM configurar banco de dados**:
 
 ```bash
-cd liveshop-analytics-rebuilt
+cd marketing-analytics-dashboard
 npm install
 npm run dev
 ```
@@ -94,8 +95,8 @@ Para usar com banco de dados real:
 
 2. **Configurar variáveis de ambiente** (`.env.local`):
    ```env
-   NEXT_PUBLIC_SUPABASE_URL=your-project-url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+   VITE_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
+   VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_ANON_KEY
    ```
 
 3. **Configurar banco de dados**:
@@ -121,16 +122,9 @@ npm run type-check
 npm run lint
 ```
 
-## Estrutura do Banco de Dados
+## Nota sobre Migrations
 
-### Principais Tabelas
-
-- **`profiles`** - Perfis de usuário com dados pessoais
-- **`whatsapp_instances`** - Instâncias WhatsApp por usuário
-- **`lives`** - Dados das transmissões ao vivo
-- **`criativos`** - Performance de criativos publicitários
-- **`grupos`** - Atividades em grupos WhatsApp
-- **`user_approval_status`** - Sistema de aprovação de usuários
+A pasta `supabase/migrations/` foi removida pois este projeto demo não utiliza banco de dados real. As Edge Functions foram mantidas na pasta `supabase/functions/` para referência caso desenvolvedores queiram implementar um backend completo.
 
 ## Próximos Passos
 
@@ -150,31 +144,8 @@ npm run lint
 
 ## 🚀 Desenvolvimento Local
 
-### Configuração Paralela com Lovable
-Este projeto pode ser executado **localmente** conectando ao **mesmo Supabase do Lovable**, permitindo:
-
-- ✅ **Desenvolvimento simultâneo**: Local + Lovable funcionando em paralelo
-- ✅ **Dados compartilhados**: Mesmo banco de dados
-- ✅ **Hot reload**: Desenvolvimento ágil com mudanças instantâneas
-- ✅ **Sem conflitos**: Ambos os ambientes coexistem perfeitamente
-
-📖 **[Ver Guia Completo de Configuração Local](./configuracao-local.md)**
-
-### Quick Start Local
-```bash
-# Instalar dependências
-npm install
-
-# Rodar localmente (conecta automaticamente ao Supabase)
-npm run dev
-
-# Acesso: http://localhost:3000
-```
 
 ## Notas Técnicas
-
-### Migração do Projeto Original
-Este projeto foi reconstruído a partir dos arquivos de build do projeto original no Lovable. Os componentes principais foram extraídos e adaptados para funcionar com Vite + React.
 
 ### Dependências Principais
 - Vite + React 18 com TypeScript
@@ -186,7 +157,7 @@ Este projeto foi reconstruído a partir dos arquivos de build do projeto origina
 ### Integrações Externas
 - **Evolution API** - WhatsApp Business integration
 - **Supabase** - Database, Auth, Edge Functions
-- **Meta Marketing API** - Facebook/Instagram Ads (futuro)
+- **Meta Marketing API** - Facebook/Instagram Ads
 
 ## Suporte e Desenvolvimento
 

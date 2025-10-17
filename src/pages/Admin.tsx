@@ -5,15 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { DEMO_MODE } from "@/lib/demo-mode";
 import {
-  CheckCircle,
-  Clock,
-  RefreshCw,
-  Search,
-  UserCheck,
-  UserMinus,
-  UserX,
-  XCircle
+    CheckCircle,
+    Clock,
+    RefreshCw,
+    Search,
+    UserCheck,
+    UserMinus,
+    UserX,
+    XCircle
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -52,6 +53,13 @@ export default function Admin() {
   });
 
   const loadProfiles = useCallback(async () => {
+    // No modo demo, não carrega dados
+    if (DEMO_MODE) {
+      setProfiles([]);
+      setStats({ pending: 0, approved: 0, rejected: 0, disabled: 0 });
+      return;
+    }
+
     try {
       // Get profiles data
       const { data: profilesData, error: profilesError } = await supabase
@@ -71,7 +79,6 @@ export default function Admin() {
 
       setStats(newStats);
     } catch (error) {
-
       toast({
         title: "Erro",
         description: "Erro ao carregar dados dos usuários",
@@ -83,6 +90,14 @@ export default function Admin() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        if (DEMO_MODE) {
+          // Modo demo - usuário já autenticado
+          setUserId('demo-user-123');
+          await loadProfiles();
+          setLoading(false);
+          return;
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
           navigate('/auth/signin');
@@ -91,8 +106,9 @@ export default function Admin() {
         setUserId(session.user.id);
         await loadProfiles();
       } catch (error) {
-
-        navigate('/auth/signin'); 
+        if (!DEMO_MODE) {
+          navigate('/auth/signin');
+        }
       } finally {
         setLoading(false);
       }
@@ -202,6 +218,14 @@ export default function Admin() {
   };
 
   const handleRefresh = () => {
+    if (DEMO_MODE) {
+      toast({
+        title: "Modo Demo",
+        description: "Funcionalidade não disponível no modo demo",
+      });
+      return;
+    }
+    
     loadProfiles();
     toast({
       title: "Dados atualizados",

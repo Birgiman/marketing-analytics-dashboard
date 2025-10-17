@@ -22,7 +22,8 @@ export async function fetchMetaCampaigns(
   searchTerm: string
 ): Promise<MetaCampaign[]> {
   try {
-    const url = `https://graph.facebook.com/v23.0/${accountId}/campaigns`;
+    const baseUrl = import.meta.env.VITE_META_GRAPH_API_URL || 'https://graph.facebook.com/v23.0';
+    const url = `${baseUrl}/${accountId}/campaigns`;
     const params = new URLSearchParams({
       fields: 'id,name',
       access_token: accessToken,
@@ -75,7 +76,7 @@ export async function fetchMetaCampaignsForLive(
 
     // Buscar dados da Live
     const { data: liveData, error: liveError } = await supabase
-      .from('lives')
+      .from('captações')
       .select('campaign_search_term')
       .eq('id', liveId)
       .single();

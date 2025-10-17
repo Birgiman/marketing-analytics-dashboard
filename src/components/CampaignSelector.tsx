@@ -3,7 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { metaSecureService, MetaAdAccount, MetaCampaign } from '@/services/metaSecureService';
+import { DEMO_MODE } from '@/lib/demo-mode';
+import { MOCK_META_ACCOUNT, MOCK_META_CAMPAIGNS } from '@/mocks/data';
+import { MetaAdAccount, MetaCampaign, metaSecureService } from '@/services/metaSecureService';
 import { AlertCircle, ArrowLeft, Building2, Calendar, DollarSign, Loader2, Search, Target } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
@@ -42,7 +44,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   const [useSearch, setUseSearch] = useState(false);
   const [useAutoSearch, setUseAutoSearch] = useState(true); // MODIFICADO: Abrir direto na busca automática
   const [hasSearched, setHasSearched] = useState(false); // Controla se já foi feita uma busca
-  const [autoSearchTerm, setAutoSearchTerm] = useState('');
+  const [autoSearchTerm, setAutoSearchTerm] = useState(initialSearchTerm || '');
 
 
   // Função para atualizar termo de busca
@@ -88,13 +90,6 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
     return true;
   });
 
-  useEffect(() => {
-    if (isOpen && userId) {
-      loadAdAccounts();
-    }
-  }, [isOpen, userId]);
-
-
   // Atualizar searchTerm quando initialSearchTerm mudar (modo de edição)
   useEffect(() => {
     if (initialSearchTerm && initialSearchTerm !== searchTerm) {
@@ -131,6 +126,42 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
     try {
       console.info('[CampaignSelector] Carregando ad accounts via metaSecureService');
       
+      // Demo mode - use simple mock
+      if (DEMO_MODE) {
+        setTimeout(() => {
+          const mockAccount = MOCK_META_ACCOUNT;
+          
+          const accountFormatted: MetaAdAccount = {
+            id: mockAccount.id,
+            name: mockAccount.name,
+            account_status: mockAccount.account_status,
+            currency: mockAccount.currency,
+            timezone_name: mockAccount.timezone_name
+          };
+          
+          setAdAccounts([accountFormatted]);
+          setSelectedAccount(accountFormatted);
+          setStep(2);
+          
+          // Carregar campanhas automaticamente
+          setTimeout(() => {
+            const mockCampaigns = MOCK_META_CAMPAIGNS;
+            setCampaigns(mockCampaigns);
+            setHasSearched(true);
+            
+            // Preencher datas automaticamente no modo demo
+            if (onDateRangeChange && mockCampaigns.length > 0) {
+              const since = '2025-01-01';
+              const until = '2025-01-31';
+              onDateRangeChange({ since, until });
+            }
+            
+            setLoading(false);
+          }, 300);
+        }, 500);
+        return;
+      }
+      
       // SEGURANÇA: Usar Edge Function proxy - token nunca exposto ao frontend
       const accounts = await metaSecureService.fetchAdAccounts(userId);
       
@@ -164,6 +195,17 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
 
     try {
       console.info(`[CampaignSelector] Carregando campanhas da conta ${account.id}`);
+      
+      // Demo mode - use simple mock
+      if (DEMO_MODE) {
+        setTimeout(() => {
+          const mockCampaigns = MOCK_META_CAMPAIGNS;
+          console.info(`[CampaignSelector] ${mockCampaigns.length} campanhas mockadas carregadas`);
+          setCampaigns(mockCampaigns);
+          setLoading(false);
+        }, 500);
+        return;
+      }
       
       // SEGURANÇA: Usar Edge Function proxy - token nunca exposto ao frontend
       const options: {
@@ -252,13 +294,23 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
   // Efeito para selecionar automaticamente campanhas após carregamento
   useEffect(() => {
     if (hasSearched && autoSearchTerm && campaigns.length > 0 && !loading) {
+      console.log('🔍 [CampaignSelector] Auto-seleção:', { 
+        autoSearchTerm, 
+        campaigns: campaigns.map(c => c.name),
+        totalCampaigns: campaigns.length 
+      });
+      
       const matchingCampaigns = campaigns.filter(campaign =>
         campaign.name.toUpperCase().includes(autoSearchTerm.trim().toUpperCase())
       );
+      
+      console.log('✅ [CampaignSelector] Campanhas que matcham:', matchingCampaigns.length);
 
       // Selecionar automaticamente todas as campanhas que contêm o termo
       const matchingIds = matchingCampaigns.map(c => c.id);
       setSelectedCampaignIds(matchingIds);
+      
+      console.log('🎯 [CampaignSelector] IDs selecionados:', matchingIds);
     }
   }, [campaigns, autoSearchTerm, hasSearched, loading]);
 
@@ -530,6 +582,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                           onChange={(e) => setAutoSearchTerm(e.target.value.toUpperCase())}
                           className="pl-10 font-mono"
                           onKeyPress={(e) => e.key === 'Enter' && handleAutoSearch()}
+                          readOnly={DEMO_MODE}
                         />
                       </div>
 
@@ -546,6 +599,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                               }
                             }}
                             className="text-xs w-36 h-9"
+                            readOnly={DEMO_MODE}
                           />
                         </div>
 
@@ -560,6 +614,7 @@ const CampaignSelector: React.FC<CampaignSelectorProps> = ({
                               }
                             }}
                             className="text-xs w-36 h-9"
+                            readOnly={DEMO_MODE}
                           />
                         </div>
                       </div>

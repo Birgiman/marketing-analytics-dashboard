@@ -1,8 +1,10 @@
-# 📊 Meta Marketing API - Cálculos LiveShop
+# 📊 Meta Marketing API - Cálculos de Marketing
+
+> ⚠️ **Nota:** Esta documentação refere-se ao projeto original com banco de dados. Para versão demo, adapte as referências de tabelas conforme sua implementação.
 
 ## 🎯 **Visão Geral**
 
-Este documento define como usar a Meta Marketing API v23 para obter dados específicos e realizar cálculos necessários para o LiveShop.
+Este documento define como usar a Meta Marketing API v23 para obter dados específicos e realizar cálculos necessários para análise de marketing.
 
 ## 🔗 **API Base**
 
@@ -24,7 +26,7 @@ Este documento define como usar a Meta Marketing API v23 para obter dados espec�
 - **`link_click`**: Apenas cliques em links (mais específico)
 - **`cost_per_action_type`**: Custo por cada tipo de ação
 
-**Para LiveShop (tráfego pago)**: Use `results` - mais preciso e já calculado pelo Meta.
+**Para tráfego pago**: Use `results` - mais preciso e já calculado pelo Meta.
 
 ### **Campos Adicionais Úteis:**
 - `campaign_id` - ID da campanha
@@ -64,7 +66,7 @@ Este documento define como usar a Meta Marketing API v23 para obter dados espec�
 }
 ```
 
-## 🧮 **Cálculos LiveShop**
+## 🧮 **Cálculos de Marketing**
 
 ### **1. CPL Líquido**
 ```
@@ -116,7 +118,7 @@ Exemplo: (Investimento_total) ÷ (Leads_total)
 ## 📝 **Exemplo de Requisição**
 
 ```javascript
-const url = `https://graph.facebook.com/v23.0/act_269382281240887/insights`;
+const url = `https://graph.facebook.com/v23.0/act_YOUR_ACCOUNT_ID/insights`;
 const params = {
   fields: 'campaign_id,campaign_name,spend,results,actions,cost_per_action_type',
   access_token: 'SEU_TOKEN',

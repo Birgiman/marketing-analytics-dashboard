@@ -263,7 +263,7 @@ export const MetaAdsConnection = ({ isOpen, onClose, onConnectionSuccess }: Meta
                         </p>
                       )}
                       <p className="text-xs mt-2 text-blue-600">
-                        💡 Use esta integração para vincular campanhas às suas Lives
+                        💡 Use esta integração para vincular campanhas às suas Captações
                       </p>
                     </div>
                   </div>
@@ -286,8 +286,8 @@ export const MetaAdsConnection = ({ isOpen, onClose, onConnectionSuccess }: Meta
                   <div className="flex items-start gap-2">
                     <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
                     <div>
-                      <p className="font-medium">Vincular Campanhas às Lives</p>
-                      <p className="text-gray-600">Acesse "Lives" para conectar campanhas específicas e monitorar performance.</p>
+                      <p className="font-medium">Vincular Campanhas às Captações</p>
+                      <p className="text-gray-600">Acesse "Captações" para conectar campanhas específicas e monitorar performance.</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2">

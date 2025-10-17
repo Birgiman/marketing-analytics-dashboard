@@ -1,9 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import {
-  WhatsAppInstance,
-  CreateInstanceResponse,
-  ConnectionStatusResponse,
-  WhatsAppStatus
+    ConnectionStatusResponse,
+    CreateInstanceResponse,
+    WhatsAppInstance,
+    WhatsAppStatus
 } from "@/types";
 
 // Interfaces para dados de API
@@ -44,7 +44,7 @@ class WhatsAppService {
       }
 
       const fullName = `${profile.first_name} ${profile.last_name}`;
-      const instanceName = `liveshop_${profile.first_name}_${profile.last_name}`
+      const instanceName = `analytics_${profile.first_name}_${profile.last_name}`
         .toLowerCase()
         .replace(/\s+/g, '_')
         .replace(/[^a-z0-9_]/g, '');

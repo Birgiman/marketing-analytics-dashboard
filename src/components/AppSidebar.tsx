@@ -1,33 +1,30 @@
-import { useState, useEffect } from "react";
-import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import { 
-  LayoutDashboard, 
-  Users, 
-  TrendingUp, 
-  Calculator, 
-  Zap, 
-  Settings, 
-  LogOut,
-  User,
-  Shield,
-  FileText
-} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useWhatsAppConnection } from "@/hooks/useWhatsAppConnection";
+import {
+    Calculator,
+    FileText,
+    LayoutDashboard,
+    LogOut,
+    Settings,
+    Shield,
+    TrendingUp,
+    User,
+    Zap
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarSeparator,
-  SidebarFooter,
-  useSidebar,
+    Sidebar,
+    SidebarContent,
+    SidebarFooter,
+    SidebarGroup,
+    SidebarGroupContent,
+    SidebarGroupLabel,
+    SidebarHeader,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    SidebarSeparator
 } from "@/components/ui/sidebar";
 
 const mainMenuItems = [
@@ -37,17 +34,12 @@ const mainMenuItems = [
     icon: LayoutDashboard 
   },
   { 
-    title: "Backup De Públicos", 
-    url: "/leads", 
-    icon: Users 
-  },
-  { 
     title: "Vendas Por Público", 
     url: "/groups", 
     icon: TrendingUp 
   },
   { 
-    title: "Calculadora De LiveShop", 
+    title: "Calculadora De Analytics", 
     url: "/calculator", 
     icon: Calculator 
   },

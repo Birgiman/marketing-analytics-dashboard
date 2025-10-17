@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Creative, Group, Live } from '@/types';
-import { DEMO_MODE, DEMO_LIVES, DEMO_CREATIVES, DEMO_GROUPS } from '@/lib/demo-mode';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { DEMO_CREATIVES, DEMO_GROUPS, DEMO_LIVES, DEMO_MODE } from '@/lib/demo-mode';
+import { Creative, Group, Live } from '@/types';
+import { useCallback, useEffect, useState } from 'react';
 
 interface AnalyticsData {
   creatives: Creative[];
   groups: Group[];
-  lives: Live[];
+  captações: Live[];
   loading: boolean;
   error: string | null;
 }
@@ -16,7 +16,7 @@ export const useAnalytics = (userId?: string) => {
   const [data, setData] = useState<AnalyticsData>({
     creatives: [],
     groups: [],
-    lives: [],
+    captações: [],
     loading: true,
     error: null
   });
@@ -32,7 +32,7 @@ export const useAnalytics = (userId?: string) => {
         setData({
           creatives: DEMO_CREATIVES || [],
           groups: DEMO_GROUPS || [],
-          lives: DEMO_LIVES || [],
+          captações: DEMO_LIVES || [],
           loading: false,
           error: null
         });
@@ -48,7 +48,7 @@ export const useAnalytics = (userId?: string) => {
       const [creativesRes, groupsRes, livesRes] = await Promise.all([
         supabase.from('criativos').select('*').eq('user_id', userId),
         supabase.from('grupos').select('*').eq('user_id', userId),
-        supabase.from('lives').select('*').eq('user_id', userId)
+        supabase.from('captações').select('*').eq('user_id', userId)
       ]);
 
       if (creativesRes.error) throw creativesRes.error;
@@ -58,7 +58,7 @@ export const useAnalytics = (userId?: string) => {
       setData({
         creatives: Array.isArray(creativesRes.data) ? creativesRes.data : [],
         groups: Array.isArray(groupsRes.data) ? groupsRes.data : [],
-        lives: Array.isArray(livesRes.data) ? livesRes.data : [],
+        captações: Array.isArray(livesRes.data) ? livesRes.data : [],
         loading: false,
         error: null
       });
@@ -69,7 +69,7 @@ export const useAnalytics = (userId?: string) => {
         ...prev,
         creatives: prev.creatives || [],
         groups: prev.groups || [],
-        lives: prev.lives || [],
+        captações: prev.captações || [],
         loading: false,
         error: errorMessage
       }));
@@ -84,7 +84,7 @@ export const useAnalytics = (userId?: string) => {
   const createLive = useCallback(async (liveData: Omit<Live, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       const { data: live, error } = await supabase
-        .from('lives')
+        .from('captações')
         .insert(liveData)
         .select()
         .single();
@@ -93,7 +93,7 @@ export const useAnalytics = (userId?: string) => {
 
       setData(prev => ({
         ...prev,
-        lives: [...(Array.isArray(prev.lives) ? prev.lives : []), live]
+        captações: [...(Array.isArray(prev.captações) ? prev.captações : []), live]
       }));
 
       toast({
@@ -117,7 +117,7 @@ export const useAnalytics = (userId?: string) => {
   const updateLive = useCallback(async (id: string, updates: Partial<Live>) => {
     try {
       const { data: live, error } = await supabase
-        .from('lives')
+        .from('captações')
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select()
@@ -127,7 +127,7 @@ export const useAnalytics = (userId?: string) => {
 
       setData(prev => ({
         ...prev,
-        lives: (Array.isArray(prev.lives) ? prev.lives : []).map(l => l.id === id ? live : l)
+        captações: (Array.isArray(prev.captações) ? prev.captações : []).map(l => l.id === id ? live : l)
       }));
 
       return live;
@@ -146,7 +146,7 @@ export const useAnalytics = (userId?: string) => {
   const deleteLive = useCallback(async (id: string) => {
     try {
       const { error } = await supabase
-        .from('lives')
+        .from('captações')
         .delete()
         .eq('id', id);
 
@@ -154,7 +154,7 @@ export const useAnalytics = (userId?: string) => {
 
       setData(prev => ({
         ...prev,
-        lives: (Array.isArray(prev.lives) ? prev.lives : []).filter(l => l.id !== id)
+        captações: (Array.isArray(prev.captações) ? prev.captações : []).filter(l => l.id !== id)
       }));
 
       toast({

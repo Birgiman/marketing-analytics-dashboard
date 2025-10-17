@@ -1,5 +1,5 @@
 /**
- * Funções utilitárias para cálculos de LiveShop
+ * Funções utilitárias para cálculos de Analytics
  * Funções puras que recebem parâmetros e retornam resultados
  */
 
@@ -78,7 +78,7 @@ export function calculateROES(faturamento: number, orcamento: number): number {
  * @param inputs - Dados de entrada da calculadora
  * @returns Objeto com todos os resultados calculados
  */
-export function calculateLiveShopProjection(inputs: CalculatorInputs): CalculatorResults {
+export function calculateAnalyticsProjection(inputs: CalculatorInputs): CalculatorResults {
   // Aplicar valores padrão para campos não preenchidos
   const processedInputs: CalculatorInputs = {
     ticketMedio: inputs.ticketMedio > 0 ? inputs.ticketMedio : 100, // R$ 100,00 padrão

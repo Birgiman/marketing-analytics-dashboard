@@ -18,12 +18,12 @@ import { useState } from 'react';
 interface LivesListModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  lives: any[];
+  captações: any[];
   currentInstance: any;
   onLivesUpdated: () => void;
 }
 
-export const LivesListModal = ({ open, onOpenChange, lives, currentInstance, onLivesUpdated }: LivesListModalProps) => {
+export const LivesListModal = ({ open, onOpenChange, captações, currentInstance, onLivesUpdated }: LivesListModalProps) => {
   const { softDeleteLive, isLoading } = useLives()
   const [editingLive, setEditingLive] = useState<any>(null)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -57,17 +57,17 @@ export const LivesListModal = ({ open, onOpenChange, lives, currentInstance, onL
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Gerenciar Lives</DialogTitle>
+          <DialogTitle>Gerenciar Captações</DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4">
-          {lives.length === 0 ? (
+          {captações.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               Nenhuma live encontrada para esta instância.
             </div>
           ) : (
             <div className="grid gap-4">
-              {lives.map((live) => (
+              {captações.map((live) => (
                 <div key={live.id} className="border rounded-lg p-4 space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">

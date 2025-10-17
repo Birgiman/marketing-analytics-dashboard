@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Clock, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { Clock, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function PendingApproval() {
@@ -47,7 +47,7 @@ export default function PendingApproval() {
             </Button>
 
             <div className="text-sm text-muted-foreground">
-              LiveShop Analytics - Sistema de Gestão
+              Marketing Analytics Dashboard - Sistema de Gestão
             </div>
           </CardContent>
         </Card>

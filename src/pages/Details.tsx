@@ -4,6 +4,8 @@ import PerformanceAnalysis from "@/components/PerformanceAnalysis";
 import { ScreenNavigatorLives } from "@/components/ScreenNavigatorLives";
 import { Button } from "@/components/ui/button";
 import { supabase } from '@/integrations/supabase/client';
+import { DEMO_MODE } from '@/lib/demo-mode';
+import { MOCK_LIVE } from '@/mocks/data';
 // Funções antigas removidas - agora usando Edge Function syncLiveMetaData
 import { AlertCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -72,7 +74,7 @@ const Details = () => {
   const isCacheValid = useCallback(async (liveId: string): Promise<boolean> => {
     try {
       const { data: liveData, error } = await supabase
-        .from('lives')
+        .from('captações')
         .select('traffic_last_synced_at')
         .eq('id', liveId)
         .single();
@@ -90,7 +92,6 @@ const Details = () => {
 
       return isValid;
     } catch (error) {
-      console.error(`❌ [Details] Erro ao verificar cache:`, error);
       return false;
     }
   }, []);
@@ -122,7 +123,6 @@ const Details = () => {
 
       return response.data;
     } catch (error) {
-      console.error(`❌ [Details] Erro ao chamar Edge Function:`, error);
       throw error;
     }
   }, [isCacheValid]);
@@ -131,16 +131,71 @@ const Details = () => {
   const loadDataFromDatabase = useCallback(async () => {
     if (!liveId) return;
     try {
+      // Se estiver em modo demo, carregar dados mocados
+      if (DEMO_MODE && liveId === 'live-1') {
+        const liveData = MOCK_LIVE;
+        
+        // Atualizar dados básicos da Live
+        setLive({
+          id: liveData.id,
+          name: liveData.name,
+          user_id: liveData.user_id,
+          live_date: liveData.live_date,
+          insights_date_since: liveData.insights_date_since,
+          insights_date_until: liveData.insights_date_until,
+          campaign_search_term: liveData.campaign_search_term,
+          ad_budget: liveData.ad_budget,
+          sales_goal: liveData.sales_goal,
+          leads_goal: liveData.leads_goal,
+          created_at: liveData.created_at,
+          updated_at: liveData.updated_at,
+          cached_metrics: liveData.cached_metrics,
+          cached_traffic_data: liveData.cached_meta_data,
+          cached_traffic_data_incremented: liveData.cached_traffic_data_incremented
+        });
+
+        // Extrair métricas do cache
+        if (liveData.cached_metrics) {
+          setMetrics({
+            cplMeta: liveData.cached_metrics.cplMeta || 0,
+            cplLiquido: liveData.cached_metrics.cplLiquido || 0,
+            retentionRate: liveData.cached_metrics.retentionRate || 0,
+            cplLiquidoPlanejamento: liveData.cached_metrics.cplLiquidoPlanejamento || 0
+          });
+        }
+
+        // Extrair dados de grupos e meta
+        if (liveData.cached_group_data && liveData.cached_meta_data) {
+          setExtractedData({
+            metaData: {
+              totalSpend: liveData.cached_meta_data.totalSpend || 0,
+              totalResults: liveData.cached_meta_data.totalLeads || 0,
+              campaignCount: liveData.cached_meta_data.campaignCount || 0
+            },
+            groupData: {
+              totalGroups: liveData.cached_group_data.totalGroups || 0,
+              totalMembers: liveData.cached_group_data.totalMembers || 0,
+              entries: liveData.cached_group_data.entries || 0,
+              exits: liveData.cached_group_data.exits || 0,
+              activeMembers: liveData.cached_group_data.activeMembers || 0
+            }
+          });
+        }
+
+        setIsLoading(false);
+        setIsButtonRefreshing(false);
+        return;
+      }
+
       // Primeiro, buscar dados básicos da Live
       // Buscar dados básicos da Live diretamente do Supabase
       const { data: liveData, error } = await supabase
-        .from('lives')
+        .from('captações')
         .select('*')
         .eq('id', liveId)
         .single();
 
       if (error || !liveData) {
-        console.error('[Details] Erro ao buscar Live:', error);
         return;
       }
       if (liveData) {
@@ -199,7 +254,6 @@ const Details = () => {
       
       setIsLoading(false);
     } catch (error) {
-      console.error('❌ [Details] Erro ao carregar dados:', error);
       setError(`Erro ao carregar dados: ${error}`);
       setIsLoading(false);
     } finally {
@@ -225,21 +279,22 @@ const Details = () => {
         setIsLoading(true);
         setError(null);
 
-        // Chamar Edge Function para sincronizar dados do Meta (com verificação de cache)
-        try {
-          await syncLiveMetaData(liveId, false); // false = não forçar refresh
+        // No modo demo, não chamar Edge Function
+        if (!DEMO_MODE) {
+          // Chamar Edge Function para sincronizar dados do Meta (com verificação de cache)
+          try {
+            await syncLiveMetaData(liveId, false); // false = não forçar refresh
         } catch (edgeError) {
-          console.warn(`⚠️ [Details] Edge Function falhou, continuando com dados do cache:`, edgeError);
           // Não interromper o fluxo se a Edge Function falhar
         }
+        }
 
-        // Carregar dados do cache atualizado
+        // Carregar dados do cache atualizado (ou dados mocados se DEMO_MODE)
         await loadDataFromDatabase();
         
         setIsInitialized(true);
         
       } catch (error) {
-        console.error('❌ [Details] Erro ao inicializar dados:', error);
         setError(`Erro ao inicializar dados: ${error}`);
       } finally {
         setIsLoading(false);
@@ -253,18 +308,19 @@ const Details = () => {
   const handleRefreshStart = async () => {
     setIsButtonRefreshing(true);
     try {
-      // Chamar Edge Function para forçar sincronização (ignorar cache)
-      try {
-        await syncLiveMetaData(liveId!, true); // true = forçar refresh
-      } catch (edgeError) {
-        console.warn(`⚠️ [Details] Edge Function falhou no refresh, continuando:`, edgeError);
-        // Não interromper o fluxo se a Edge Function falhar
+      // No modo demo, não chamar Edge Function
+      if (!DEMO_MODE) {
+        // Chamar Edge Function para forçar sincronização (ignorar cache)
+        try {
+          await syncLiveMetaData(liveId!, true); // true = forçar refresh
+        } catch (edgeError) {
+          // Não interromper o fluxo se a Edge Function falhar
+        }
       }
 
-      // Recarregar dados do cache atualizado
+      // Recarregar dados do cache atualizado (ou dados mocados se DEMO_MODE)
       await loadDataFromDatabase();
     } catch (error) {
-      console.error('❌ [Details] Erro ao atualizar dados:', error);
       setError(`Erro ao atualizar dados: ${error}`);
     } finally {
       setIsButtonRefreshing(false);

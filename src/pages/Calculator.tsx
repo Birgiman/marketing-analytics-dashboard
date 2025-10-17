@@ -9,13 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { DEMO_MODE } from "@/lib/demo-mode";
 import {
-  calculateLiveShopProjection,
-  formatCurrency,
-  formatNumber,
-  validateCalculatorInputs,
-  type CalculatorInputs,
-  type CalculatorResults
+    calculateAnalyticsProjection,
+    formatCurrency,
+    formatNumber,
+    validateCalculatorInputs,
+    type CalculatorInputs,
+    type CalculatorResults
 } from "@/utils/calculations";
 import { Calculator as CalculatorIcon, Edit, Save, Shuffle, Target, Trash2, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -79,6 +80,13 @@ export default function Calculator() {
   }, []);
 
   const checkAuthAndLoadData = async () => {
+    // No modo demo, não carregar dados do banco
+    if (DEMO_MODE) {
+      setCurrentUser({ id: 'demo-user-123', email: 'demo@marketing-analytics.com' });
+      setSavedCalculations([]);
+      return;
+    }
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -95,11 +103,19 @@ export default function Calculator() {
       setCurrentUser(session.user);
       await loadSavedCalculations();
     } catch (error) {
-      navigate('/auth/signin');
+      if (!DEMO_MODE) {
+        navigate('/auth/signin');
+      }
     }
   };
 
   const loadSavedCalculations = async () => {
+    // No modo demo, não carregar dados do banco
+    if (DEMO_MODE) {
+      setSavedCalculations([]);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const { data, error } = await supabase
@@ -186,7 +202,7 @@ export default function Calculator() {
       }
 
       // Calculate results
-      const results = calculateLiveShopProjection(inputs);
+      const results = calculateAnalyticsProjection(inputs);
       setCurrentResults(results);
 
       toast({
@@ -206,6 +222,15 @@ export default function Calculator() {
   };
 
   const saveCalculation = async (inputs: CalculatorInputs, results: CalculatorResults) => {
+    // No modo demo, não salvar no banco
+    if (DEMO_MODE) {
+      toast({
+        title: "Modo Demo",
+        description: "Funcionalidade de salvar não disponível no modo demo",
+      });
+      return;
+    }
+
     try {
       // Check if user is authenticated
       if (!currentUser) {
@@ -245,6 +270,17 @@ export default function Calculator() {
   };
 
   const handleDeleteCalculation = async (id: string) => {
+    // No modo demo, não deletar do banco
+    if (DEMO_MODE) {
+      toast({
+        title: "Modo Demo",
+        description: "Funcionalidade de excluir não disponível no modo demo",
+      });
+      setDeleteDialogOpen(false);
+      setDeletingCalculation(null);
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('calculator_history')
@@ -472,7 +508,7 @@ export default function Calculator() {
       {/* Header */}
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          Calculadora de LiveShop
+          Calculadora de Analytics
         </h1>
         <p className="text-muted-foreground">
           Calcule suas projeções de leads e faturamento
@@ -740,7 +776,7 @@ export default function Calculator() {
           <div className="space-y-1">
             <CardTitle>Cálculos Salvos</CardTitle>
             <CardDescription>
-              Gerencie todos os seus cálculos de LiveShop
+              Gerencie todos os seus cálculos de Analytics
             </CardDescription>
           </div>
         </CardHeader>

@@ -1,15 +1,15 @@
 /**
- * Meta API for LiveShop Integration
+ * Meta API for Analytics Integration
  * Substitui dados mockados da tabela 'creatives' com dados reais do Meta Ads
  */
 
 import { supabase } from '@/integrations/supabase/client';
 import {
-  fetchAdAccounts,
-  fetchCampaigns,
-  extractLeads,
-  formatMetaCurrency,
-  type MetaInsight
+    extractLeads,
+    fetchAdAccounts,
+    fetchCampaigns,
+    formatMetaCurrency,
+    type MetaInsight
 } from './metaApi';
 
 // Interface para dados formatados da tabela de creativos
@@ -34,7 +34,7 @@ interface CreativeTableData {
   cost_per_unique_click?: string;
 }
 
-const BASE_URL = 'https://graph.facebook.com/v23.0';
+const BASE_URL = import.meta.env.VITE_META_GRAPH_API_URL || 'https://graph.facebook.com/v23.0';
 
 export interface LiveCampaignData {
   campaign_name: string;
