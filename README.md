@@ -2,6 +2,10 @@
 
 Sistema de analytics para marketing digital com foco em métricas de desempenho e análise de dados de WhatsApp e Meta Ads.
 
+<p align="center">
+  <img src="https://github-production-user-asset-6210df.s3.amazonaws.com/101602651/512302674-2626c86c-61e3-4573-a07d-ba34254a48ca.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20251110%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20251110T173951Z&X-Amz-Expires=300&X-Amz-Signature=b728bd12ce0cf67818943970740084c7396be98f57045c0c8602c02b567d1506&X-Amz-SignedHeaders=host" id="cover-image" alt="Logo" />  
+</p>
+
 ## Arquitetura do Projeto
 
 ### Frontend
