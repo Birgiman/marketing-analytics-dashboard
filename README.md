@@ -10,25 +10,25 @@ Sistema de analytics para marketing digital com foco em métricas de desempenho 
 
 <div id="stack_utilizada"
 
-**Front-end:**
-<ul id="frontend-stack">
-  <li>Vite</li>
-  <li>React 18</li>
-  <li>TypeScript</li>
-  <li>Tailwind CSS</li>
-  <li>React Hooks</li>
-  <li>Supabase Client</li>
-</ul>
-
-**Back-end:**
-<ul id="backend-stack">
-  <li>Dados mocados (demo)</li>
-  <li>Supabase PostgreSQL (RLS)</li>
-  <li>Autenticação simulada</li>
-  <li>Meta Marketing API</li>
-  <li>WhatsApp Evolution API</li>
-  <li>Edge Functions (supabase/functions/)</li>
-</ul>
+  **Front-end:**
+  <ul id="frontend-stack">
+    <li>Vite</li>
+    <li>React 18</li>
+    <li>TypeScript</li>
+    <li>Tailwind CSS</li>
+    <li>React Hooks</li>
+    <li>Supabase Client</li>
+  </ul>
+  
+  **Back-end:**
+  <ul id="backend-stack">
+    <li>Dados mocados (demo)</li>
+    <li>Supabase PostgreSQL (RLS)</li>
+    <li>Autenticação simulada</li>
+    <li>Meta Marketing API</li>
+    <li>WhatsApp Evolution API</li>
+    <li>Edge Functions (supabase/functions/)</li>
+  </ul>
 
 <div />
 
